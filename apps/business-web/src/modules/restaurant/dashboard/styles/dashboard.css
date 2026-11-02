@@ -75,10 +75,12 @@
    Explicit light text also covers the comparison note and both delta states. */
 .dash-hero > .dash-sales {
   flex-grow: 1.25;
-  background: var(--brand-deep);
-  border-color: var(--brand-deep);
+  background:
+    radial-gradient(80% 130% at 100% 0%, rgb(45 212 191 / 28%), transparent 62%),
+    linear-gradient(135deg, #062a23, #0b3b33 60%, #0e2b40);
+  border-color: transparent;
   color: var(--brand-on-deep);
-  box-shadow: 0 5px 16px -8px rgb(12 57 42 / 40%);
+  box-shadow: 0 16px 34px -18px rgb(6 42 35 / 75%);
 }
 .dash-sales .stat-tile-label,
 .dash-sales .stat-tile-note { color: var(--brand-muted); }

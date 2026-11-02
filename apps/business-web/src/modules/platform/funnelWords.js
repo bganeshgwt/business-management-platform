@@ -82,6 +82,13 @@ export function funnelRows(funnel) {
   ];
 }
 
+// Each row's number as the length of a bar, against the funnel's biggest
+// (its trials or its enquiries): whole percentages, 0 when nothing is counted.
+export function funnelShares(rows) {
+  const top = Math.max(0, ...rows.map((row) => Number(row.value) || 0));
+  return Object.fromEntries(rows.map((row) => [row.key, top > 0 ? Math.round(((Number(row.value) || 0) * 100) / top) : 0]));
+}
+
 // How a trial went.
 const OUTCOMES = { on_trial: "On trial", continued: "Continued (paid)", stopped: "Stopped (did not pay)", not_signed_up: "Not signed up" };
 export const outcomeWord = (outcome) => OUTCOMES[outcome] || String(outcome || "").replace(/_/g, " ");

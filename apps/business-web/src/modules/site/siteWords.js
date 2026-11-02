@@ -146,6 +146,80 @@ export const needsWords = (addon, offered) => {
   return names.length ? `needs ${names.join(" and ")}` : null;
 };
 
+// --- The home page ----------------------------------------------------------------------------
+
+// The default plan with the lowest monthly price, across the types: "Plans from ₹499 a month".
+export function lowestPlan(pricing) {
+  const plans = (pricing?.types || []).flatMap((type) => type.plans.filter((plan) => plan.isDefault && priceOf(plan, "month") !== null));
+  return plans.reduce((low, plan) => (!low || paise(plan.monthly) < paise(low.monthly) ? plan : low), null);
+}
+
+// The module or application with the lowest monthly price that a plan can add.
+export function lowestAddon(pricing) {
+  const addons = (pricing?.types || []).flatMap((type) => (type.addons || []).filter((addon) => addon.available && priceOf(addon, "month") !== null));
+  return addons.reduce((low, addon) => (!low || paise(addon.monthly) < paise(low.monthly) ? addon : low), null);
+}
+
+// How many modules and applications the price list offers, in the plans or
+// as add-ons, each counted once across the types.
+export function catalogueSize(pricing) {
+  const codes = new Set();
+  for (const type of pricing?.types || []) {
+    for (const plan of type.plans || []) for (const module of plan.modules || []) codes.add(module.code);
+    for (const addon of type.addons || []) if (addon.available) codes.add(addon.code);
+  }
+  return codes.size;
+}
+
+// What a year saves on twelve months, in whole percent rounded down, so it
+// never says more than it is: 16 for ₹499 a month or ₹4,999 a year.
+export function yearlySaving(plan) {
+  const month = priceOf(plan, "month");
+  const year = priceOf(plan, "year");
+  if (month === null || year === null || paise(month) <= 0) return 0;
+  const twelve = paise(month) * 12;
+  return Math.max(0, Math.floor(((twelve - paise(year)) * 100) / twelve));
+}
+
+// The home page's questions, with the trial and grace days from the site's info.
+export function homeQuestions(info) {
+  const trialDays = Number(info?.trialDays) || 0;
+  const graceDays = Number(info?.graceDays) || 0;
+  const readOnly = "everything can still be seen, printed and exported, and nothing is deleted";
+  return [
+    trialDays > 0 && {
+      question: "What happens when the free trial ends?",
+      answer: `Choose your plan and pay for it in Your plan, during the trial or after it. A trial that ends unpaid leaves your business read-only: ${readOnly}. Paying brings everything back.`,
+    },
+    {
+      question: "How do I pay?",
+      answer: "In Your plan: by UPI, with a QR code for the exact amount, by bank transfer, or by cash or cheque. Enter the payment's reference, and your business carries on as soon as we confirm it, with our GST invoice.",
+    },
+    {
+      question: "What if I renew late?",
+      answer: graceDays > 0
+        ? `When paid time ends, your business keeps working for ${graceDays} more ${graceDays === 1 ? "day" : "days"} while you renew. After that it is read-only until you pay: ${readOnly}.`
+        : `When paid time ends, your business is read-only until you renew: ${readOnly}.`,
+    },
+    {
+      question: "Can I add modules later?",
+      answer: "Yes. Switch on what your plan unlocks in Settings, and add modules and applications in Your plan: on paid time, from today to the end of the period, for the days left.",
+    },
+    {
+      question: "Who can see my business's data?",
+      answer: "You, and the staff you give a login, each with the role you choose. Our team sees your plan, its dates and counts, never your sales, customers or patients.",
+    },
+    {
+      question: "Does it work on a phone?",
+      answer: "Yes, in the browser on a computer, tablet or phone. The till, the kitchen display and the waiters' captain app each have screens made for them.",
+    },
+    {
+      question: "Can I run more than one business?",
+      answer: `Yes. Add another business from your login, with its own plan${trialDays > 0 ? " and its own free trial" : ""}. A restaurant signs up on its own, with its own email and mobile number.`,
+    },
+  ].filter(Boolean);
+}
+
 // --- The pages -------------------------------------------------------------------------------
 
 // "Pricing · Business Management Platform"; the brand alone for the home page's own.

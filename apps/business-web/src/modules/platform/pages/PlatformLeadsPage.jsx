@@ -13,8 +13,9 @@ import { count, dateShort, dateTime } from "@bmp/shared/format";
 import { daysAgo, today } from "@bmp/shared/dates";
 import { addLeadNote, getTrialFunnel, listLeads, setLeadStatus } from "../services/dashboards.service";
 import {
-  BUCKETS, avgDaysText, conversionText, funnelRows, leadStatusWord, outcomeWord, sourceWord, stateWord, trialLengthWord,
+  BUCKETS, avgDaysText, conversionText, funnelRows, funnelShares, leadStatusWord, outcomeWord, sourceWord, stateWord, trialLengthWord,
 } from "../funnelWords";
+import "../styles/console.css";
 import "../styles/dashboards.css";
 
 // Platform › Leads & trials (/platform/leads): the free-trial funnel for any
@@ -64,7 +65,7 @@ export default function PlatformLeadsPage() {
   const plans = (choices?.plans || []).filter((plan) => !filters.type || plan.businessType === filters.type);
 
   return (
-    <div className="stack pd-page">
+    <div className="stack pd-page pc-page">
       <PageHeader icon="users" eyebrow="Platform" title="Leads & trials"
         description="Who asked to be called back, who started a free trial, who went on to pay and who stopped. Every number opens the businesses behind it, with the owner to call." />
       <ErrorMessage message={error} />
@@ -126,15 +127,18 @@ export default function PlatformLeadsPage() {
 }
 
 function FunnelTable({ funnel, onOpen }) {
+  const rows = funnelRows(funnel);
+  const shares = funnelShares(rows);
   return (
     <ul className="pd-funnel" aria-label="Free-trial funnel">
-      {funnelRows(funnel).map((row) => (
+      {rows.map((row) => (
         <li key={row.key} className={`pd-funnel-row ${row.depth ? "is-nested" : ""}`} data-bucket={row.key}>
           <span className="pd-funnel-label">{row.label}</span>
           <button type="button" className="pd-funnel-count" disabled={!row.value} onClick={() => onOpen(row.key)}
             aria-label={`${row.label}: ${row.value === null ? "not counted" : count(row.value)}. Show the list`}>
             {row.value === null ? "—" : count(row.value)}
           </button>
+          <span className="pd-funnel-bar" aria-hidden="true"><i style={{ "--share": `${shares[row.key]}%` }} /></span>
           {(row.note || row.parts.length > 0) && (
             <span className="pd-funnel-meta">
               {row.note && <span>{row.note}</span>}
@@ -174,13 +178,13 @@ function FunnelGroups({ by, groups }) {
 function trialColumns() {
   return [
     { key: "name", header: "Business", value: (r) => r.name, mobile: "title", pin: true,
-      render: (r) => <span className="pd-two-line"><strong>{r.name}</strong><small>{r.typeName}</small></span> },
+      render: (r) => <span className="pc-two-line"><strong>{r.name}</strong><small>{r.typeName}</small></span> },
     { key: "owner", header: "Owner", value: (r) => r.ownerName || "", mobile: "subtitle",
-      render: (r) => <span className="pd-two-line"><span>{r.ownerName || "—"}</span>{r.ownerMobile && <small>{phoneLink(r.ownerMobile)}</small>}</span> },
+      render: (r) => <span className="pc-two-line"><span>{r.ownerName || "—"}</span>{r.ownerMobile && <small>{phoneLink(r.ownerMobile)}</small>}</span> },
     { key: "mobile", header: "Owner's mobile", value: (r) => r.ownerMobile || "", defaultHidden: true },
     { key: "email", header: "Owner's email", value: (r) => r.ownerEmail || "", defaultHidden: true },
     { key: "trial", header: "Trial", value: (r) => r.trialStartsOn, csv: (r) => `${r.trialStartsOn} to ${r.trialEndsOn}`,
-      render: (r) => <span className="pd-two-line"><span>{dateShort(r.trialStartsOn)} to {dateShort(r.trialEndsOn)}</span><small>{trialLengthWord(r.trialDays)}</small></span> },
+      render: (r) => <span className="pc-two-line"><span>{dateShort(r.trialStartsOn)} to {dateShort(r.trialEndsOn)}</span><small>{trialLengthWord(r.trialDays)}</small></span> },
     { key: "outcome", header: "How it went", type: "status", value: (r) => outcomeWord(r.outcome), mobile: "show",
       render: (r) => <StatusBadge status={r.outcome} label={outcomeWord(r.outcome)} tone={OUTCOME_TONES[r.outcome]} /> },
     { key: "today", header: "Today", type: "status", value: (r) => stateWord(r.state),
@@ -197,7 +201,7 @@ function trialColumns() {
 function enquiryColumns() {
   return [
     { key: "name", header: "Name", value: (r) => r.name, mobile: "title", pin: true,
-      render: (r) => <span className="pd-two-line"><strong>{r.name}</strong>{r.businessName && <small>{r.businessName}</small>}</span> },
+      render: (r) => <span className="pc-two-line"><strong>{r.name}</strong>{r.businessName && <small>{r.businessName}</small>}</span> },
     { key: "mobile", header: "Mobile", value: (r) => r.mobile || "", render: (r) => phoneLink(r.mobile) || "—", mobile: "subtitle" },
     { key: "email", header: "Email", value: (r) => r.email || "" },
     { key: "type", header: "Type", value: (r) => r.typeName || "" },
@@ -205,7 +209,7 @@ function enquiryColumns() {
     { key: "date", header: "Came in", type: "datetime", value: (r) => r.createdAt },
     { key: "status", header: "Follow-up", type: "status", value: (r) => leadStatusWord(r.status) },
     { key: "business", header: "Signed up", value: (r) => (r.business ? r.business.name : ""), mobile: "show",
-      render: (r) => (r.business ? <span className="pd-two-line"><span>{r.business.name}</span><small>{stateWord(r.business.state)}</small></span> : <span className="muted">Not yet</span>) },
+      render: (r) => (r.business ? <span className="pc-two-line"><span>{r.business.name}</span><small>{stateWord(r.business.state)}</small></span> : <span className="muted">Not yet</span>) },
   ];
 }
 
@@ -271,7 +275,7 @@ function Leads() {
   const columns = useMemo(() => [
     { key: "date", header: "Came in", type: "datetime", value: (l) => l.createdAt },
     { key: "name", header: "Name", value: (l) => l.name, mobile: "title", pin: true,
-      render: (l) => <span className="pd-two-line"><strong>{l.name}</strong>{l.businessName && <small>{l.businessName}</small>}</span> },
+      render: (l) => <span className="pc-two-line"><strong>{l.name}</strong>{l.businessName && <small>{l.businessName}</small>}</span> },
     { key: "mobile", header: "Mobile", value: (l) => l.mobile || "", render: (l) => phoneLink(l.mobile) || "—", mobile: "subtitle" },
     { key: "email", header: "Email", value: (l) => l.email || "" },
     { key: "type", header: "Type", value: (l) => l.typeName || "", filter: "select" },
@@ -286,7 +290,7 @@ function Leads() {
       ) },
     { key: "outcome", header: "How it went", type: "status", value: (l) => (l.business ? `${l.business.name}: ${stateWord(l.outcome)}` : outcomeWord(l.outcome)),
       render: (l) => (l.business
-        ? <span className="pd-two-line"><span>{l.business.name}</span><small>{stateWord(l.outcome)}</small></span>
+        ? <span className="pc-two-line"><span>{l.business.name}</span><small>{stateWord(l.outcome)}</small></span>
         : <span className="muted">{outcomeWord(l.outcome)}</span>) },
     { key: "notes", header: "Notes", value: (l) => l.notes.length, csv: (l) => l.notes.map((note) => note.note).join(" | "),
       render: (l) => (

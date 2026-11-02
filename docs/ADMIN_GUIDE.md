@@ -258,12 +258,22 @@ site at once. How owners pay (the UPI ID and bank account) is never on the
 site: an owner sees it in *Your plan*. Each page has its own title and
 description, for search engines and shared links.
 
-**The home page** says what the platform does for each type of business, in
-the product overview's groups (food, shops, trade, speciality retail,
-building and farm, vehicles and fuel, services, stays, health, weight-based),
-what every business gets, and how pricing works, with the lowest plan's
-monthly price. Its ways in are *Start free trial*, *Sign in* and *Request a
-call back*. A type's name opens its prices.
+**The home page** opens on a tour of the platform's screens: a restaurant's,
+a kirana store's, a salon's and a clinic's, one after another, each only
+while the price list offers its type. Its tabs choose a screen; it waits
+while the pointer is on it, while a key moves through it, or for good with
+its pause button, and for someone whose device asks for less motion nothing
+on the page moves by itself. The page says what the platform does for each
+type of business, in the product overview's groups (food, shops, trade,
+speciality retail, building and farm, vehicles and fuel, services, stays,
+health, weight-based), with the applications each group can add; what every
+business gets; and how pricing works: the free trial, the lowest plan's and
+the lowest add-on's monthly prices, how many modules and applications there
+are, and what paying for a year saves. It answers the questions owners ask
+before they start (the trial's end, paying, renewing late, adding modules,
+who sees the data, phones, more than one business), with the trial and grace
+days from the settings. Its ways in are *Start free trial*, *Sign in* and
+*Request a call back*. A type's name opens its prices.
 
 **Pricing** shows one type at a time (*Your type of business*), monthly or
 yearly: its plans, each with its price before GST, what it includes and what a
@@ -428,7 +438,8 @@ sign-in asks for a password of its own, as every new login's does. Everything
 else is made on the screens.
 
 The Super Admin belongs to no restaurant. It opens on **Platform ›
-Overview**, and only the platform's own logins see the **Platform** group of
+Overview**, its header names the *Platform console* and the platform's brand,
+and only the platform's own logins see the **Platform** group of
 the menu (Overview, Businesses, Restaurants, Leads & trials, Payments,
 Invoices, Reports, Settings). The platform screens keep the company's
 prices, trial and details, add restaurants and businesses, give them time
@@ -453,11 +464,13 @@ plans](BUSINESS_RULES.md#paid-plans).
   the paying businesses' plans and add-ons come to in a month, before GST;
   **yearly recurring income** is a year of it. Trials and given time bring
   none.
-- **Businesses by state**: on trial, paying, given time, in grace, payment
-  being checked, ended (read-only) and switched off, each on the business's
-  own date. A tile opens the list of businesses in that state.
+- **Businesses by state**: how many businesses there are, as one bar with a
+  part for each state, and a tile for each: on trial, paying, given time, in
+  grace, payment being checked, ended (read-only) and switched off, each on
+  the business's own date. A tile opens the list of businesses in that state.
 - **Free trials, last 30 days**: the funnel of Leads & trials for the trials
-  that started in the last 30 days, and *Leads & trials* for any other dates.
+  that started in the last 30 days, each number with a bar against the
+  biggest, and *Leads & trials* for any other dates.
 - **Renewals**: paying businesses whose paid time ends within 7 and within 30
   days, with what their renewals would ask before GST, and paid time that
   ended this month without a renewal (in grace, a payment being checked, or
@@ -465,8 +478,8 @@ plans](BUSINESS_RULES.md#paid-plans).
 - **To do**: the payments owners have entered for you to confirm (opens
   Payments), the requests to be called back still marked new (opens Leads &
   trials) and, once the real GSTIN is saved, the paid orders that still have
-  only a SAMPLE invoice (opens Invoices). **Before you go live** lists what
-  is left until each is done: the company's details complete, its real
+  only a SAMPLE invoice (opens Invoices). **Before you go live** says how many of its four
+  steps are done and lists what is left until each is done: the company's details complete, its real
   GSTIN, the price list reviewed, and the UPI ID or bank account owners pay
   to. Each step not done has a button to the Settings tab that does it; once
   all four are done, a line says the platform is ready to go live. The whole
@@ -777,24 +790,31 @@ one):
   named on the privacy policy. Until the real GSTIN is entered it is the
   sample one, flagged here: invoices are SAMPLE ones with a series of their
   own, and the real series starts at 1 when the real GSTIN is saved. The tab
-  also says what is still missing before payments can be confirmed.
+  also says what is still missing before payments can be confirmed. Beside the
+  form, the top of the invoice shows the details as they are typed, with the
+  number the year's first invoice takes.
 - **Trial & renewal** — the free trial's days (0 to 30; 14 to start with),
   for trials that start afterwards (0: a new business pays first), and the
   grace days (0 to 30; 7 to start with) a business keeps working after paid
-  or given time ends.
+  or given time ends. Beside them, a new business's time as they stand: the
+  trial, paid time, grace and read-only.
 - **Prices**, before GST. For each type of business (chosen at the top), its
   plans: name, monthly and yearly price, the modules each includes, whether
   it is the default a new business starts with, and whether owners are
-  offered it; *Add a plan* adds another. Below, each module's and
+  offered it, with what a year saves on twelve months; *Add a plan* adds
+  another. Below, each module's and
   application's monthly and yearly price (0 is free, empty is not for sale
   yet), whether it is sold as a module or an application, and whether owners
   may add it; a module's price is the same for every type that can use it.
-  **Save prices** saves every change at once and marks the price list
-  reviewed (saving with no change marks it reviewed too). A new price
+  The bar at the foot counts the changes not saved yet; **Save prices** saves
+  every change at once and marks the price list reviewed (saving with no
+  change marks it reviewed too). A new price
   reaches a business at its next order; open orders keep theirs.
 - **Payment details** — the UPI ID (owners see it with a QR code), the UPI
   payee name, the bank name, account name, account number and IFSC, and a
-  note for owners, such as what to write in the payment's remarks.
+  note for owners, such as what to write in the payment's remarks. Beside
+  them, the payment card owners see in Your plan, with a QR code of the UPI ID
+  (no amount): scanned with a phone, it shows whose account it opens.
 
 ## Starting a business
 

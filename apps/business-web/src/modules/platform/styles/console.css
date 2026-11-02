@@ -1,9 +1,189 @@
-/* The platform console's screens (Platform › Settings, Businesses, Payments,
-   Invoices). They use the app's cards, grids and tokens; this file adds only
-   what those screens need on top, in tokens, so light and dark both work. */
+/* The platform console's screens (every page under /platform, .pc-page).
+   They use the app's cards, grids and tokens; this file adds the console's
+   own look and what its screens need on top, in tokens, so light and dark
+   both work. */
 
 .pc-page {
+  --pc-mint: #5eead4;
+  --pc-mint-soft: #b5f5e3;
+  --pc-night: #042a22;
   min-width: 0;
+}
+
+/* --- The console's look ---------------------------------------------------------------
+   Every console page opens on a dark band in the platform's own colours, as
+   on its public site, so the super admin always knows they are in the
+   platform's console and not inside a business. The band is dark in both
+   themes; below it the page follows the theme. */
+
+.app-shell .content .pc-page > .page-header {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 22px 24px;
+  border: 0;
+  border-radius: 20px;
+  background:
+    radial-gradient(60% 140% at 100% 0%, rgb(45 212 191 / 26%), transparent 62%),
+    radial-gradient(45% 120% at 0% 110%, rgb(14 165 233 / 16%), transparent 70%),
+    linear-gradient(135deg, var(--pc-night) 0%, #0a3a31 52%, #0e2b40 100%);
+  color: #f1fbf7;
+  box-shadow: 0 20px 44px -28px rgb(2 19 15 / 85%);
+}
+
+/* A fine grid, fading in across the band. */
+.app-shell .content .pc-page > .page-header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgb(255 255 255 / 5%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 5%) 1px, transparent 1px);
+  background-size: 28px 28px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 15%, #000 75%);
+  mask-image: linear-gradient(90deg, transparent 15%, #000 75%);
+  opacity: 1;
+  pointer-events: none;
+}
+
+.pc-page > .page-header h1 {
+  color: #fff;
+  font-size: clamp(1.45rem, 1.2rem + 0.8vw, 1.95rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+
+.pc-page > .page-header .page-header-description {
+  color: rgb(214 236 229 / 82%);
+}
+
+.app-shell .pc-page > .page-header .page-header-eyebrow {
+  color: var(--pc-mint);
+}
+
+.app-shell .pc-page > .page-header .page-header-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgb(94 234 212 / 26%), rgb(94 234 212 / 6%));
+  color: var(--pc-mint-soft);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 14%),
+    0 10px 24px -12px rgb(45 212 191 / 70%);
+}
+
+/* On the band: the main action light, the others glass. */
+.pc-page > .page-header .button:not(.button-secondary):not(.button-ghost) {
+  border-color: transparent;
+  background: linear-gradient(135deg, #ffffff, #c9f8ea);
+  color: #04332a;
+  box-shadow:
+    0 10px 24px -12px rgb(45 212 191 / 80%),
+    inset 0 -1px 0 rgb(6 95 70 / 14%);
+}
+
+.pc-page > .page-header .button:not(.button-secondary):not(.button-ghost):hover:not(:disabled) {
+  background: linear-gradient(135deg, #ffffff, #dffbf1);
+  color: #04332a;
+}
+
+.pc-page > .page-header :is(.button-secondary, .button-ghost) {
+  border-color: rgb(255 255 255 / 24%);
+  background: rgb(255 255 255 / 8%);
+  color: #fff;
+  box-shadow: none;
+}
+
+.pc-page > .page-header :is(.button-secondary, .button-ghost):hover:not(:disabled) {
+  border-color: rgb(255 255 255 / 44%);
+  background: rgb(255 255 255 / 16%);
+  color: #fff;
+}
+
+.pc-page > .page-header .button:focus-visible {
+  box-shadow: 0 0 0 3px var(--pc-night), 0 0 0 5px var(--pc-mint);
+}
+
+/* The console's figures read a size larger than a business's. */
+.pc-page .stat-tile:not(.stat-tile-sm) .stat-tile-value {
+  font-size: 2rem;
+}
+
+.pc-page .stat-tile-sm .stat-tile-value {
+  font-size: 1.45rem;
+}
+
+/* A cell of two lines: the name, and a quieter line under it. */
+.pc-two-line {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.pc-two-line small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+/* When time ends, in the tone of how soon: a week or less, or gone by. */
+.pc-two-line .pc-when.tone-warning {
+  color: var(--warning-text);
+  font-weight: 700;
+}
+
+.pc-two-line .pc-when.tone-danger {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* How far a business's time has run, under its state. */
+.pc-period {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.pc-period-bar {
+  flex: 1 1 auto;
+  max-width: 180px;
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+}
+
+.pc-period-bar > i {
+  display: block;
+  width: var(--share, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--tone);
+}
+
+.pc-period small {
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@media print {
+  .app-shell .content .pc-page > .page-header {
+    padding: 0;
+    background: none;
+    color: inherit;
+    box-shadow: none;
+  }
+
+  .app-shell .content .pc-page > .page-header::before {
+    display: none;
+  }
+
+  .pc-page > .page-header :is(h1, .page-header-description) {
+    color: inherit;
+  }
 }
 
 /* Facts side by side: a business's state, plan, owners. */
@@ -99,31 +279,724 @@
   gap: 2px;
 }
 
-.pc-modules {
+/* --- Settings ---------------------------------------------------------------------------
+   A form beside what it changes; the preview stays in view as the form scrolls. */
+
+.pc-settings-split {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 6px var(--space-3);
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  align-items: start;
+  gap: 28px;
 }
 
-/* One plan of a business type in the price list. */
-.pc-plan {
+.pc-settings-fields > .section-heading:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.pc-preview {
+  position: sticky;
+  top: 16px;
   display: grid;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: 12px;
+  min-width: 0;
+}
+
+.pc-preview-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pc-preview-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+/* The top of the company's invoice, as a sheet of paper. */
+.pc-paper {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  font-size: var(--text-sm);
+}
+
+.pc-paper-band {
+  padding: 4px;
+  border: 2px solid var(--danger);
+  color: var(--danger);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.pc-paper-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--text);
+}
+
+.pc-paper-supplier {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+.pc-paper-supplier strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.pc-paper .is-missing {
+  color: var(--placeholder);
+  font-style: italic;
+}
+
+.pc-paper-number {
+  display: grid;
+  justify-items: end;
+  align-content: start;
+  gap: 2px;
+  text-align: right;
+}
+
+.pc-paper-number span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pc-paper-number strong {
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.pc-paper-line,
+.pc-paper-tax {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-2);
+}
+
+.pc-paper-bars {
+  display: grid;
+  gap: 5px;
+  width: 36%;
+}
+
+.pc-paper-bars i {
+  display: block;
+  height: 7px;
+  border-radius: 7px;
+  background: var(--surface-3);
+}
+
+.pc-paper-bars i + i {
+  width: 70%;
+  justify-self: end;
+}
+
+.pc-paper-tax {
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-strong);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.pc-paper-tax span + span {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* A new business's time, as a line of stops. */
+.pc-timeline {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pc-timeline li {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px 10px 40px;
+  border-radius: 12px;
   background: var(--surface);
 }
 
-.pc-plan-head {
+.pc-timeline li::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--tone);
+  box-shadow: 0 0 0 4px var(--tone-bg);
+}
+
+.pc-timeline li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 19px;
+  top: 32px;
+  bottom: -10px;
+  width: 2px;
+  background: var(--border);
+}
+
+.pc-timeline strong {
+  font-size: var(--text-md);
+}
+
+.pc-timeline span {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
+/* Where owners pay, as their card in Your plan shows it. */
+.pc-paycard {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: var(--space-3);
-  align-items: end;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.pc-paycard-title {
+  font-size: 1rem;
+}
+
+.pc-paycard-upi {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+/* A QR code is read on white, in either theme. */
+.pc-paycard-upi img,
+.pc-paycard-qr {
+  box-sizing: border-box;
+  flex: none;
+  width: 112px;
+  height: 112px;
+  padding: 4px;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.pc-paycard-qr {
+  background: repeating-conic-gradient(var(--surface-3) 0 25%, var(--surface) 0 50%) 0 0 / 14px 14px;
+}
+
+.pc-paycard-upi strong {
+  overflow-wrap: anywhere;
+}
+
+.pc-paycard-bank {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.pc-paycard-bank div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: var(--text-sm);
+}
+
+.pc-paycard-bank dt {
+  color: var(--muted);
+}
+
+.pc-paycard-bank dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.pc-paycard-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--info-bg);
+  color: var(--info-text);
+  font-size: var(--text-sm);
+}
+
+.pc-paycard-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* --- The price list ------------------------------------------------------------------------ */
+
+.pc-type-pick select {
+  min-width: 240px;
+  font-weight: 600;
+}
+
+.pc-plans {
+  display: grid;
+  gap: 16px;
+}
+
+/* One plan of a business type: the default one marked along its top. */
+.pc-plan {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  margin: 0;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-xs);
+}
+
+.pc-plan.is-default {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  box-shadow:
+    inset 0 3px 0 var(--primary),
+    var(--shadow-sm);
+}
+
+.pc-plan.is-off {
+  background: var(--surface-2);
+}
+
+.pc-plan-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+}
+
+.pc-plan-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.pc-plan-name {
+  flex: 1 1 220px;
+  max-width: 360px;
+}
+
+.pc-plan-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* A mark to set, as a pill: the default plan, offered, every module. */
+.pc-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 6px 14px 6px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: var(--text-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pc-flag input {
+  margin: 0;
+}
+
+.pc-flag:has(input:checked) {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  background: var(--primary-soft);
+  color: var(--text);
+}
+
+.pc-flag:has(input:disabled) {
+  cursor: default;
+}
+
+.pc-flag:has(input:focus-visible) {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.pc-plan-prices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 20px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+.pc-plan-prices .field {
+  flex: 0 1 220px;
+}
+
+.pc-plan-saving {
+  display: inline-flex;
+  align-self: center;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--success-bg);
+  color: var(--success-text);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.pc-plan-saving.is-dearer {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+/* A price, with the rupee drawn before it. */
+.field input.pc-rupee,
+input.pc-rupee {
+  padding-left: 28px;
+  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='16'%3E%3Ctext x='1' y='13' font-family='Segoe UI,Roboto,Arial,sans-serif' font-size='14' font-weight='600' fill='%237b8a9c'%3E%E2%82%B9%3C/text%3E%3C/svg%3E") no-repeat 11px 50%;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* In the price table the grid pads its inputs evenly; the rupee keeps its room. */
+.dg-editor .dg-table td input.pc-rupee {
+  padding-left: 28px;
 }
 
 .pc-price-input {
-  max-width: 140px;
+  max-width: 150px;
+}
+
+.pc-plan-modules {
+  display: grid;
+  gap: 12px;
+}
+
+.pc-plan-count {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.pc-plan-count strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.pc-module-group {
+  display: grid;
+  gap: 8px;
+}
+
+.pc-module-group-title {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pc-modules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* A module the plan may include, as a chip to tick. */
+.pc-module {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 13px 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: var(--text-md);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
+}
+
+.pc-module input {
+  margin: 0;
+}
+
+.pc-module:hover {
+  border-color: var(--border-strong);
+}
+
+.pc-module:has(input:checked) {
+  border-color: color-mix(in srgb, var(--primary) 50%, var(--border));
+  background: var(--primary-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.pc-module:has(input:focus-visible) {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.pc-plan-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 12px 16px;
+  border: 2px dashed var(--border-strong);
+  border-radius: 16px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) ease,
+    border-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
+}
+
+.pc-plan-add:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.pc-plan-add:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Module or application: two halves of one control. */
+.pc-segment {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-2);
+}
+
+.pc-segment label {
+  position: relative;
+  cursor: pointer;
+}
+
+.pc-segment input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.pc-segment span {
+  display: block;
+  padding: 5px 11px;
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color var(--motion-fast) ease,
+    color var(--motion-fast) ease;
+}
+
+.pc-segment input:checked + span {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.pc-segment input:focus-visible + span {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+/* On a phone the price table turns into cards: the two halves take a whole row. */
+.dg-card-input:has(.pc-segment) {
+  grid-column: 1 / -1;
+}
+
+/* Yes or no, as a switch. */
+.pc-switch {
+  position: relative;
+  display: inline-flex;
+  width: 42px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.pc-switch input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.pc-switch span {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+  transition: background-color var(--motion-normal) ease;
+}
+
+.pc-switch span::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 25%);
+  transition: transform var(--motion-normal) var(--motion-ease);
+}
+
+.pc-switch input:checked + span {
+  background: var(--success);
+}
+
+.pc-switch input:checked + span::after {
+  transform: translateX(18px);
+}
+
+.pc-switch input:focus-visible + span {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* The foot of the price list: what is not saved yet, and the button. */
+.pc-savebar {
+  position: sticky;
+  bottom: 14px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px 14px 12px 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-lg);
+}
+
+.pc-savebar.has-changes {
+  border-color: color-mix(in srgb, var(--warning) 50%, var(--border));
+}
+
+.pc-savebar-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-2);
+  font-size: var(--text-md);
+  font-weight: 600;
+}
+
+.pc-savebar.has-changes .pc-savebar-text::before {
+  content: "";
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--warning);
+  box-shadow: 0 0 0 4px var(--warning-bg);
+}
+
+@media (max-width: 1100px) {
+  .pc-settings-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pc-preview {
+    position: static;
+  }
+}
+
+@media (max-width: 640px) {
+  .pc-plan {
+    padding: 14px;
+  }
+
+  .pc-plan-flags {
+    margin-left: 0;
+  }
+
+  .pc-plan-name {
+    max-width: none;
+  }
+
+  .pc-type-pick select {
+    min-width: 0;
+    width: 100%;
+  }
 }
 
 /* The invoice on screen: the same document as the paper, drawn as a sheet. */

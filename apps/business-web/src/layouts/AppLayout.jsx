@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import useAuth from "../hooks/useAuth";
 import useMotionScope from "../hooks/useMotionScope";
 import useSidebarMotion from "../hooks/useSidebarMotion";
@@ -29,6 +30,7 @@ import { featuresAllow } from "../services/features";
 import "../styles/access.css";
 import { formatLabel } from "../services/restaurantFormats";
 import PlanBanner from "../modules/plan/components/PlanBanner";
+import { getSiteInfo } from "../modules/site/services/site.service";
 
 const PINNED_KEY = "rmp_nav_pinned";
 
@@ -293,6 +295,10 @@ function AppShell() {
   // across their businesses beside it, stand on their own: no restaurant
   // menu, outlet switcher or restaurant bell around them.
   const chooser = pathname === "/business-admin" || pathname === "/business-admin/gst-thresholds";
+  // The platform's own account (no restaurant) works in the platform
+  // console: its header names the console and the platform's brand.
+  const platformAccount = !businessMode && !chooser && !user.restaurantId && hasPermission("platform.restaurants.manage");
+  const { data: site } = useQuery({ queryKey: ["site", "info"], queryFn: getSiteInfo, enabled: platformAccount });
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [pinned, setPinned] = useState(readPinned);
@@ -443,7 +449,7 @@ function AppShell() {
       </a>
       {/* data-layout says whose header this is (a business's, the business
           chooser's, or the restaurant's own); the browser tests watch it. */}
-      <header className="topbar" data-layout={businessMode ? "business" : chooser ? "chooser" : "restaurant"}>
+      <header className="topbar" data-layout={businessMode ? "business" : chooser ? "chooser" : platformAccount ? "platform" : "restaurant"}>
         <button
           type="button"
           className="icon-button menu-toggle topbar-icon-button"
@@ -475,6 +481,14 @@ function AppShell() {
               <span className="brand-restaurant">{pathname === "/business-admin" ? "Choose a business to open" : "Across your businesses"}</span>
             </span>
           </span>
+        ) : platformAccount ? (
+          <Link to="/platform" className="brand" aria-label="Platform console — overview">
+            <BrandMark size={34} />
+            <span className="brand-text">
+              <span className="brand-name">Platform console</span>
+              <span className="brand-restaurant">{site?.brandName || "Every business on the platform"}</span>
+            </span>
+          </Link>
         ) : (
           <Link to="/" className="brand" aria-label={`${user.restaurantName || "Business Admin"} — dashboard`}>
             <BrandMark size={34} />

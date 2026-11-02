@@ -13,6 +13,7 @@ import { count, dateShort, moneyExact } from "@bmp/shared/format";
 import { today } from "@bmp/shared/dates";
 import { getDuesReport, getRenewalsReport, getSalesReport } from "../services/dashboards.service";
 import { stateWord } from "../funnelWords";
+import "../styles/console.css";
 import "../styles/dashboards.css";
 
 // Platform › Reports (/platform/reports): the platform's sales from its tax
@@ -44,7 +45,7 @@ export default function PlatformReportsPage() {
   const tab = TABS.some((t) => t.value === params.get("tab")) ? params.get("tab") : "sales";
   const setTab = (value) => setParams(value === "sales" ? {} : { tab: value }, { replace: true });
   return (
-    <div className="stack pd-page">
+    <div className="stack pd-page pc-page">
       <PageHeader icon="chart" eyebrow="Platform" title="Platform reports"
         description="The platform's own sales from its tax invoices, the renewals coming up, and the orders owners have not paid." />
       <ContentTabs label="Platform reports" value={tab} options={TABS} onChange={setTab}>
@@ -126,17 +127,17 @@ function RenewalsReport({ initialWithin }) {
   const { data, error } = useReport(getRenewalsReport, { within });
   const columns = useMemo(() => [
     { key: "name", header: "Business", value: (r) => r.name, mobile: "title", pin: true,
-      render: (r) => <span className="pd-two-line"><strong>{r.name}</strong><small>{r.typeName}</small></span> },
+      render: (r) => <span className="pc-two-line"><strong>{r.name}</strong><small>{r.typeName}</small></span> },
     { key: "state", header: "Today", type: "status", value: (r) => stateWord(r.state),
       render: (r) => <StatusBadge status={r.state} label={stateWord(r.state)} tone={STATE_TONES[r.state] || "neutral"} /> },
     { key: "endsOn", header: "Paid time ends", type: "date", value: (r) => r.endsOn, mobile: "show" },
     { key: "daysLeft", header: "Days left", type: "number", value: (r) => r.daysLeft,
-      render: (r) => (r.daysLeft < 0 ? <span className="pd-two-line"><span>Ended {count(-r.daysLeft)} {r.daysLeft === -1 ? "day" : "days"} ago</span>
+      render: (r) => (r.daysLeft < 0 ? <span className="pc-two-line"><span>Ended {count(-r.daysLeft)} {r.daysLeft === -1 ? "day" : "days"} ago</span>
         {r.graceEndsOn && <small>Grace until {dateShort(r.graceEndsOn)}</small>}</span> : count(r.daysLeft)) },
     { key: "plan", header: "Renews on", value: (r) => `${r.planName || "No plan"}${r.billingPeriod ? `, ${PERIOD_WORDS[r.billingPeriod].toLowerCase()}` : ""}` },
     { key: "value", header: "Renewal before GST", type: "money", exact: true, value: (r) => Number(r.value), total: "sum", mobile: "show" },
     { key: "owner", header: "Owner", value: (r) => r.ownerName || "",
-      render: (r) => <span className="pd-two-line"><span>{r.ownerName || "—"}</span>{r.ownerMobile && <small>{phoneLink(r.ownerMobile)}</small>}</span> },
+      render: (r) => <span className="pc-two-line"><span>{r.ownerName || "—"}</span>{r.ownerMobile && <small>{phoneLink(r.ownerMobile)}</small>}</span> },
     { key: "mobile", header: "Owner's mobile", value: (r) => r.ownerMobile || "", defaultHidden: true },
     { key: "email", header: "Owner's email", value: (r) => r.ownerEmail || "", defaultHidden: true },
     { key: "order", header: "Open order", value: (r) => (r.openOrder ? `${moneyExact(r.openOrder.total)}${r.openOrder.checking ? ", payment being checked" : ""}` : ""),
@@ -173,18 +174,18 @@ function DuesReport() {
   const columns = useMemo(() => [
     { key: "orderId", header: "Order", type: "number", value: (r) => r.orderId, mobile: "title", pin: true },
     { key: "name", header: "Business", value: (r) => r.name, mobile: "subtitle",
-      render: (r) => <span className="pd-two-line"><strong>{r.name}</strong><small>{r.typeName}</small></span> },
+      render: (r) => <span className="pc-two-line"><strong>{r.name}</strong><small>{r.typeName}</small></span> },
     { key: "kind", header: "For", value: (r) => `${KIND_WORDS[r.kind] || r.kind}, ${PERIOD_WORDS[r.billingPeriod].toLowerCase()}` },
     { key: "createdOn", header: "Made on", type: "date", value: (r) => r.createdOn },
     { key: "ageDays", header: "Days old", type: "number", value: (r) => r.ageDays, mobile: "show" },
     { key: "band", header: "Age", value: (r) => `${r.band} days`, filter: "select" },
     { key: "validUntil", header: "Prices held until", type: "date", value: (r) => r.validUntil,
-      render: (r) => (r.expired ? <span className="pd-two-line"><span>{dateShort(r.validUntil)}</span><small>Expired: to be made again</small></span> : dateShort(r.validUntil)) },
+      render: (r) => (r.expired ? <span className="pc-two-line"><span>{dateShort(r.validUntil)}</span><small>Expired: to be made again</small></span> : dateShort(r.validUntil)) },
     { key: "total", header: "Total", type: "money", exact: true, value: (r) => Number(r.total), total: "sum", mobile: "show" },
     { key: "checking", header: "Payment", value: (r) => (r.checking ? "Being checked" : "Not paid"),
       render: (r) => <StatusBadge status={r.checking ? "checking" : "unpaid"} label={r.checking ? "Being checked" : "Not paid"} tone={r.checking ? "info" : "warning"} /> },
     { key: "owner", header: "Owner", value: (r) => r.ownerName || "",
-      render: (r) => <span className="pd-two-line"><span>{r.ownerName || "—"}</span>{r.ownerMobile && <small>{phoneLink(r.ownerMobile)}</small>}</span> },
+      render: (r) => <span className="pc-two-line"><span>{r.ownerName || "—"}</span>{r.ownerMobile && <small>{phoneLink(r.ownerMobile)}</small>}</span> },
     { key: "mobile", header: "Owner's mobile", value: (r) => r.ownerMobile || "", defaultHidden: true },
     { key: "state", header: "Today", value: (r) => stateWord(r.state), defaultHidden: true },
   ], []);

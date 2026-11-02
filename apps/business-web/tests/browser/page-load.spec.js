@@ -94,6 +94,8 @@ test("the platform console's pages open for the platform's super admin, whose ho
   await expect(page).toHaveURL(/\/platform$/);
   await networkQuiet(page);
   const errors = errorsOn(page);
+  // Its header names the console, never a business it is not in.
+  await expect(page.locator('header.topbar[data-layout="platform"] .brand-name')).toHaveText("Platform console");
   // Its menu, each entry with its mark.
   const menu = page.locator('.nav-section[data-section="Platform"] a.nav-link');
   await expect(menu.locator(".nav-label")).toHaveText(["Overview", "Businesses", "Restaurants", "Leads & trials", "Payments", "Invoices", "Reports", "Settings"]);

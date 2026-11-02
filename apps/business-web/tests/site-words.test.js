@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  TYPE_GROUPS, TYPE_LINES, addonsFor, companyName, needsWords, pageTitle, priceLabel, priceSummary, plusGst, refFrom, startLabel, toggleAddon, typeGroups, websiteHref,
+  TYPE_GROUPS, TYPE_LINES, addonsFor, catalogueSize, companyName, homeQuestions, lowestAddon, lowestPlan, needsWords, pageTitle, priceLabel, priceSummary, plusGst, refFrom,
+  startLabel, toggleAddon, typeGroups, websiteHref, yearlySaving,
 } from "../src/modules/site/siteWords.js";
 import { POLICY_KINDS, POLICY_TITLES, policyOf } from "../src/modules/site/sitePolicies.js";
 
@@ -71,6 +72,27 @@ test("the add-ons a plan can take, and what ticking one ticks with it", () => {
   assert.equal(needsWords(guests, offered), null);
 });
 
+test("the home page's figures: the lowest plan and add-on, the modules on offer and what a year saves", () => {
+  const pricing = {
+    types: [
+      { code: "salon", plans: [{ ...basic, code: "salon_basic", monthly: "599.00", isDefault: true }], addons: [loyalty, { ...offers, monthly: "149.00", available: false }] },
+      { code: "grocery", plans: [{ ...basic, isDefault: true }, { ...basic, code: "grocery_plus", monthly: "99.00", isDefault: false }], addons: [{ ...loyalty, monthly: null }, offers] },
+    ],
+  };
+  // Only a type's default plan, and only an add-on owners may take, with a monthly price.
+  assert.equal(lowestPlan(pricing).code, "grocery_basic");
+  assert.equal(lowestAddon(pricing).monthly, "199.00");
+  assert.equal(lowestPlan({ types: [] }), null);
+  assert.equal(lowestAddon(undefined), null);
+  // Each module once, across the types: the plan's sales, loyalty and offers; not an add-on owners cannot take.
+  assert.equal(catalogueSize(pricing), 3);
+  assert.equal(yearlySaving(basic), 16);
+  assert.equal(yearlySaving({ monthly: "1000.00", yearly: "10000.00" }), 16);
+  assert.equal(yearlySaving({ monthly: "500.00", yearly: "6000.00" }), 0);
+  assert.equal(yearlySaving({ monthly: "500.00", yearly: "7000.00" }), 0);
+  assert.equal(yearlySaving({ monthly: null, yearly: "4999.00" }), 0);
+});
+
 test("titles, the company's name and where a visitor came from", () => {
   assert.equal(pageTitle("Pricing", "Acme Suite"), "Pricing · Acme Suite");
   assert.equal(pageTitle(null, "Acme Suite"), "Acme Suite");
@@ -132,4 +154,18 @@ test("the policies: every name, number and rate from the site's info", () => {
   assert.match(none, /has no free trial/);
   assert.match(none, /there are no extra days/);
   assert.match(textOf(policyOf("refunds", info({ trialDays: 0 }))), /once your first payment is confirmed/);
+});
+
+test("the home page's questions take the trial and grace days from the site's info", () => {
+  const text = (questions) => questions.map((item) => `${item.question}\n${item.answer}`).join("\n");
+  const withTrial = text(homeQuestions(info()));
+  assert.match(withTrial, /What happens when the free trial ends\?/);
+  assert.match(withTrial, /keeps working for 3 more days while you renew/);
+  assert.match(withTrial, /its own plan and its own free trial/);
+  for (const fixed of ["14 days", "7 days", "18%"]) assert.ok(!withTrial.includes(fixed), fixed);
+  // No trial: no question about one; one grace day, and none at all.
+  const none = text(homeQuestions(info({ trialDays: 0, graceDays: 1 })));
+  assert.ok(!none.includes("free trial"));
+  assert.match(none, /keeps working for 1 more day while you renew/);
+  assert.match(text(homeQuestions(info({ graceDays: 0 }))), /your business is read-only until you renew/);
 });

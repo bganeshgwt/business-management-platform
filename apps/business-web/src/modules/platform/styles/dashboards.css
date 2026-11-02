@@ -44,20 +44,157 @@
   color: var(--muted);
 }
 
-.pd-two-line {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.3;
-}
-
-.pd-two-line small {
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
 .pd-nowrap {
   white-space: nowrap;
+}
+
+/* --- The overview's figures --------------------------------------------------
+   The money in three across (six tiles, two even rows); the states in one row
+   on a wide screen. */
+
+.pd-money-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pd-state-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 136px), 1fr));
+}
+
+/* The months' columns stand on faint tracks, so an empty month still reads
+   as a month. */
+.pd-page .column-chart {
+  gap: 8px;
+}
+
+.pd-page .column-track {
+  border-radius: 8px 8px 3px 3px;
+  background: color-mix(in srgb, var(--chart-hue) 7%, transparent);
+}
+
+.pd-page .column-fill:not(.is-empty) {
+  border-radius: 8px 8px 3px 3px;
+  background: linear-gradient(180deg, var(--chart-hue), color-mix(in srgb, var(--chart-hue) 55%, transparent));
+}
+
+.pd-page .column-fill.is-empty {
+  background: transparent;
+}
+
+/* Every business in one bar, a part for each state. */
+.pd-mix {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.pd-mix-total {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--text-md);
+}
+
+.pd-mix-total strong {
+  color: var(--text);
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.pd-mix-bar {
+  display: flex;
+  gap: 3px;
+  height: 14px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+}
+
+.pd-mix-bar > span {
+  flex-basis: 0;
+  min-width: 8px;
+  background: var(--tone);
+  transform-origin: left center;
+}
+
+.pd-mix-bar > span:first-child {
+  border-radius: var(--radius-pill) 0 0 var(--radius-pill);
+}
+
+.pd-mix-bar > span:last-child {
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+}
+
+/* A funnel row's number as a bar, in the tone of what it counts. */
+.pd-funnel-bar {
+  grid-column: 1 / -1;
+  display: block;
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+}
+
+.pd-funnel-bar > i {
+  display: block;
+  width: var(--share, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--primary) 55%, var(--colour-cyan)));
+  transform-origin: left center;
+}
+
+.pd-funnel-row[data-bucket="enquiries"] .pd-funnel-bar > i { background: var(--violet); }
+.pd-funnel-row[data-bucket="stillOnTrial"] .pd-funnel-bar > i { background: var(--info); }
+.pd-funnel-row[data-bucket="continued"] .pd-funnel-bar > i { background: var(--success); }
+.pd-funnel-row[data-bucket="stopped"] .pd-funnel-bar > i { background: var(--danger); }
+
+/* Going live: how many of its steps are done. */
+.pd-golive {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 18px 0 12px;
+}
+
+.pd-golive .pd-subhead {
+  margin: 0;
+}
+
+.pd-golive-count {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.pd-progress {
+  flex: 1 1 160px;
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+}
+
+.pd-progress > i {
+  display: block;
+  width: var(--share, 0%);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--warning), var(--success));
+  transform-origin: left center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .pd-mix-bar > span,
+  .pd-funnel-bar > i,
+  .pd-progress > i {
+    animation: motion-bar-grow 700ms var(--motion-ease) backwards;
+  }
+
+  .pd-mix-bar > span:nth-child(2) { animation-delay: 60ms; }
+  .pd-mix-bar > span:nth-child(3) { animation-delay: 120ms; }
+  .pd-mix-bar > span:nth-child(n + 4) { animation-delay: 180ms; }
 }
 
 /* --- The funnel: a number per row, the parts that open their own list ------- */
@@ -229,6 +366,16 @@ button.pd-funnel-part:hover {
 
 @media (max-width: 900px) {
   .pd-two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pd-money-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .pd-money-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 }

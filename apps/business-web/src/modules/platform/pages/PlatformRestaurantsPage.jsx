@@ -21,6 +21,7 @@ import { getErrorMessage } from "../../../services/api";
 import { count } from "@bmp/shared/format";
 import "../../../styles/access.css";
 import "../../../styles/staff.css";
+import "../styles/console.css";
 import { formatLabel } from "../../../services/restaurantFormats";
 
 // The platform console: every restaurant on the platform, for the platform's
@@ -122,7 +123,7 @@ export default function PlatformRestaurantsPage() {
   const counts = data?.counts;
 
   return (
-    <div className="stack acc-page">
+    <div className="stack acc-page pc-page">
       <PageHeader
         icon="store"
         eyebrow="Platform"

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  BUCKETS, avgDaysText, conversionText, funnelRows, leadStatusWord, outcomeWord, percent, sourceWord, stateWord, trialLengthWord,
+  BUCKETS, avgDaysText, conversionText, funnelRows, funnelShares, leadStatusWord, outcomeWord, percent, sourceWord, stateWord, trialLengthWord,
 } from "../src/modules/platform/funnelWords.js";
 
 // How the platform's trial funnel is said on Leads & trials and the overview
@@ -26,6 +26,13 @@ test("the funnel's rows: each number, the parts that open their own list, and th
       { key: "continuedDuringTrial", value: 1, text: "1 paid before the trial ended" }, { key: "continuedAfterTrial", value: 1, text: "1 paid after it" }] },
     { key: "stopped", label: "Stopped (did not pay)", value: 1, depth: 1, note: "", parts: [{ key: "stoppedLast30", value: 0, text: "none in the last 30 days" }] },
   ]);
+});
+
+test("each number as a bar against the funnel's biggest", () => {
+  assert.deepEqual(funnelShares(funnelRows(FUNNEL)), { enquiries: 50, trialsStarted: 100, activated: 33, stillOnTrial: 50, continued: 33, stopped: 17 });
+  // Enquiries not counted (a plan's filter), and a funnel with nothing in it.
+  assert.equal(funnelShares(funnelRows({ ...FUNNEL, enquiries: null })).enquiries, 0);
+  assert.deepEqual(Object.values(funnelShares([{ key: "a", value: 0 }, { key: "b", value: null }])), [0, 0]);
 });
 
 test("a funnel with nothing in it, and one filtered by plan, where enquiries are not counted", () => {

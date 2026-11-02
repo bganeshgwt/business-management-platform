@@ -108,7 +108,7 @@
   padding: 10px 20px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  box-shadow: none;
+  box-shadow: 0 8px 24px -22px rgb(15 34 30 / 55%);
   position: relative;
   z-index: 45;
 }
@@ -215,7 +215,10 @@
   --nav-active-bg: #d7f2e3;
   width: 248px;
   flex-shrink: 0;
-  background: linear-gradient(180deg, var(--surface), #142235);
+  /* Night blue, with a breath of the platform's green light at the top. */
+  background:
+    radial-gradient(130% 36% at 0% 0%, rgb(45 212 191 / 11%), transparent 70%),
+    linear-gradient(180deg, var(--surface), #111f31);
   color: var(--text);
   color-scheme: dark;
   border-right: 1px solid var(--border);

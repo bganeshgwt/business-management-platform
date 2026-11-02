@@ -9,7 +9,8 @@ import { ErrorMessage, ScreenLoading } from "../../../components/Feedback";
 import { getErrorMessage } from "../../../services/api";
 import { count, dateShort, money, moneyExact } from "@bmp/shared/format";
 import { getPlatformOverview } from "../services/dashboards.service";
-import { avgDaysText, funnelRows } from "../funnelWords";
+import { avgDaysText, funnelRows, funnelShares } from "../funnelWords";
+import "../styles/console.css";
 import "../styles/dashboards.css";
 
 // Platform › Overview (/platform), the platform super admin's home: the money
@@ -67,7 +68,7 @@ export default function PlatformOverviewPage() {
   useEffect(() => { load(); }, [load]);
 
   return (
-    <div className="stack pd-page">
+    <div className="stack pd-page pc-page">
       <PageHeader icon="chart" eyebrow="Platform" title="Platform overview"
         description="The platform's own sales, its businesses by state, the free trials and what is waiting for you."
         secondary={<button type="button" className="button button-secondary" onClick={load}><Icon name="refresh" size={16} /> Refresh</button>} />
@@ -77,7 +78,8 @@ export default function PlatformOverviewPage() {
         <>
           <Money money={data.money} />
           <SectionCard icon="store" title="Businesses by state" description="Each business's state today, on its own date. A tile opens the businesses in that state.">
-            <div className="stat-grid">
+            <StateMix states={data.states} />
+            <div className="stat-grid pd-state-grid">
               {STATE_TILES.map(([state, label, icon, tone]) => (
                 <StatTile key={state} size="sm" icon={icon} tone={data.states[state] ? tone : "neutral"} label={label} value={count(data.states[state])}
                   to={`/platform/businesses?state=${state}`} />
@@ -95,6 +97,22 @@ export default function PlatformOverviewPage() {
   );
 }
 
+// Every business in one bar, a part for each state in its tile's tone. The
+// tiles under it say the same in numbers, and open each state's list.
+function StateMix({ states }) {
+  const parts = STATE_TILES.map(([state, label, , tone]) => ({ state, label, tone, value: Number(states[state]) || 0 })).filter((part) => part.value > 0);
+  const total = parts.reduce((sum, part) => sum + part.value, 0);
+  if (!total) return null;
+  return (
+    <div className="pd-mix">
+      <p className="pd-mix-total"><strong>{count(total)}</strong> {total === 1 ? "business" : "businesses"} on the platform</p>
+      <div className="pd-mix-bar" aria-hidden="true">
+        {parts.map((part) => <span key={part.state} className={`tone-${part.tone}`} style={{ flexGrow: part.value }} title={`${part.label}: ${count(part.value)}`} />)}
+      </div>
+    </div>
+  );
+}
+
 function Money({ money: m }) {
   const points = m.byMonth.map((month) => ({ label: monthWord(month.month), value: Number(month.collected) }));
   const yearTotal = m.byMonth.reduce((sum, month) => sum + Number(month.collected), 0);
@@ -102,7 +120,7 @@ function Money({ money: m }) {
     <SectionCard icon="wallet" tone="primary" title="Money"
       description="From the company's tax invoices, GST included unless it says before GST. Recurring income is the paying businesses' plans and add-ons, before GST."
       actions={<Link className="button button-ghost button-sm" to="/platform/reports">Sales report <Icon name="arrow-right" size={14} /></Link>}>
-      <div className="stat-grid">
+      <div className="stat-grid pd-money-grid">
         <StatTile icon="cash" tone="primary" label="Collected today" money={m.today} />
         <StatTile icon="calendar" label="This month" money={m.thisMonth} note={`${moneyExact(m.beforeGstThisMonth)} before GST, ${moneyExact(m.gstThisMonth)} GST`} />
         <StatTile icon="history" label="Last month" money={m.lastMonth} />
@@ -127,15 +145,17 @@ function Money({ money: m }) {
 
 function TrialsBlock({ funnel }) {
   const rows = funnelRows(funnel);
+  const shares = funnelShares(rows);
   return (
     <SectionCard icon="users" title="Free trials, last 30 days"
       description={`Trials that started from ${dateShort(funnel.from)} to ${dateShort(funnel.to)}, and the enquiries that came in.`}
       actions={<Link className="button button-ghost button-sm" to="/platform/leads">Leads & trials <Icon name="arrow-right" size={14} /></Link>}>
       <ul className="pd-funnel">
         {rows.map((row) => (
-          <li key={row.key} className={`pd-funnel-row ${row.depth ? "is-nested" : ""}`}>
+          <li key={row.key} className={`pd-funnel-row ${row.depth ? "is-nested" : ""}`} data-bucket={row.key}>
             <span className="pd-funnel-label">{row.label}</span>
             <strong className="pd-nowrap">{row.value === null ? "—" : count(row.value)}</strong>
+            <span className="pd-funnel-bar" aria-hidden="true"><i style={{ "--share": `${shares[row.key]}%` }} /></span>
             {(row.note || row.parts.length > 0) && (
               <span className="pd-funnel-meta">
                 {row.note && <span>{row.note}</span>}
@@ -169,7 +189,8 @@ function RenewalsBlock({ renewals }) {
 
 function ToDo({ todo }) {
   const steps = goLiveSteps(todo);
-  const ready = steps.every((step) => step.done);
+  const done = steps.filter((step) => step.done).length;
+  const ready = done === steps.length;
   return (
     <SectionCard icon="clipboard" title="To do" description="What is waiting for you, and what going live still needs.">
       <div className="stat-grid">
@@ -186,7 +207,11 @@ function ToDo({ todo }) {
         <p className="pd-ready"><Icon name="check-circle" size={18} /> Ready to go live: the company's details, its real GSTIN, the reviewed prices and the payment details are all in.</p>
       ) : (
         <>
-          <h3 className="pd-subhead">Before you go live</h3>
+          <div className="pd-golive">
+            <h3 className="pd-subhead">Before you go live</h3>
+            <span className="pd-golive-count">{done} of {steps.length} done</span>
+            <span className="pd-progress" aria-hidden="true"><i style={{ "--share": `${(done * 100) / steps.length}%` }} /></span>
+          </div>
           <ul className="pd-checklist" aria-label="Before you go live">
             {steps.map((step) => (
               <li key={step.key} data-step={step.key} data-done={step.done ? "yes" : "no"}>

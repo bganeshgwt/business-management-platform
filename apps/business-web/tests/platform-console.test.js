@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import process from 'node:process';
-import { GST_REGISTER_HEADER, METHOD_WORDS, dayWords, endsWords, gstRegisterRows, planOfRow, priceWords, stateWords } from '../src/modules/platform/consoleWords.js';
+import {
+  GST_REGISTER_HEADER, METHOD_WORDS, SAMPLE_GSTIN, dayWords, endsInWords, endsWords, firstInvoiceNumber, fiscalYearCode, gstRegisterRows, periodProgress, planOfRow, priceWords, stateWords, yearSavingWords,
+} from '../src/modules/platform/consoleWords.js';
 
 // The screens read a moment on the clock of the person looking: India's here.
 process.env.TZ = 'Asia/Kolkata';
@@ -39,6 +41,45 @@ test('a price before GST, and how a payment was made', () => {
   assert.equal(priceWords(null, 'month', 18), 'Price not set yet');
   assert.equal(priceWords('0.00', 'year', 18), 'Free');
   assert.equal(METHOD_WORDS.bank, 'Bank transfer');
+});
+
+test('how far a period has run, and when time ends from today', () => {
+  const trial = { startsOn: '2026-10-31', endsOn: '2026-11-13' };
+  assert.deepEqual(periodProgress(trial, '2026-10-31'), { day: 1, total: 14, share: 7, words: 'Day 1 of 14' });
+  assert.deepEqual(periodProgress(trial, '2026-11-13'), { day: 14, total: 14, share: 100, words: 'Day 14 of 14' });
+  // Past its end it stays full; not begun, or with no end, it has no bar.
+  assert.equal(periodProgress(trial, '2026-12-01').words, 'Day 14 of 14');
+  assert.equal(periodProgress(trial, '2026-10-30'), null);
+  assert.equal(periodProgress({ startsOn: '2026-10-31', endsOn: null }, '2026-11-01'), null);
+  // Across a month's end and a year's.
+  assert.equal(periodProgress({ startsOn: '2026-12-31', endsOn: '2027-12-30' }, '2027-01-01').words, 'Day 2 of 365');
+  assert.deepEqual(endsInWords('2026-11-13', '2026-11-13'), { text: 'Ends today', tone: 'warning' });
+  assert.deepEqual(endsInWords('2026-11-14', '2026-11-13'), { text: 'Ends tomorrow', tone: 'warning' });
+  assert.deepEqual(endsInWords('2026-11-20', '2026-11-13'), { text: 'In 7 days', tone: 'warning' });
+  assert.deepEqual(endsInWords('2026-11-21', '2026-11-13'), { text: 'In 8 days', tone: 'neutral' });
+  assert.deepEqual(endsInWords('2026-11-12', '2026-11-13'), { text: 'Ended yesterday', tone: 'danger' });
+  assert.deepEqual(endsInWords('2026-10-31', '2026-11-13'), { text: 'Ended 13 days ago', tone: 'danger' });
+  assert.equal(endsInWords(null, '2026-11-13'), null);
+});
+
+test('what a year saves, and the first invoice number of the year as the API makes it', () => {
+  assert.equal(yearSavingWords('499.00', '4999.00'), '16% less than twelve months');
+  assert.equal(yearSavingWords('100', '1000'), '16% less than twelve months');
+  assert.equal(yearSavingWords('100', '1200'), '');
+  assert.equal(yearSavingWords('100', '1300'), 'Dearer than twelve months');
+  assert.equal(yearSavingWords('', '4999.00'), '');
+  assert.equal(yearSavingWords('0', '0'), '');
+  assert.equal(yearSavingWords('199.00', null), '');
+  // The year turns on 1 April.
+  assert.equal(fiscalYearCode(new Date(2027, 2, 31)), '2627');
+  assert.equal(fiscalYearCode(new Date(2027, 3, 1)), '2728');
+  assert.equal(fiscalYearCode(new Date(2099, 11, 1)), '9900');
+  const october = new Date(2026, 9, 31);
+  assert.equal(firstInvoiceNumber('bmp', '29ABCDE1234F1Z5', october), 'BMP/2627/00001');
+  assert.equal(firstInvoiceNumber('ACME-', '29ABCDE1234F1Z5', october), 'ACME-/2627/00001');
+  // While the GSTIN is the sample one: the SAMPLE series, whatever the prefix.
+  assert.equal(firstInvoiceNumber('BMP', SAMPLE_GSTIN, october), 'SAMPLE/2627/0001');
+  assert.equal(firstInvoiceNumber('BMP', SAMPLE_GSTIN.toLowerCase(), october), 'SAMPLE/2627/0001');
 });
 
 test("the GST register's CSV: the columns GSTR-1 asks for, real invoices only", () => {

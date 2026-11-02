@@ -87,11 +87,17 @@ test("the company's details with the real GSTIN: the sample GSTIN's warning goes
   await expect(page.getByRole("heading", { level: 1, name: "Platform settings" })).toBeVisible();
   const warning = page.getByText(/^The GSTIN is the sample one/);
   if (before.sampleGstin) await expect(warning).toBeVisible();
+  // Beside the form, the invoice's top as it is typed: the sample series until the real GSTIN is in.
+  const invoice = page.getByRole("complementary", { name: "Company: how it shows" });
+  if (before.sampleGstin) await expect(invoice).toContainText(/SAMPLE\/\d{4}\/0001/);
   await page.getByLabel("Legal name", { exact: true }).fill(company.legalName);
   await page.getByLabel("Address line 1", { exact: true }).fill(company.addressLine1);
   await page.getByLabel("City", { exact: true }).fill(company.city);
   await page.getByLabel("PIN code", { exact: true }).fill(company.postalCode);
   await page.getByLabel("GSTIN", { exact: true }).fill(REAL_GSTIN);
+  await expect(invoice).toContainText(company.legalName);
+  await expect(invoice).toContainText(new RegExp(`${before.invoicePrefix}/\\d{4}/00001`));
+  await expect(invoice).not.toContainText("SAMPLE");
   await page.getByRole("button", { name: "Save company details" }).click();
   await expect(page.getByText("Company saved.")).toBeVisible();
   await expect(warning).toHaveCount(0);
@@ -110,9 +116,12 @@ test("a price raised in the price list", async ({ page }) => {
   await expect(basic.getByLabel("Yearly price (₹)")).toHaveValue(groceryBasic.yearly);
   await basic.getByLabel("Yearly price (₹)").fill(price.yearly);
   await expect(basic.getByText(price.words)).toBeVisible();
+  // The foot of the list counts what is not saved yet.
+  await expect(page.getByText("1 change not saved yet")).toBeVisible();
   await page.getByRole("button", { name: "Save prices" }).click();
   await expect(page.getByText("Prices saved, and the price list marked reviewed.")).toBeVisible();
   await expect(page.getByText(/^Prices last reviewed/)).toBeVisible();
+  await expect(page.getByText(/^Nothing changed: saving marks the price list reviewed/)).toBeVisible();
   const prices = await call("GET", "/users/platform/prices", undefined, platformToken);
   expect(prices.plans.find((plan) => plan.code === "grocery_basic").yearly).toBe(`${price.yearly}.00`);
 });

@@ -19,7 +19,7 @@ import { resetPlatformAdminPassword, resetPlatformBusinessOwner, setPlatformBusi
 import {
   consoleBusiness, giveConsoleAddons, giveConsoleTime, issueConsoleTaxInvoice, makeConsoleOrder, recordConsolePayment, setConsoleSelection,
 } from "../services/console.service";
-import { METHOD_WORDS, PAYMENT_STATES, PERIOD_KINDS, dayWords, endsWords, priceWords, stateWords } from "../consoleWords";
+import { METHOD_WORDS, PAYMENT_STATES, PERIOD_KINDS, dayWords, endsWords, periodProgress, priceWords, stateWords } from "../consoleWords";
 import "../styles/console.css";
 
 // One business as the platform sees it (/platform/businesses/:businessId):
@@ -71,6 +71,11 @@ export default function PlatformBusinessPage() {
   const on = (restaurant ? business.restaurantStatus : business.status) === "active";
   const openOrder = data.orders.find((o) => o.status === "open");
   const closed = () => { setDialog(null); load(); };
+  // How far the time it has now has run, on the business's own date.
+  const now = business.today || today();
+  const current = data.periods.filter((p) => !p.cancelledAt && p.startsOn <= now && (!p.endsOn || p.endsOn >= now))
+    .sort((a, b) => (a.startsOn < b.startsOn ? 1 : -1))[0];
+  const progress = periodProgress(current, now);
 
   const switchOnOff = async () => {
     const next = on ? "inactive" : "active";
@@ -129,6 +134,12 @@ export default function PlatformBusinessPage() {
               <span><StatusBadge status={plan.state} label={stateWords(plan.state).label} tone={stateWords(plan.state).tone} /></span>
               <span>{endsWords(plan)}</span>
               {plan.daysLeft !== null && plan.daysLeft !== undefined && <small className="muted">{plan.daysLeft === 1 ? "1 day left" : `${plan.daysLeft} days left`}</small>}
+              {progress && (
+                <span className={`pc-period tone-${stateWords(plan.state).tone}`} title={`${PERIOD_KINDS[current.kind] || "Time"}: ${progress.words}`}>
+                  <span className="pc-period-bar" aria-hidden="true"><i style={{ "--share": `${progress.share}%` }} /></span>
+                  <small>{progress.words}</small>
+                </span>
+              )}
             </dd>
           </div>
           <div>
@@ -154,7 +165,7 @@ export default function PlatformBusinessPage() {
             <dd>
               {data.owners.length === 0 && <span className="muted">No owner</span>}
               {data.owners.map((o) => (
-                <span key={o.id} className="bz-two-line">
+                <span key={o.id} className="pc-two-line">
                   <strong>{o.name}</strong>
                   <small className="muted">{[o.email, o.mobile].filter(Boolean).join(" · ")}</small>
                   <small className="muted">Last signed in {o.lastLoginAt ? relative(o.lastLoginAt) : "never"}</small>
@@ -233,7 +244,7 @@ function Timeline({ data, onRecord, onTaxInvoice }) {
       render: (o) => <StatusBadge status={o.status} label={ORDER_STATES[o.status]?.label || o.status} tone={ORDER_STATES[o.status]?.tone} /> },
     { key: "payments", header: "Payments", value: (o) => o.payments.map((p) => `${METHOD_WORDS[p.method] || p.method} ${p.reference}`).join(", "),
       render: (o) => o.payments.map((p) => (
-        <span key={p.id} className="bz-two-line"><span>{METHOD_WORDS[p.method] || p.method} · {p.reference}</span>
+        <span key={p.id} className="pc-two-line"><span>{METHOD_WORDS[p.method] || p.method} · {p.reference}</span>
           <small className="muted">{PAYMENT_STATES[p.status]?.label || p.status}{p.decisionNote ? `: ${p.decisionNote}` : ""}</small></span>
       )) },
     { key: "actions", header: "", label: "Actions", type: "actions", render: (o) => {

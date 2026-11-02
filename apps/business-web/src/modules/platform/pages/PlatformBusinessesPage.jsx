@@ -8,8 +8,9 @@ import StatusBadge from "../../../components/StatusBadge";
 import { getErrorMessage } from "../../../services/api";
 import { formatLabel } from "../../../services/restaurantFormats";
 import { relative } from "@bmp/shared/format";
+import { today } from "@bmp/shared/dates";
 import { listPlatformBusinesses } from "../services/platform.service";
-import { PLAN_STATES, dayWords, endsWords, planOfRow, stateWords } from "../consoleWords";
+import { PLAN_STATES, dayWords, endsInWords, endsWords, planOfRow, stateWords } from "../consoleWords";
 import "../styles/console.css";
 
 // Platform › Businesses: every business on the platform, restaurants
@@ -64,16 +65,25 @@ export default function PlatformBusinessesPage() {
 
   const columns = useMemo(() => [
     { key: "name", header: "Business", value: (b) => b.name, mobile: "title", pin: true, csv: (b) => `${b.name} (${b.code})`,
-      render: (b) => <span className="bz-two-line"><Link to={`/platform/businesses/${b.id}`}><strong>{b.name}</strong></Link><small className="muted mono">{b.code}</small></span> },
+      render: (b) => <span className="pc-two-line"><Link to={`/platform/businesses/${b.id}`}><strong>{b.name}</strong></Link><small className="muted mono">{b.code}</small></span> },
     { key: "type", header: "Type", value: (b) => (b.restaurant_id ? formatLabel(b.format) : b.type_name), mobile: "subtitle" },
     { key: "state", header: "State", type: "status", value: (b) => stateWords(b.state).label, mobile: "show",
       render: (b) => <StatusBadge status={b.state} label={stateWords(b.state).label} tone={stateWords(b.state).tone} /> },
     { key: "plan", header: "Plan", value: (b) => (b.plan_name ? `${b.plan_name}, ${PERIODS[b.billing_period] || b.billing_period}` : "") },
     { key: "addons", header: "Add-ons", type: "number", value: (b) => b.addons },
     { key: "ends", header: "Ends on", type: "date", value: (b) => b.access_ends_on || "", mobile: "show",
-      render: (b) => <span title={endsWords(planOfRow(b))}>{b.access_ends_on ? dayWords(b.access_ends_on) : b.state === "given" ? "No end date" : "—"}</span> },
+      render: (b) => {
+        if (!b.access_ends_on) return <span title={endsWords(planOfRow(b))}>{b.state === "given" ? "No end date" : "—"}</span>;
+        const until = endsInWords(b.access_ends_on, today());
+        return (
+          <span className="pc-two-line" title={endsWords(planOfRow(b))}>
+            <span>{dayWords(b.access_ends_on)}</span>
+            <small className={`pc-when tone-${until.tone}`}>{until.text}</small>
+          </span>
+        );
+      } },
     { key: "owners", header: "Owner", value: (b) => (b.owners || []).map((o) => o.name).join(", "),
-      render: (b) => (b.owners || []).map((o) => <span key={o.id} className="bz-two-line"><span>{o.name}</span><small className="muted">{o.email}</small></span>) },
+      render: (b) => (b.owners || []).map((o) => <span key={o.id} className="pc-two-line"><span>{o.name}</span><small className="muted">{o.email}</small></span>) },
     { key: "place", header: "City, state", value: (b) => [b.city, b.state_name].filter(Boolean).join(", ") },
     { key: "created", header: "Created", type: "date", value: (b) => b.created_at },
     { key: "lastActive", header: "Last active", type: "datetime", value: (b) => b.last_active_at || "", render: (b) => (b.last_active_at ? relative(b.last_active_at) : "Never") },

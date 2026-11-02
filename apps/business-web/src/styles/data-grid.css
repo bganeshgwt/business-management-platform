@@ -309,10 +309,10 @@
   padding-top: 10px;
   padding-bottom: 10px;
   background: var(--dg-head-bg);
-  color: var(--text-2);
+  color: var(--muted);
   font-size: 0.75rem;
-  font-weight: 650;
-  letter-spacing: 0.01em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   line-height: 1.35;
   white-space: nowrap;
   /* The line under the header is a step darker than the row lines, so the

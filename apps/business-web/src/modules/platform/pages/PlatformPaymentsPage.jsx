@@ -84,7 +84,7 @@ export default function PlatformPaymentsPage() {
     { key: "entered", header: "Entered", type: "datetime", value: (p) => p.submittedAt, render: (p) => `${relative(p.submittedAt)}${p.submittedBy ? ` by ${p.submittedBy}` : ""}` },
     { key: "order", header: "For", value: orderWords },
     { key: "actions", header: "", label: "Actions", type: "actions", render: (p) => (
-      <span className="bz-actions">
+      <span className="pc-actions">
         <button type="button" className="button button-sm" disabled={confirming === p.id} onClick={() => confirm(p)}>{confirming === p.id ? "Confirming…" : "Confirm"}</button>
         <button type="button" className="button button-secondary button-sm" onClick={() => setRejecting(p)}>Reject</button>
       </span>
@@ -94,7 +94,7 @@ export default function PlatformPaymentsPage() {
 
   const openColumns = useMemo(() => [
     { key: "business", header: "Business", value: (o) => o.businessName, mobile: "title", render: business },
-    { key: "order", header: "Order", value: (o) => `No. ${o.id}`, render: (o) => <span className="bz-two-line"><span>No. {o.id}</span><small className="muted">{orderWords(o)}</small></span> },
+    { key: "order", header: "Order", value: (o) => `No. ${o.id}`, render: (o) => <span className="pc-two-line"><span>No. {o.id}</span><small className="muted">{orderWords(o)}</small></span> },
     { key: "total", header: "Total with GST", type: "money", exact: true, value: (o) => Number(o.total), mobile: "show" },
     { key: "validUntil", header: "Prices held until", type: "date", value: (o) => o.validUntil, render: (o) => (o.expired ? `${dayWords(o.validUntil)} (past)` : dayWords(o.validUntil)) },
     { key: "actions", header: "", label: "Actions", type: "actions", render: (o) => <button type="button" className="chip-button" onClick={() => setRecording(o)}>Record payment</button> },

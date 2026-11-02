@@ -128,8 +128,62 @@ test("the call-back form on the home page thanks the visitor", async ({ page }) 
   await expect(form.getByRole("status")).toContainText("Thank you, we will call you.");
 });
 
-// A picture of each page, saved with the run for review.
-const shot = (page, testInfo, name) => page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true });
+// A picture of each page, saved with the run for review, with every animation at its end.
+const shot = (page, testInfo, name) => page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true, animations: "disabled" });
+
+// The home page's sections rise in as they come into view: scrolled through
+// once, every one of them has.
+async function seeAll(page) {
+  await page.evaluate(async () => {
+    for (let top = 0; top < document.documentElement.scrollHeight; top += 400) {
+      window.scrollTo(0, top);
+      await new Promise((resolve) => setTimeout(resolve, 60));
+    }
+    window.scrollTo(0, 0);
+  });
+  await expect(page.locator("[data-reveal]:not(.is-revealed)")).toHaveCount(0);
+}
+
+test("the home page's tour shows each kind of business's screen: on its own, by its tab or by the arrow keys, and stays put when paused", async ({ page }) => {
+  await page.goto("/welcome");
+  const tabs = page.getByRole("tablist", { name: "The platform's screens for each kind of business" }).getByRole("tab");
+  await expect(tabs).toHaveText(["Restaurant", "Kirana", "Salon", "Clinic"]);
+  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tabpanel")).toContainText("A restaurant: table 6's order goes to the kitchen display as a KOT");
+  // Left alone, the tour moves on to the next kind of business.
+  await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+  await tabs.nth(2).click();
+  await expect(tabs.nth(2)).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tabpanel")).toContainText("A salon: the day's appointments by stylist");
+  await page.keyboard.press("ArrowRight");
+  await expect(tabs.nth(3)).toBeFocused();
+  await expect(tabs.nth(3)).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tabpanel")).toContainText("A clinic: the front desk's tokens");
+  await page.keyboard.press("Home");
+  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+  // Paused, the tab's line stands still even with the pointer away; played, it runs again.
+  await page.getByRole("button", { name: "Pause the tour" }).click();
+  await page.mouse.move(0, 0);
+  await expect(page.locator(".wl-tour-line")).toHaveCSS("animation-play-state", "paused");
+  await page.getByRole("button", { name: "Play the tour" }).click();
+  await page.mouse.move(0, 0);
+  await expect(page.locator(".wl-tour-line")).toHaveCSS("animation-play-state", "running");
+});
+
+test.describe("with reduced motion", () => {
+  test.use({ reducedMotion: "reduce" });
+
+  test("the home page is all there and still: nothing to scroll into view, no tour moving on and no pause to offer", async ({ page, request }) => {
+    const pricing = await site(request, "pricing");
+    await page.goto("/welcome");
+    await expect(page.getByRole("link", { name: pricing.types[0].name, exact: true })).toBeVisible();
+    await expect(page.locator("[data-reveal]:not(.is-revealed)")).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: "Restaurant" })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("button", { name: "Pause the tour" })).toBeHidden();
+    // The ribbon of types holds each type once, standing still.
+    await expect(page.locator(".wl-chip:visible")).toHaveCount(pricing.types.length);
+  });
+});
 
 test("each page has its own title and description, and the policies name the company and the trial from the settings", async ({ page, request }, testInfo) => {
   const info = await site(request, "info");
@@ -141,6 +195,7 @@ test("each page has its own title and description, and the policies name the com
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/welcome");
   await networkQuiet(page);
+  await seeAll(page);
   await shot(page, testInfo, "desk-welcome");
   for (const [path, title] of Object.entries(titles)) {
     await page.goto(path);
@@ -184,6 +239,7 @@ test.describe("on a phone, in the dark theme", () => {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
       await fits(path);
+      if (path === "/welcome") await seeAll(page);
       await shot(page, testInfo, `phone${path.replace(/\//g, "-")}`);
     }
     // The sign-up with a restaurant's plan, formats and add-ons on screen.
