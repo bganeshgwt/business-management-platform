@@ -7,12 +7,16 @@ import { choiceError } from "@bmp/shared/menu/addonChoices";
 import { dishImageUrl, guestErrorMessage, newClientKey } from "../../table-order/services/tableOrder.service";
 import {
   cancelOnlineOrder,
+  followOnlineOrder,
   getOnlineMenu,
   getOnlineOrder,
   placeOnlineOrder,
 } from "../services/onlineOrder.service";
 import { money } from "@bmp/shared/format";
 import { ForgetDetails, GuestConsents, PrivacyNote } from "../../privacy/GuestPrivacy";
+import { useGuestLive } from "../../../services/guestLive";
+import StatusSteps from "../../../shared/StatusSteps";
+import { GuestError, GuestSkeleton } from "../../../shared/GuestStates";
 import "../../../styles/guest.css";
 import "../styles/online-order.css";
 
@@ -29,10 +33,12 @@ import "../styles/online-order.css";
 // Paying online is not offered until a payment gateway is connected: the
 // page says that too, rather than showing a button that pretends.
 
-// How often a status page asks: quickly while the restaurant has yet to
+// A status page hears of its order moving on by itself, the moment the
+// restaurant acts (useGuestLive). When it cannot (the live stream cannot
+// open), it asks on its own instead: quickly while the restaurant has yet to
 // answer, then at the pace of a kitchen.
-const POLL_WAITING = 8000;
-const POLL_COOKING = 20000;
+const FALLBACK_WAITING = 8000;
+const FALLBACK_COOKING = 20000;
 // Orders this phone follows, for "Your orders": a day's worth.
 const TRACK_HOURS = 24;
 
@@ -703,49 +709,42 @@ const STATUS_ICON = {
 
 function StatusPage({ token, guestToken }) {
   const [order, setOrder] = useState(null);
+  const [live, setLive] = useState(null);
   const [error, setError] = useState("");
   const [notFound, setNotFound] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState("");
   const [attempt, setAttempt] = useState(0);
-  const latest = useRef(null);
+
+  // The order, read again whenever the live stream says it moved on (or on
+  // its own, while the page cannot hear); each answer brings the key the
+  // stream watches it with, and none once the order is final. Reads may
+  // overlap: only the newest asked is applied.
+  const asked = useRef(0);
+  const load = useCallback(() => {
+    const turn = (asked.current += 1);
+
+    return followOnlineOrder(token, guestToken)
+      .then(({ order: data, live: next }) => {
+        if (turn !== asked.current) return;
+        setOrder(data);
+        setLive(next);
+        setError("");
+      })
+      .catch((err) => {
+        if (turn !== asked.current) return;
+        setNotFound(err.response?.status === 404);
+        setError(guestErrorMessage(err));
+      });
+  }, [token, guestToken]);
 
   useEffect(() => {
-    let alive = true;
-    let timer = null;
+    load();
+  }, [load, attempt]);
 
-    const load = () => {
-      if (document.visibilityState === "hidden" && latest.current) {
-        return Promise.resolve();
-      }
-
-      return getOnlineOrder(token, guestToken)
-        .then((data) => {
-          if (!alive) return;
-          latest.current = data;
-          setOrder(data);
-          setError("");
-        })
-        .catch((err) => {
-          if (!alive) return;
-          setNotFound(err.response?.status === 404);
-          setError(guestErrorMessage(err));
-        });
-    };
-
-    const schedule = () => {
-      if (!alive || (latest.current && latest.current.final)) return;
-      const waiting = !latest.current || latest.current.stage === "sent";
-      timer = setTimeout(() => load().then(schedule), waiting ? POLL_WAITING : POLL_COOKING);
-    };
-
-    load().then(schedule);
-
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-  }, [token, guestToken, attempt]);
+  const liveStatus = useGuestLive(order && !order.final ? live : null, load, {
+    fallbackMs: !order || order.stage === "sent" ? FALLBACK_WAITING : FALLBACK_COOKING,
+  });
 
   useEffect(() => {
     if (order) {
@@ -758,9 +757,11 @@ function StatusPage({ token, guestToken }) {
     setCancelError("");
 
     try {
-      const updated = await cancelOnlineOrder(token, guestToken);
-      latest.current = updated;
+      const { order: updated, live: next } = await cancelOnlineOrder(token, guestToken);
+      // Newer than any read still on its way.
+      asked.current += 1;
       setOrder(updated);
+      setLive(next);
     } catch (err) {
       setCancelError(guestErrorMessage(err));
     } finally {
@@ -772,26 +773,20 @@ function StatusPage({ token, guestToken }) {
     if (error) {
       return (
         <div className="guest-app guest-center">
-          <div className="g-problem">
-            <span className="g-problem-mark">
-              <Icon name="alert" size={34} />
-            </span>
-            <h1>{notFound ? "We couldn't find this order" : "Something went wrong"}</h1>
-            <p>{notFound ? "The link may be incomplete. Please call the restaurant if you need help." : error}</p>
-            {!notFound && (
-              <button type="button" className="g-primary" onClick={() => setAttempt((n) => n + 1)}>
-                Try again
-              </button>
-            )}
-          </div>
+          <GuestError
+            heading="h1"
+            title={notFound ? "We couldn't find this order" : "Something went wrong"}
+            message={notFound ? "The link may be incomplete. Please call the restaurant if you need help." : error}
+            onRetry={notFound ? null : () => setAttempt((n) => n + 1)}
+          />
         </div>
       );
     }
 
     return (
-      <div className="guest-app" aria-busy="true">
+      <div className="guest-app">
         <div className="g-shell oo-status-shell">
-          <div className="g-skeleton-hero skeleton" />
+          <GuestSkeleton band cards={2} label="Opening your order" />
         </div>
       </div>
     );
@@ -858,20 +853,12 @@ function StatusPage({ token, guestToken }) {
             </div>
 
             {reached >= 0 && (
-              <ol className={`g-steps oo-steps-${order.steps.length}`} aria-label="Order progress">
-                {order.steps.map((step, index) => (
-                  <li key={step.key} className={index <= reached ? "is-done" : index === reached + 1 ? "is-now" : ""}>
-                    <span className="g-step-dot">{index <= reached ? <Icon name="check" size={12} /> : null}</span>
-                    <span>{step.label}</span>
-                  </li>
-                ))}
-              </ol>
-            )}
-
-            {!order.final && (
-              <p className="g-muted g-small g-center oo-live">
-                <span className="oo-live-dot" aria-hidden="true" /> This page updates by itself.
-              </p>
+              <StatusSteps
+                label="Order progress"
+                steps={order.steps.map((step) => ({ key: step.key, label: step.label, at: step.key === "sent" ? clockTime(order.createdAt) : null }))}
+                current={order.stage}
+                live={order.final ? null : liveStatus}
+              />
             )}
 
             <div className="g-status-items">

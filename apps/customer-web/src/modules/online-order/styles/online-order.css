@@ -302,42 +302,6 @@
   font-weight: 700;
 }
 
-.g-steps.oo-steps-5 {
-  grid-template-columns: repeat(5, 1fr);
-}
-
-.g-steps.oo-steps-5 li {
-  font-size: 0.6875rem;
-  text-align: center;
-}
-
-.oo-live {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin: 0;
-}
-
-.oo-live-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--g-good);
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .oo-live-dot {
-    animation: oo-live 2s ease-in-out infinite;
-  }
-}
-
-@keyframes oo-live {
-  50% {
-    opacity: 0.25;
-  }
-}
-
 .oo-status-sums {
   display: flex;
   flex-direction: column;

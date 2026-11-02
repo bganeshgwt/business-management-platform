@@ -318,6 +318,13 @@ module.exports = {
   live: {
     maxStreams: intFrom("LIVE_STREAMS_MAX", 2000, { min: 1, max: 100000 }),
     perPerson: intFrom("LIVE_STREAMS_PER_PERSON", 20, { min: 1, max: 1000 }),
+    // Guests' pages (a table's QR page, an online order, a booking …) hold
+    // streams of their own, opened with a guest live key, not a login: at
+    // most this many in the process, and this many from one client address
+    // (a restaurant's Wi-Fi puts its guests behind one). A page refused keeps
+    // reading its status on its own every few seconds.
+    guestMax: intFrom("LIVE_GUEST_STREAMS_MAX", 2000, { min: 1, max: 100000 }),
+    guestPerAddress: intFrom("LIVE_GUEST_STREAMS_PER_ADDRESS", 6, { min: 1, max: 1000 }),
   },
   // The public uploads folder (UPLOADS_DIR), served at /uploads, and the
   // private one (PRIVATE_UPLOADS_DIR), sent only through the API: above.

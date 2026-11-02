@@ -58,7 +58,8 @@ lives, and how to extend it.
      [8.6 Add a screen with a DataGrid](#86-add-a-screen-with-a-datagrid) ·
      [8.7 Add a report](#87-add-a-report) ·
      [8.8 Add an outside integration](#88-add-an-outside-integration-through-the-events-outbox) ·
-     [8.9 Turn a planned screen into a real one](#89-turn-a-planned-screen-into-a-real-one)
+     [8.9 Turn a planned screen into a real one](#89-turn-a-planned-screen-into-a-real-one) ·
+     [8.10 Build a guest page for a business](#810-build-a-guest-page-for-a-business)
 9. [Where the structure is going](#9-where-the-structure-is-going)
    - [9.1 Known weak spots](#91-known-weak-spots) ·
      [9.2 Target structure](#92-target-structure) ·
@@ -129,7 +130,7 @@ written down.
 | Application | State |
 | --- | --- |
 | **Staff app** (`apps/business-web`, port 5173 in development) | Built. A switcher in the header opens any business you belong to. For a restaurant (run as a restaurant, café, bakery or cloud kitchen) it is the full restaurant admin, with the POS screen, the kitchen display and the captain app. For the other types it is Business Admin, whose menu is built from that business's modules. It also holds the platform's public site, each owner's *Your plan* and the platform console. |
-| **Guests' site** (`apps/customer-web`, port 5174) | Built: QR table ordering, online ordering and table booking, with no sign-in. Its planned pages answer already, with what is coming. |
+| **Guests' site** (`apps/customer-web`, port 5174) | Built: QR table ordering, online ordering and table booking, with no sign-in; each status page follows its order or booking live (§3.5). A business's privacy notice for its guests, and the shared pieces a business's guest pages are built from (§8.10). Its planned pages answer already, with what is coming. |
 | **API** (`backend`, port 5010 as `.env.example` sets it) | Built: one Express API and one PostgreSQL database for both apps. |
 | POS app (an offline-capable till) | Planned. The POS *screen* is in the staff app (`/pos`). |
 | Captain / waiter app | Built, as part of the staff app (`/captain`): a route group with a layout of its own (`src/workspaces/captain`), phone first, on the POS's own order screen and the order, KOT, table-request and captain-section APIs, with live updates. |
@@ -167,6 +168,7 @@ written down.
 | `/order/:token` | A guest at a table, from its QR code | Built |
 | `/online/:token` | Ordering for pickup or delivery, and the order's status | Built |
 | `/book/…` | Booking a table, and the booking's status | Built |
+| `/privacy-notice/:ref` | A business's privacy notice, from the link on its guest pages (`:ref` names the business without its id) | Built |
 | `/shop/…` | A shop's customers ordering online | **Planned** |
 | `/appointments/…` | Salon and clinic clients booking | **Planned** |
 | `/account` | A returning guest's orders, bookings and points | **Planned** |
@@ -471,12 +473,56 @@ posting's transaction, so a trigger on `business_events` announces those. The
 events stay what §8.8 says, the outbox for outside messages (WhatsApp, SMS,
 webhooks), which need provider accounts and come later through a publisher.
 
-**The guests' site keeps asking** (a table's QR page every 6 or 20 seconds, an
-online order's status every 8 or 20, a booking request every 20): a guest has
-no session to scope a stream by. A table's QR code is printed on the table and
-shared by everyone at it, and an order's or booking's link is its only key; a
-stream held open for every guest's phone, with no login to count it against,
-is a change of its own ([BACKLOG §5](BACKLOG.md#5-live-updates-and-the-outbox)).
+**Guests' streams.** A guest's status page (a table's QR page, an online
+order's, a booking's, and a business's guest pages, §8.10) follows what it
+shows the same way, with no login:
+
+- **A key instead of a login.** Each status answer carries `live: { key,
+  expiresAt }` beside its `data` while something can still happen to what it
+  shows, and `null` once nothing can. The key (`modules/live/services/guestKeys.js`)
+  names one restaurant or one business and the rows the page shows, as
+  `{ area, id }` pairs of the areas above: a table's requests still moving
+  and the orders they made, an online order's request and then its order, a
+  booking's reservation. It is "<payload>.<signature>", the payload readable
+  by the page, signed with HMAC-SHA256 by a key derived from `JWT_SECRET`
+  through HKDF under a label of its own (no new setting), and good for two
+  hours: the next answer brings a fresh one.
+- **The stream.** `GET /api/public/live?key=…`
+  (`modules/live/routes/guestLive.routes.js`), read with the browser's
+  `EventSource`: a guest sends no headers, so the key travels in the address,
+  and the request log prints it as `hidden` (`utils/requestLog.js`). The hub
+  serves it beside the staff's streams, on the same listening connection. A
+  change reaches a guest only when its restaurant or business and its row are
+  among the key's, as `{ area, id }` and nothing more: never an outlet, a
+  location or another row. The stream sends `ready`, then `change`, a `ping`
+  after 20 to 25 seconds of quiet (an event, which `EventSource` shows the
+  page, where it would hide a comment), `resync` when the listening
+  connection comes back, and `end` with `expired` or `restarting`.
+- **Every stage on a row the key names.** A QR request accepted, rejected or
+  cancelled is its `table_request`. The kitchen's progress (a ticket made
+  ready or served, a dish ticked done) is written on the order's own lines
+  and kitchen status, so it is announced as the `order`; a KOT's own row
+  carries no order and is not watched. An online order's delivery status is
+  its order's; a booking is its `reservation`. No trigger changed for guests.
+- **Limits of their own.** A process holds at most `LIVE_GUEST_STREAMS_MAX`
+  guests' streams (2,000 unless set), one client address
+  `LIVE_GUEST_STREAMS_PER_ADDRESS` (6 unless set; a restaurant's Wi-Fi puts
+  its guests behind one), read as `TRUST_PROXY` says, and one key three.
+  Opening one is rate limited per address. Guests never count against a
+  staff limit. A page refused, or whose stream cannot open, reads on its own.
+- **The page** (`apps/customer-web/src/services/guestLive.js`,
+  `useGuestLive(live, reload, { safetyNetMs, fallbackMs })`) opens the stream,
+  reads once as it opens and a moment after each change (a burst is one read,
+  never two at once), keeps the stream while new answers watch the same rows
+  and opens another when they watch others, and reads again when it ends (the
+  answer brings the next key). A stream not ready within 10 seconds, or
+  silent for 70, is taken as dropped. While it has none, the page reads every
+  `fallbackMs` (6 or 20 seconds at a table, 8 or 20 online, 20 or 60 for a
+  booking) and tries the stream again after 5, 10, 20 and 40 seconds, then
+  every minute; while live, it still reads every minute, its safety net. It
+  closes while the tab is hidden, and reads and reopens on return.
+  `src/shared/LiveDot.jsx` says *Live*, or *Updates every few seconds* while
+  the page reads on its own.
 
 ---
 
@@ -998,9 +1044,12 @@ workspaces; the backend has its own install.
 │   │   │   │                 methods, expenses, shifts, the counter), retail, wholesale (+ receivables),
 │   │   │   │                 fashion-electronics, salon-weight, health, quotations and licences (every
 │   │   │   │                 type but the restaurant), hardware, agri, optical, garage, memberships,
-│   │   │   │                 laundry, jewellery, rentals, fuel, lodging
+│   │   │   │                 laundry, jewellery, rentals, fuel, lodging; guests (the shared pieces of a
+│   │   │   │                 business's guest pages: a guest's customer record and consents, the business
+│   │   │   │                 card, taking orders, rate limits, the privacy notice's public link)
 │   │   │   ├── tax-changes/  GST rates by date for every business: a shop's items and a restaurant's dishes
-│   │   │   ├── live/         live updates for every business: the LISTEN connection and the screens' streams
+│   │   │   ├── live/         live updates for every business: the LISTEN connection, the screens' streams, and
+│   │   │   │                 guests' streams with their guest live keys (/api/public/live)
 │   │   │   ├── personal-data/  personal data for every business: the privacy notice, consents, requests, breaches
 │   │   │   ├── gst-thresholds/  an owner's GST thresholds: turnover under one PAN across their businesses, the warnings
 │   │   │   └── tasks/        tasks, issues & projects for every business (+ library/ of built-in templates)
@@ -1084,14 +1133,17 @@ workspaces; the backend has its own install.
 │   └── customer-web/         the guests' site (React + Vite, :5174)
 │       ├── src/
 │       │   ├── main.jsx      the shared look, Router (no sign-in, no staff providers)
-│       │   ├── App.jsx       /order/:token, /online/:token/*, /book/*; planned /shop, /appointments,
-│       │   │                 /account; any other address → StartPage; all inside PageLoadBoundary
+│       │   ├── App.jsx       /order/:token, /online/:token/*, /book/*, /privacy-notice/:ref; planned /shop,
+│       │   │                 /appointments, /account; any other address → StartPage; all inside PageLoadBoundary
 │       │   ├── modules/      table-order/ (pages/, services/); online-order/, booking/ (pages/, services/, styles/);
 │       │   │                 privacy/ (the privacy notice and the consent ticks the guests' pages show)
-│       │   ├── pages/        StartPage, PlannedPage
+│       │   ├── services/     guestLive (useGuestLive: a status page's live updates) and its rules
+│       │   ├── shared/       what a business's guest pages are built from (§8.10): publicClient, GuestShell,
+│       │   │                 the fields, ConsentChoices, StatusSteps and LiveDot, GuestEmpty, GuestError, GuestSkeleton
+│       │   ├── pages/        StartPage, PlannedPage, PrivacyPage (a business's privacy notice)
 │       │   ├── plannedPages.js   what each planned guest page says
 │       │   └── styles/       guest.css
-│       └── tests/browser/    Playwright checks
+│       └── tests/            *.test.js (Node: the live rules, the shared pieces' rules); browser/ (Playwright)
 └── packages/
     ├── ui/                   @bmp/ui: styles/ (what both apps use: base = tokens and elements, ui, motion,
     │                         colour, components), Icon, menu/ (ComboChoicePicker, AddonChoiceRules),
@@ -1330,10 +1382,11 @@ file behind an index file with the module's name, which callers import:
 | Module | Backend | Frontend (`modules/<module>/pages/`) | Tables |
 | --- | --- | --- | --- |
 | Tasks, issues & projects (`modules/tasks`) | `routes/tasks.routes.js` (both front doors), `controllers/tasks.controller.js`, `services/` (`scope`, `common`, `people`, `templates`, `recurrence`, `tasks`, `issues`, `projects`, `files`, `reports`, `notifications`), `repositories/tasks.repository.js`, `library/`; bell provider `notifications/providers/tasks.js` | `TasksRoutes`, `TasksScope`, `MyTasksPage`, `TaskRunPage`, `BoardPage`, `CalendarPage`, `IssuesPage`, `IssueDetailPage`, `ProjectsPage`, `ProjectDetailPage`, `TemplatesPage`, `RecurringPage`, `TaskReportsPage`, `forms`, `ItemsEditor`, `ScheduleForm`, `parts`, `taskWords`, `useTasks`, `useServerGrid`; API calls `services/tasks.service.js`; styles `styles/tasks.css` | `business_task*`, `business_issues`, `business_project*`, `platform_task_categories` |
-| Live updates (`modules/live`) | `routes/live.routes.js` (both front doors, mounted in `routes/index.js` before `/businesses`), `services/liveListener.js` (the process's one LISTEN connection), `services/liveHub.js` (the streams, their checks and limits, clearing the kept dashboard and bell answers); started and stopped by `server.js` | `services/liveClient.js` (the stream, reconnecting, gathering bursts), `services/live.js` (the app's client), `hooks/useLiveRefresh.js`, `components/LiveIndicator.jsx`; used by the live screens and the bell | none: triggers on the tables the live screens read (migrations 1791974000000, and 1791976000000 for the lab) |
+| Live updates (`modules/live`) | `routes/live.routes.js` (both front doors, mounted in `routes/index.js` before `/businesses`), `routes/guestLive.routes.js` (a guest page's stream, `/api/public/live`, mounted before the rest of `/public`), `services/liveListener.js` (the process's one LISTEN connection), `services/liveHub.js` (the streams, staff's and guests', their checks and limits, clearing the kept dashboard and bell answers), `services/guestKeys.js` (the guest live keys the status answers carry); started and stopped by `server.js`; the request log hides a key (`utils/requestLog.js`) | `services/liveClient.js` (the stream, reconnecting, gathering bursts), `services/live.js` (the app's client), `hooks/useLiveRefresh.js`, `components/LiveIndicator.jsx`; used by the live screens and the bell. The guests' site: `services/guestLive.js` (`useGuestLive`), `shared/LiveDot.jsx` | none: triggers on the tables the live screens read (migrations 1791974000000, and 1791976000000 for the lab) |
 | GST rates by date (`modules/tax-changes`) | `routes/taxChanges.routes.js` (both front doors: `businessRoutes`, mounted from `business.routes.js`, and `menuHandlers`, mounted from the restaurant's `menu.routes.js`), `services/` (`taxChanges.service` the shared flows, `taxChangesShop` and `taxChangesMenu` the two worlds with their gates, bells and (a shop's) notices, `taxChangesSettings` the rates kept in settings, `taxChangesImport` a notification's list, `taxChangesMoney` the arithmetic and dates); the gates are called from `businessAccess.open`, `postDocument`, the menu router, the restaurant's settings and advances' GST, `tableRequest.service`, `preorder.service` and `order.service`'s `priceLines`; the restaurant's bell provider `notifications/providers/taxChanges.js` | `BusinessTaxChangesPage`, `MenuTaxChangesPage`, `TaxChangesView`, `TaxChangeTool` (the new change with its preview), `TaxImportTool` (a notification's list), `SettingRatesCard` (a rate kept in settings, by date), `TaxChangeDialog`, `TaxHistoryDialog` (an item's GST history, from the catalogue and the menu's products), `TaxNotices` (the notice on an open quotation or sales order, and the documents a change touches); words, the list's reader and the notice in `taxChanges.js`; API calls `services/taxChanges.service.js`; styles `styles/tax-changes.css` | `business_tax_changes`, `business_tax_change_items`, `business_tax_setting_changes`, `business_tax_change_imports` |
 | Personal data (`modules/personal-data`) | `routes/personalData.routes.js` (both front doors: `businessRoutes`, mounted from `business.routes.js`, and `restaurantRouter`, at `/api/privacy` in `routes/index.js`), `services/` (`personalData.service` the notice, consents and a child's mark; `privacyRegister.service` requests, the access export, erasure and breaches; `personalDataShop` and `personalDataRestaurant` the two worlds; `personalDataRegistry` where a customer's data lives, table by table; `consents` what every module uses to record and check a consent; `privacyNotice` the starter notice); bell provider `notifications/providers/privacy.js`, and a business's bell in `businessNotifications.service.js` | `BusinessPrivacyPage`, `RestaurantPrivacyPage`, `PrivacyView` (the three tabs), `RequestsTab`, `BreachesTab`, `NoticeTab`, `usePagedList`; components `ConsentChoices` (+ `NewCustomerConsents`), `ConsentLink`, `AskConsentDialog`, `ChildMark`; `useConsentGate`, `usePrivacy`, `consentStore.js`, `printLine.js`; words in `personalData.js`; API calls `services/privacy.service.js`; styles `styles/personal-data.css`; the guests' site's `modules/privacy/GuestPrivacy.jsx` | `business_privacy_notices`, `business_consents`, `business_children`, `business_privacy_requests`, `business_privacy_breaches`, `business_privacy_breach_people`, `business_privacy_breach_notices` |
 | An owner's GST thresholds (`modules/gst-thresholds`) | `routes/gstThresholds.routes.js` (three doors: `ownerRoutes` and `businessRoutes`, mounted from `business.routes.js`, and `restaurantRouter`, at `/api/gst-thresholds` in `routes/index.js`), `services/` (`gstThresholds.service` the owner's view, the warning level, the recorded PAN, the codes to fix and the bells' lines; `gstTurnover` what each business's records say: its owners, PAN sources, date, sales less returns, HSN / SAC codes; `gstThresholdsRules` the pure part: a PAN from a GSTIN, the financial year, the projection, the figures in force and where a PAN stands, the words; `standingCache` a business's standing kept five minutes for the bells); bell provider `notifications/providers/gstThresholds.js`, and a business's bell in `businessNotifications.service.js` | `GstThresholdsPage` (`/business-admin/gst-thresholds`), `OwnerThresholdsCard` (on Your businesses), `HsnToFix` (on a catalogue), `MenuHsnNotice` (on the restaurant's Tax rates); words in `gstThresholds.js`; API calls `services/gstThresholds.service.js`; styles `styles/gst-thresholds.css` | `platform_gst_thresholds`, `business_gst_pans`, `owner_gst_settings`; reads the core's documents and returns, and the restaurant's bills and credit notes |
+| A business's guest pages (`modules/business/guests`) | `index.js` (every piece), `services/` (`guestContacts` a guest's customer record by mobile, `guestConsents` what a guest ticked, `guestBusinessCard` the band and the seller details, `guestHours` open now (pure), `guestOrders` whether the business takes anything now, `guestLimiter` rate limits by client address, link or mobile, `privacyRef` and `guestNotice` the privacy notice's public link), `routes/guestNotice.routes.js` (`/api/public/privacy/:ref`); `repo.guestAudit` in `business.repository.js` | none in the staff app (the activity log shows a guest's rows as *Guest (online)*); the guests' site's `src/shared/` and `pages/PrivacyPage.jsx` | `business_contacts` (`source`), `business_audit` (`channel`) |
 
 Where each area's tests are: [TESTING.md](TESTING.md).
 
@@ -1705,6 +1758,52 @@ WhatsApp, a webhook or accounting:
 **Something new and planned:** add the route and an entry in the planned
 list first, so the address works from day one.
 
+### 8.10 Build a guest page for a business
+
+A business's guest page (online booking, an online shop) opens from a link's
+opaque token (192 random bits; never an id or a slug), needs no login, and is
+built from these pieces. `guest-foundation.test.js` and `guest-live.test.js`
+check each.
+
+**On the API** (`backend/src/modules/business/guests`, every piece in its
+`index.js`):
+
+| Piece | What it does |
+| --- | --- |
+| `guestBusinessCard(db, businessId, locationId)` | What the page shows of the business: `{ name, type, logoUrl, takingOrders, location: { name, address, city, postalCode, phone }, hours: { known, openNow, today, closesAt, opensAt: { in, day, time } }, seller: { legalName, gstin, address }, privacy }`, or `null` for no such business or no such location of it. `privacy` is `{ id, version, url, billsText, remindersText, offersText, contact }`, or `null` while no notice is published. The location's address and phone, else the business's; its own GSTIN when it has one. Today and "open now" are on the business's clock. Nothing private: no person's details, no staff phone, no note. Every answer of the page carries it. |
+| `assertBusinessTakingOrders(db, businessId, { locationId, message })` | Before every write: 404 `not_available` for no such business or a location not its own; 409 `not_taking_orders`, with the page's `message`, when the plan has ended, the business is switched off or the location is closed. The card's `takingOrders` says the same before the guest starts; the page then shows the business's phone. |
+| `readGuestName`, `readGuestMobile`, `readGuestEmail` | A guest's details, read strictly before any work: a name with a letter in it, an Indian mobile kept as its ten digits, an email when given (400, with `field`). |
+| `findOrCreateGuestContact(db, business, { name, mobile, email })` | In the page's transaction: the business's active, not erased customer whose mobile has the same last ten digits (of several, the one used most recently), used as it is, so a name staff set is never changed; else a new customer with `source = 'guests_site'` and an audit row of no actor. `{ contact, created }`. Two requests with one new mobile at once make one record. |
+| `readGuestChoices(value)`, `recordGuestConsents(db, business, contactId, choices, noticeId)` | What the guest ticked (a list of purposes, or `{ purpose: true or false }`), recorded through `consents.apply`: channel `guests_site`, method digital, no one recording it, on the notice the page showed (`noticeId`, any version of the business's; another business's: 400 `notice_changed`; none published: 409 `no_privacy_notice`). An unticked box withdraws nothing; offers are never recorded for a child. `{ purposes }`, the customer's active ones. |
+| `guestLimiter({ windowMs, max, key, message })` | A rate limit by the client's address as `TRUST_PROXY` reads it (an IPv6 network as one), or by `key(req)` (a link's token, a mobile) when it gives one. A page that takes requests uses three: per address, per link, per mobile. |
+| `repo.guestAudit(db, businessId, action, entityId, details)` | The audit row of a guest's own action: no actor, `channel` `guests_site`; the activity log shows *Guest (online)*. Staff actions on the row are audited as usual. |
+| `repo.automaticAudit(db, businessId, action, entityId, details)` | The audit row of the business's own rule acting on its own time (a request not answered in time expires, an online order not accepted in time is declined): no actor, `channel` `automatic`; the activity log shows *Automatic*. |
+| `guestKeys.issue({ business, watch: [{ area, id }] })` (`modules/live/services/guestKeys.js`) | The status answer's `live`, beside `data` (`{ success, data, live }`) while something can still happen, `null` once nothing can. Watch the rows whose live area moves the page's stage: an `appointment`, or the kind of the `business_events` row the service writes (`online_order` …). A new table staff watch needs a live trigger or an event (§3.5). |
+
+A row a guest makes records `source = 'guests_site'`, no `created_by`, and
+its audit row with no actor. A guest route answers `Cache-Control: no-store`,
+refuses in sentences for the guest with a `reason`, takes a `clientKey` on
+every submission, and is mounted under `/api/public`, which answers any web
+address.
+
+**On the guests' site** (`apps/customer-web/src/shared`, every piece in its
+`index.js`):
+
+| Piece | What it does |
+| --- | --- |
+| `publicClient(base)` | The page's own client on `<API>/public/<base>`: no interceptors and no login token (a staff token on a shared tablet never rides along). With `guestErrorMessage(error, who)`, `refusalReason(error)` and `newClientKey()`. |
+| `GuestShell` | The frame: the band (logo or initials, name, *Open now · closes 9:00 pm* or *Closed · opens tomorrow at 9:00 am*, Call, Directions in Google Maps), the page, and the foot (the seller's details, each only when present: legal name, address, GSTIN, FSSAI licence, customer care, grievance officer, the page adding its own through `seller`; the privacy notice's link; *Powered by* the platform). |
+| `MobileField`, `NameField`, `AddressFields`, `DeclarationCheck` | +91 and ten digits starting 6 to 9 on the number pad (a pasted +91 number taken as its ten digits); a name; address, landmark and a six-digit PIN code; a declaration the guest ticks where a page asks one (a salon's *I am 18 or over, or I am booking for my child as their parent or guardian*). Each shows its problem once the guest leaves it, or the page's `error`. |
+| `ConsentChoices` | The notice's link and one box per purpose the page asks, in the business's own words, none ever ticked. The page sends what is ticked and `card.privacy.id`. |
+| `StatusSteps`, `LiveDot` | The status as a timeline (done, next, times), with the live dot. |
+| `GuestEmpty`, `GuestError`, `GuestSkeleton` | Nothing yet; something went wrong (Try again, Call); loading. |
+| `useGuestLive(live, reload, { safetyNetMs, fallbackMs })` (`src/services/guestLive.js`) | Follows the status answer's `live` (§3.5) and returns the dot's status. `reload` reads the status again and returns a promise; `live` is `null` once the status is final. |
+
+They follow the guest look (`styles/guest.css`) and the platform's tokens,
+light and dark, from 360 px. A page remembers the guest's own links on the
+device (as the booking page's `book.mine`), and opens the privacy notice in a
+tab of its own (`/privacy-notice/:ref`).
+
 ---
 
 ## 9. Where the structure is going
@@ -1719,7 +1818,7 @@ shape of the code and the data.
 | --- | --- | --- |
 | **Very large files** | `PosPage.jsx` (about 3,000 lines, nearly all one component: it needs a real refactor, not a move), `order.service.js` (about 2,600), `InventoryInsightsPage.jsx` (about 2,500), `order.repository.js` and `TimeClockPage.jsx` (about 2,400 each), `bill.repository.js` (about 2,300), `KitchenDisplayPage.jsx` (about 2,200), and `base.css` in the staff app's `src/styles/app` (about 2,100). | Slow to read and risky to change. |
 | **Migrations** | Many files fix earlier ones, and a fresh database replays them all. | A baseline before go-live (plan F) makes new installs simple. |
-| **Outside messages** | Staff screens are live (§3.5), but nothing publishes the outbox outside: no WhatsApp, SMS or webhook. The guests' pages still ask every few seconds. | §8.8 describes the publisher; plan E, step 3 adds the restaurant's events. |
+| **Outside messages** | Staff screens and the guests' status pages are live (§3.5), but nothing publishes the outbox outside: no WhatsApp, SMS or webhook. | §8.8 describes the publisher; plan E, step 3 adds the restaurant's events. |
 | **Kept answers** | The dashboard's and the bell's answers are kept per API process (`utils/dashboardCache.js`, `notifications/index.js`), and so are the standing behind an owner's GST thresholds (`gst-thresholds/services/standingCache.js`, five minutes) and the public site's prices and company details (`platform/services/site.service.js`, a minute). A change the database announces clears the first two in every process (§3.5); any other write (an expense, a purchase, stock) only in the one that made it, and a PAN recorded or a warning level saved clears the GST standing only there, as a save in Platform › Settings clears the public site's. | Several API processes need a shared cache, or sticky sessions, for those. |
 
 ### 9.2 Target structure

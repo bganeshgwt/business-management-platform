@@ -206,7 +206,7 @@ The tables every type shares. A type adds its own tables beside them ([§5](#5-t
 
 ### Contacts and balances
 
-- **Contacts.** `business_contacts` are customers and suppliers (`kind`), with `gstin` (unique per business and kind), `credit_limit` (NULL = no limit), `credit_days` (which set each bill's `due_on`) and `opening_balance` with the date it was true (`opening_balance_on`, required when the balance is not zero).
+- **Contacts.** `business_contacts` are customers and suppliers (`kind`), with `gstin` (unique per business and kind), `credit_limit` (NULL = no limit), `credit_days` (which set each bill's `due_on`) and `opening_balance` with the date it was true (`opening_balance_on`, required when the balance is not zero). `source` says where a record was made: `staff` (a screen or an import), or `guests_site` for a customer made for a guest's booking or order on the guests' site when no customer of the business had their mobile; a guest who has one is that customer, unchanged.
 - **A contact's balance** (`contactBalanceSql` in `business.repository.js`) is:
   - the opening balance,
   - plus, for each document, its total − returns − payments + refunds,
@@ -299,7 +299,7 @@ Industry-specific data goes in tables named `<type>_*`, for example `pharmacy_pr
 
 The live screens hear of each event as it commits: a trigger announces its business, area (the kind up to its dot), entity and location, and the screens read again through the API ([ARCHITECTURE.md › Live updates](ARCHITECTURE.md#35-live-updates)); they read nothing back from the outbox and stamp nothing. Nothing publishes it outside yet. The planned publisher ([BACKLOG.md › Live updates and the outbox](BACKLOG.md#5-live-updates-and-the-outbox)) reads unpublished rows in id order (partial index `business_events_unpublished`), delivers them (messages, webhooks, accounting exports) and stamps `published_at`. A trigger allows only that one stamp, once, and unpublished events cannot be deleted. Every consumer must filter by `business_id`.
 
-`business_audit` records who did what, in the same transaction as the change.
+`business_audit` records who did what, in the same transaction as the change. What a guest does on the guests' site with nobody signed in (a booking, an order, the customer record made for it, a consent ticked) is recorded with no person and the channel `guests_site`, and the activity log shows it as *Guest (online)*. What the business's own rules do on their own time (a request not answered in time expires, an online order not accepted in time is declined) is recorded the same way with the channel `automatic`, shown as *Automatic*. A CHECK keeps the two together: a row has no person exactly when it has a channel.
 
 ## Shared receivables
 

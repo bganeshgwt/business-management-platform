@@ -59,6 +59,7 @@ export default async function globalSetup() {
     await startApi(run);
 
     const data = await buildTestData({ api: URLS.api, logins, sql: testDatabaseQuery(run) });
+    addPrivacyNoticeLinks(run, data);
     fs.writeFileSync(FIXTURE_FILE, JSON.stringify({ database: run.database, urls: URLS, ...data }, null, 2), { mode: 0o600 });
     process.env.E2E_FIXTURE_FILE = FIXTURE_FILE;
 
@@ -225,6 +226,8 @@ const portAnswers = (port) =>
 
 async function startApi(run) {
   fs.mkdirSync(OUTPUT, { recursive: true });
+  // The run's own secret, kept in memory only (addPrivacyNoticeLinks).
+  run.jwtSecret = crypto.randomBytes(48).toString("hex");
   run.apiLog = fs.createWriteStream(API_LOG);
   const guard = pathToFileURL(path.join(ROOT, "e2e", "stop-with-run.mjs")).href;
   run.api = spawn(process.execPath, ["--import", guard, "src/server.js"], {
@@ -239,7 +242,7 @@ async function startApi(run) {
       DB_PASSWORD: run.postgres.password,
       DB_NAME: run.database,
       CORS_ORIGIN: URLS.staff,
-      JWT_SECRET: crypto.randomBytes(48).toString("hex"),
+      JWT_SECRET: run.jwtSecret,
       // Every spec signs in through the form: a few failed runs must never
       // lock the shared logins out.
       LOGIN_ATTEMPT_LIMIT: "5000",
@@ -297,6 +300,19 @@ async function startApi(run) {
 
   if (!health.ok) {
     throw new Error(`The test API's database check answered ${health.status}; see ${API_LOG}.`);
+  }
+}
+
+// Each business's privacy notice link on the guests' site
+// (/privacy-notice/<reference>, as businesses[type].privacyRef), made the way
+// the API makes it, from the run's secret. The reference is public by design
+// (every guest page links it); the secret is never written down.
+function addPrivacyNoticeLinks(run, data) {
+  const { refsFor } = backendRequire("./src/modules/business/guests/services/privacyRef.js");
+  const refs = refsFor(run.jwtSecret);
+
+  for (const business of Object.values(data.businesses)) {
+    business.privacyRef = refs.refOf(business.id);
   }
 }
 

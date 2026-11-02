@@ -77,11 +77,12 @@ export function localDate(days = 0) {
 }
 
 // Waiting for a page to finish loading. A live screen holds its live updates
-// stream open (GET /api/live, /api/businesses/:id/live) for as long as it is
-// shown, so Playwright's "networkidle" never comes on one. networkQuiet waits
-// for what it meant: half a second with nothing else in flight. Call
-// watchNetwork(page) once, before the page loads anything.
-const LIVE_STREAM = /\/api\/(?:live|businesses\/\d+\/live)(?:\?|$)/;
+// stream open (GET /api/live, /api/businesses/:id/live, a guest page's
+// /api/public/live) for as long as it is shown, so Playwright's
+// "networkidle" never comes on one. networkQuiet waits for what it meant:
+// half a second with nothing else in flight. Call watchNetwork(page) once,
+// before the page loads anything.
+const LIVE_STREAM = /\/api\/(?:live|businesses\/\d+\/live|public\/live)(?:\?|$)/;
 const watched = new WeakMap();
 
 export function watchNetwork(page) {

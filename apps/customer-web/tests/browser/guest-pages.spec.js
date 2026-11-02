@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { fixture } from "../../../../e2e/fixture.mjs";
+import { PRIVACY, business, fixture } from "../../../../e2e/fixture.mjs";
 
 // The guests' site against the test API: each page opens from its link, a
 // broken or planned address says what to do instead of "Page not found", and
@@ -10,12 +10,16 @@ import { fixture } from "../../../../e2e/fixture.mjs";
 // Every page: no script errors, and no Authorization header on any request.
 let problems = [];
 
-test.beforeEach(async ({ page }) => {
-  problems = [];
+const watch = (page) => {
   page.on("pageerror", (error) => problems.push(`page error: ${error.message}`));
   page.on("request", (request) => {
     if (request.headers().authorization) problems.push(`staff login sent to ${request.url()}`);
   });
+};
+
+test.beforeEach(async ({ page }) => {
+  problems = [];
+  watch(page);
 });
 
 test.afterEach(async () => {
@@ -28,7 +32,7 @@ test("the site's own address says how to get to a restaurant's page", async ({ p
 });
 
 test("a link with part of it missing says what to do", async ({ page }) => {
-  for (const path of ["/order", "/online", "/some/old/address"]) {
+  for (const path of ["/order", "/online", "/privacy-notice", "/some/old/address"]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { name: "This link isn't complete" })).toBeVisible();
   }
@@ -78,6 +82,40 @@ test("unknown links say so in the guest's words", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "We couldn't find this ordering page" })).toBeVisible();
   await page.goto("/book/not-a-real-link");
   await expect(page.getByRole("heading", { name: "Online booking unavailable" })).toBeVisible();
+  // A business's privacy notice by a link that names no business.
+  await page.goto("/privacy-notice/0-AAAAAAAAAAAAAAAAAAAAAA");
+  await expect(page.getByRole("heading", { level: 1, name: "This privacy notice is not available" })).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText("Please ask the business for it.");
+});
+
+test("a business's privacy notice opens from its link, on a phone, in light and in dark", async ({ browser }) => {
+  // The optical shop's notice, published from the starter text with the
+  // shops' privacy contact (build-data.mjs), at the link its guest pages carry.
+  const shop = business("optical");
+  const bands = {};
+
+  for (const colorScheme of ["light", "dark"]) {
+    const context = await browser.newContext({ colorScheme, viewport: { width: 360, height: 760 } });
+    const page = await context.newPage();
+    watch(page);
+    await page.goto(`/privacy-notice/${shop.privacyRef}`);
+
+    await expect(page.getByRole("heading", { level: 1, name: "Privacy notice" })).toBeVisible();
+    await expect(page).toHaveTitle(`Privacy notice · ${shop.name}`);
+    // The business's band, what each consent a page may ask says, whom to
+    // ask, and the platform's name at the foot (read from /api/site/info,
+    // which answers the guests' site's address).
+    await expect(page.getByRole("banner")).toContainText(shop.name);
+    await expect(page.getByRole("heading", { level: 2, name: "What you may agree to" })).toBeVisible();
+    await expect(page.getByText("Questions about your data", { exact: false })).toContainText(PRIVACY.contact.name);
+    await expect(page.getByRole("contentinfo")).toContainText(/Powered by \S/);
+    // A phone's width: nothing runs off the side.
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(0);
+    bands[colorScheme] = await page.getByRole("banner").evaluate((band) => getComputedStyle(band).backgroundColor);
+    await context.close();
+  }
+
+  expect(bands.dark).not.toBe(bands.light);
 });
 
 test("a table's QR code opens its menu", async ({ page }) => {

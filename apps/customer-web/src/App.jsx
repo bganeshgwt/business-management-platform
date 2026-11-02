@@ -8,6 +8,7 @@ const QrLandingPage = lazy(() => import("./modules/table-order/pages/QrLandingPa
 const OnlineOrderPage = lazy(() => import("./modules/online-order/pages/OnlineOrderPage"));
 const BookingPage = lazy(() => import("./modules/booking/pages/BookingPage"));
 const PlannedPage = lazy(() => import("./pages/PlannedPage"));
+const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
 // Lazy as well, so the entry bundle carries no page's stylesheet: each page's
 // CSS arrives with that page only, as it did inside the staff app.
 const StartPage = lazy(() => import("./pages/StartPage"));
@@ -28,6 +29,8 @@ export default function App() {
         <Route path="/online/:token/*" element={<OnlineOrderPage />} />
         {/* A restaurant's booking link and each guest's own booking. */}
         <Route path="/book/*" element={<BookingPage />} />
+        {/* A business's privacy notice, from the link on its guest pages. */}
+        <Route path="/privacy-notice/:ref" element={<PrivacyPage />} />
 
         {/* Planned, not built yet (plannedPages.js): the address works and says
             what is coming and what to do until then. A built one replaces its line. */}

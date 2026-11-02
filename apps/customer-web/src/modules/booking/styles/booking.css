@@ -678,22 +678,7 @@
   color: var(--tone-text) !important;
 }
 
-.gb-pulse {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--tone);
-  animation: gb-pulse 1.6s ease-in-out infinite;
-}
-
-@keyframes gb-pulse {
-  50% {
-    opacity: 0.3;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .gb-pulse,
   .gb-spinner {
     animation: none;
   }

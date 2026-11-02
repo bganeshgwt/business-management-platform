@@ -1,0 +1,668 @@
+/* The shared pieces of a guest page (src/shared): the business band and foot
+   (GuestShell), the fields, the consent boxes, the status timeline with its
+   live dot, and the empty, error and loading states.
+
+   Built on the guest look (styles/guest.css) and the platform's tokens, so
+   they follow light and dark with no rule of their own; a piece used on a
+   page outside .guest-app (the booking pages) falls back to the platform's
+   tokens. Phone first, from 360 px. Motion is opacity and transform only,
+   and none at all for reduced motion. */
+
+.gs-page,
+.gs-live,
+.gs-steps-box,
+.gs-state,
+.gs-skeleton,
+.gs-field,
+.gs-fields,
+.gs-declare,
+.gs-consents {
+  --gs-line: var(--g-line, var(--border));
+  --gs-good: var(--g-good, var(--success));
+  --gs-good-bg: var(--g-good-bg, var(--success-bg));
+  --gs-soft: var(--g-soft, var(--primary-soft));
+  --gs-shadow: var(--g-shadow, var(--shadow-sm));
+}
+
+/* ------------------------------------------------------------ band */
+
+/* Taller only when the line under the name needs two rows (a phone, with
+   both the hours and the page named): nothing is cut short. */
+.gs-band-inner {
+  max-width: 1180px;
+  height: auto;
+  min-height: 58px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.gs-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  object-fit: cover;
+  background: var(--surface-2);
+  border: 1px solid var(--gs-line);
+  flex-shrink: 0;
+}
+
+.gs-band-title strong {
+  font-size: 0.975rem;
+}
+
+.gs-band-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  min-width: 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.gs-band-meta > span {
+  white-space: nowrap;
+}
+
+.gs-band-context {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gs-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.gs-open.is-open {
+  color: var(--gs-good);
+}
+
+.gs-open-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.gs-band-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.gs-band-actions .g-pill {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* ------------------------------------------------------------ page and foot */
+
+.gs-main {
+  max-width: 640px;
+  padding-top: 16px;
+  padding-bottom: 24px;
+}
+
+.gs-main.is-wide {
+  max-width: 1180px;
+}
+
+.gs-foot {
+  border-top: 1px solid var(--gs-line);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.gs-foot-inner {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 18px 16px calc(22px + env(safe-area-inset-bottom));
+  display: grid;
+  gap: 12px;
+}
+
+.gs-foot-inner.is-wide {
+  max-width: 1180px;
+}
+
+.gs-seller {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.gs-seller > div {
+  display: grid;
+  align-content: start;
+  gap: 1px;
+}
+
+.gs-seller dt {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.gs-seller dd {
+  margin: 0;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+.gs-foot-links,
+.gs-powered {
+  margin: 0;
+}
+
+.gs-foot a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.gs-powered {
+  font-size: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .gs-seller {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 24px;
+  }
+}
+
+/* ------------------------------------------------------------ live dot */
+
+.gs-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.gs-live-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  flex-shrink: 0;
+}
+
+/* The green, laid over the grey and faded in once the stream is open: a
+   steady light, never a blink. */
+.gs-live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--gs-good);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--gs-good) 20%, transparent);
+  opacity: 0;
+  transition: opacity 400ms ease;
+}
+
+.gs-live.is-live .gs-live-dot::after {
+  opacity: 1;
+}
+
+.gs-live.is-live {
+  color: var(--gs-good);
+}
+
+/* ------------------------------------------------------------ status steps */
+
+.gs-steps-box {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+
+.gs-steps {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gs-steps.is-row {
+  display: grid;
+  grid-template-columns: repeat(var(--gs-steps, 4), minmax(0, 1fr));
+}
+
+.gs-steps li {
+  position: relative;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.gs-steps.is-row li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  font-size: 0.75rem;
+}
+
+.gs-steps.is-row.is-tight li {
+  font-size: 0.6875rem;
+}
+
+/* The line joining a step to the one before. */
+.gs-steps.is-row li + li::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--border);
+}
+
+.gs-steps.is-row li.is-done + li::before {
+  background: var(--gs-good);
+}
+
+.gs-steps.is-column {
+  display: grid;
+  gap: 14px;
+}
+
+.gs-steps.is-column li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.875rem;
+}
+
+.gs-steps.is-column li + li::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  bottom: calc(100% - 4px);
+  width: 2px;
+  height: 18px;
+  background: var(--border);
+}
+
+.gs-steps.is-column li.is-done + li::before {
+  background: var(--gs-good);
+}
+
+.gs-step-dot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.gs-step-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.gs-step-time {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.gs-steps li.is-done {
+  color: var(--gs-good);
+}
+
+.gs-steps li.is-done .gs-step-dot {
+  border-color: var(--gs-good);
+  background: var(--gs-good);
+  color: var(--surface);
+}
+
+.gs-steps li.is-next {
+  color: var(--text);
+}
+
+.gs-steps li.is-next .gs-step-dot {
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+
+.gs-steps-box.is-stopped li:not(.is-done) {
+  opacity: 0.55;
+}
+
+/* ------------------------------------------------------------ empty, error, loading */
+
+.gs-state {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 440px;
+  margin: 8px auto;
+  padding: 28px 20px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--gs-line);
+  box-shadow: var(--gs-shadow);
+  text-align: center;
+}
+
+.gs-state h1,
+.gs-state h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.gs-state p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.gs-state-mark {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  background: var(--gs-soft);
+  color: var(--primary);
+}
+
+.gs-state.is-error .gs-state-mark {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.gs-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.gs-state-actions .g-primary,
+.gs-state-actions .g-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.gs-skeleton {
+  display: grid;
+  gap: 12px;
+}
+
+.gs-skeleton .skeleton {
+  --skeleton-base: var(--chip-bg);
+}
+
+.gs-skeleton-band {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.gs-sk-mark {
+  display: block;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  flex-shrink: 0;
+}
+
+.gs-sk-lines {
+  display: grid;
+  gap: 6px;
+  flex: 1;
+}
+
+.gs-sk-line {
+  display: block;
+  width: 60%;
+  height: 12px;
+  border-radius: 6px;
+}
+
+.gs-sk-line.is-wide {
+  width: 85%;
+}
+
+.gs-skeleton-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid var(--gs-line);
+}
+
+/* ------------------------------------------------------------ fields */
+
+.gs-fields {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.gs-fields legend {
+  margin-bottom: 4px;
+  padding: 0;
+  font-weight: 700;
+}
+
+.gs-field {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.gs-field > label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.gs-field label em {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* 16 px text in a box, so a phone never zooms in on it. */
+.gs-field input,
+.gs-field textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 1rem;
+}
+
+.gs-field textarea {
+  resize: vertical;
+}
+
+.gs-field input:focus-visible,
+.gs-field textarea:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: var(--ring);
+}
+
+.gs-field.has-problem input,
+.gs-field.has-problem textarea,
+.gs-field.has-problem .gs-mobile-code {
+  border-color: var(--danger);
+}
+
+.gs-field-hint {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.gs-field-problem {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+.gs-mobile {
+  display: flex;
+}
+
+.gs-mobile-code {
+  display: grid;
+  place-items: center;
+  padding: 0 12px;
+  border: 1px solid var(--border-strong);
+  border-right: 0;
+  border-radius: 12px 0 0 12px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.gs-mobile input {
+  border-radius: 0 12px 12px 0;
+  letter-spacing: 0.02em;
+}
+
+.gs-field-pair {
+  display: grid;
+  align-items: start;
+  gap: 12px;
+}
+
+@media (min-width: 480px) {
+  .gs-field-pair {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+
+.gs-declare label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--gs-line);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 0.875rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.gs-declare.has-problem label {
+  border-color: var(--danger);
+}
+
+.gs-declare input,
+.gs-consent input {
+  width: 20px;
+  height: 20px;
+  margin: 1px 0 0;
+  flex-shrink: 0;
+  accent-color: var(--primary);
+}
+
+.gs-declare .gs-field-problem {
+  display: block;
+  margin-top: 6px;
+}
+
+/* ------------------------------------------------------------ consents */
+
+.gs-consents {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--gs-line);
+  border-radius: 14px;
+  background: var(--surface);
+  min-width: 0;
+}
+
+.gs-consents legend {
+  padding: 0 4px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.gs-consents legend em {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.gs-consents-intro {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.gs-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 0.875rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.gs-consents-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 2px 0 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.gs-consents-notice svg {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.gs-consents-notice a {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gs-live-dot::after {
+    transition: none;
+  }
+}

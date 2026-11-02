@@ -17,6 +17,8 @@ import {
 } from "../services/tableOrder.service";
 import { money } from "@bmp/shared/format";
 import { ForgetDetails, PrivacyNote } from "../../privacy/GuestPrivacy";
+import { useGuestLive } from "../../../services/guestLive";
+import LiveDot from "../../../shared/LiveDot";
 import "../../../styles/guest.css";
 
 // Where a printed table QR code lands: the restaurant's face to its guests.
@@ -28,13 +30,15 @@ import "../../../styles/guest.css";
 // reaches the kitchen until a member of staff accepts it — the page says so,
 // so nobody sits waiting for food that has not been confirmed.
 
-// How often the phone asks after orders and calls still in progress: every
-// few seconds while the staff have yet to answer — that is the wait a guest
-// sits watching — and less often once the kitchen has it. A meal is an hour
-// of asking, and every phone on the restaurant's Wi-Fi shares one address's
-// allowance on the server.
-const POLL_WAITING = 6000;
-const POLL_COOKING = 20000;
+// The phone hears of its orders and calls moving on by itself, the moment
+// staff act (useGuestLive). When it cannot (the live stream cannot open, a
+// proxy holds it back), it asks on its own instead: every few seconds while
+// the staff have yet to answer, the wait a guest sits watching, and less
+// often once the kitchen has it.
+const FALLBACK_WAITING = 6000;
+const FALLBACK_COOKING = 20000;
+// The server reads at most this many of a phone's requests at once: the newest.
+const FOLLOW_AT_MOST = 20;
 // Requests older than this are yesterday's dinner, not this visit's.
 const TRACK_HOURS = 8;
 // A guest waiting this long for staff to confirm is offered a waiter.
@@ -661,7 +665,7 @@ const STATUS_ICON = {
   done: "check",
 };
 
-function StatusView({ request, currency, onCancel, cancelling, onCallWaiter, onClose, now }) {
+function StatusView({ request, currency, onCancel, cancelling, onCallWaiter, onClose, now, live }) {
   const isOrder = request.type === "order";
   // Everything up to the current stage has happened; the next step is the
   // one the guest is waiting for.
@@ -701,6 +705,12 @@ function StatusView({ request, currency, onCancel, cancelling, onCallWaiter, onC
             </li>
           ))}
         </ol>
+      )}
+
+      {!request.final && (
+        <p className="g-center g-status-live">
+          <LiveDot status={live} />
+        </p>
       )}
 
       {waitingLong && (
@@ -853,81 +863,82 @@ export default function QrLandingPage() {
     return () => clearInterval(tick);
   }, []);
 
-  // Following up on this phone's requests: all of them once, then only the
-  // ones still moving, while the page is in view — quickly while one waits
-  // for the staff, slowly while the kitchen cooks.
-  const trackedIds = useMemo(() => tracked.map((entry) => entry.id).join(","), [tracked]);
+  // Following up on this phone's requests (the newest twenty): all of them
+  // whenever the list changes, then only the ones still moving, each time the
+  // live stream says one moved (or the page reads on its own, while it
+  // cannot hear). Each answer brings the key the stream watches them with.
+  const trackedIds = useMemo(() => tracked.slice(0, FOLLOW_AT_MOST).map((entry) => entry.id).join(","), [tracked]);
+  const trackedIdsRef = useRef(trackedIds);
+  const [live, setLive] = useState(null);
+  // Reads may overlap (a change heard while the list itself changed): only
+  // the newest asked is applied, so an older answer never undoes a newer one.
+  const asked = useRef(0);
 
   useEffect(() => {
-    if (!menu || !trackedIds) {
-      return undefined;
-    }
+    trackedIdsRef.current = trackedIds;
+  }, [trackedIds]);
 
-    let alive = true;
-    let timer = null;
-    const ids = trackedIds.split(",").map(Number);
-    // What this loop last heard, so the next wait is chosen from the answer
-    // just received rather than from state React has not rendered yet.
-    const latest = { ...requestsRef.current };
+  const follow = useCallback(
+    async (all = false) => {
+      const ids = trackedIdsRef.current ? trackedIdsRef.current.split(",").map(Number) : [];
+      const latest = requestsRef.current;
+      const wanted = all ? ids : ids.filter((id) => !latest[id] || !latest[id].final);
+      const turn = (asked.current += 1);
 
-    const refresh = (onlyOpen) => {
-      const wanted = onlyOpen ? ids.filter((id) => !latest[id] || !latest[id].final) : ids;
-
-      if (document.visibilityState === "hidden" || wanted.length === 0) {
-        return Promise.resolve();
+      if (wanted.length === 0) {
+        setLive(null);
+        return;
       }
 
-      return getGuestRequests(token, wanted)
-        .then((rows) => {
-          if (!alive) return;
+      const { requests: rows, live: next } = await getGuestRequests(token, wanted);
 
-          // A request the restaurant no longer shows this table — from an
-          // earlier sitting, once the table has paid up — is dropped from
-          // this phone's list too.
-          const returned = new Set(rows.map((row) => row.id));
-          const gone = wanted.filter((id) => !returned.has(id));
+      if (turn !== asked.current) {
+        return;
+      }
 
-          for (const row of rows) {
-            latest[row.id] = row;
-          }
+      // A request the restaurant no longer shows this table — from an earlier
+      // sitting, once the table has paid up — is dropped from this phone's
+      // list too.
+      const returned = new Set(rows.map((row) => row.id));
+      const gone = wanted.filter((id) => !returned.has(id));
+      const merge = (current) => {
+        const result = { ...current };
+        for (const row of rows) {
+          result[row.id] = row;
+        }
+        for (const id of gone) {
+          delete result[id];
+        }
+        return result;
+      };
 
-          setRequests((current) => {
-            const next = { ...current };
-            for (const row of rows) {
-              next[row.id] = row;
-            }
-            for (const id of gone) {
-              delete next[id];
-            }
-            return next;
-          });
+      // What was just heard, at once: the next read picks the ones still
+      // moving from it, not from state React has not rendered yet.
+      requestsRef.current = merge(requestsRef.current);
+      setRequests(merge);
 
-          if (gone.length > 0) {
-            setTracked((current) => current.filter((entry) => !gone.includes(entry.id)));
-          }
-        })
-        .catch(() => undefined);
-    };
+      if (gone.length > 0) {
+        setTracked((current) => current.filter((entry) => !gone.includes(entry.id)));
+      }
 
-    const schedule = () => {
-      if (!alive) return;
+      setLive(next);
+    },
+    [token]
+  );
 
-      const open = ids.filter((id) => !latest[id] || !latest[id].final);
-      const waitingOnStaff = open.some((id) => !latest[id] || latest[id].stage === "sent");
+  useEffect(() => {
+    if (menu && trackedIds) {
+      follow(true).catch(() => undefined);
+    }
+  }, [menu, trackedIds, follow]);
 
-      timer = setTimeout(
-        () => refresh(true).then(schedule),
-        waitingOnStaff ? POLL_WAITING : POLL_COOKING
-      );
-    };
-
-    refresh(false).then(schedule);
-
-    return () => {
-      alive = false;
-      clearTimeout(timer);
-    };
-  }, [token, menu, trackedIds]);
+  const waitingOnStaff = tracked.slice(0, FOLLOW_AT_MOST).some((entry) => {
+    const request = requests[entry.id];
+    return !request || (!request.final && request.stage === "sent");
+  });
+  const liveStatus = useGuestLive(menu ? live : null, follow, {
+    fallbackMs: waitingOnStaff ? FALLBACK_WAITING : FALLBACK_COOKING,
+  });
 
   useEffect(() => {
     if (!toast) {
@@ -1219,6 +1230,9 @@ export default function QrLandingPage() {
 
     try {
       const updated = await cancelGuestRequest(token, id);
+      // Newer than any read still on its way.
+      asked.current += 1;
+      requestsRef.current = { ...requestsRef.current, [id]: updated };
       setRequests((current) => ({ ...current, [id]: updated }));
     } catch (error) {
       setToast({ title: "Couldn't cancel", message: guestErrorMessage(error), tone: "bad" });
@@ -1715,6 +1729,7 @@ export default function QrLandingPage() {
             request={statusRequest}
             currency={currency}
             now={now}
+            live={liveStatus}
             cancelling={cancelling}
             onCancel={() => cancelRequest(statusRequest.id)}
             onCallWaiter={() => call("call_waiter")}
@@ -1725,6 +1740,11 @@ export default function QrLandingPage() {
 
       {sheet && sheet.type === "requests" && (
         <Sheet title="Your orders & requests" subtitle={`From this phone · Table ${table.tableNo}`} onClose={() => setSheet(null)}>
+          {liveCount > 0 && (
+            <p className="g-center g-status-live">
+              <LiveDot status={liveStatus} />
+            </p>
+          )}
           <ul className="g-requests">
             {trackedRequests.map((request) => (
               <li key={request.id}>

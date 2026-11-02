@@ -24,6 +24,7 @@ const AppError = require("../../../../utils/AppError");
 const { round2 } = require("../../../../utils/money");
 const personalData = require("../../../personal-data/services/personalData.service");
 const pool = require("../../../../config/database");
+const guestKeys = require("../../../live/services/guestKeys");
 
 // The notice a guest's consents were given on: one of this restaurant's (the
 // page may have loaded the version before the newest). null when they gave none.
@@ -447,7 +448,7 @@ const toGuestOrder = (row, link) => {
 
 // Found by the guest's own token alone (see the repository); the link it
 // was sent from gives the clock, the currency and the promised times.
-const readBack = async (guestToken) => {
+const loadForGuest = async (guestToken) => {
   const row = await onlineOrderRepository.findForGuest(guestToken, effectiveStatusSql);
   const link = row && row.online_link_id ? await onlineOrderRepository.findLinkById(row.online_link_id) : null;
 
@@ -455,8 +456,23 @@ const readBack = async (guestToken) => {
     throw new AppError(404, ORDER_NOT_FOUND);
   }
 
-  return toGuestOrder(row, link);
+  return { row, link, order: toGuestOrder(row, link) };
 };
+
+const readBack = async (guestToken) => (await loadForGuest(guestToken)).order;
+
+// The order, with the guest live key its status page watches it with
+// (guestKeys.js): the request, and once accepted the order it made, whose
+// kitchen and delivery status move it on. null once nothing more can happen.
+const followed = ({ row, link, order }) => ({
+  order,
+  live: order.final
+    ? null
+    : guestKeys.issue({
+        restaurant: link.restaurant_id,
+        watch: [{ area: "table_request", id: row.id }, ...(row.order_id ? [{ area: "order", id: row.order_id }] : [])],
+      }),
+});
 
 // ---------------------------------------------------------------- placing an order
 
@@ -610,10 +626,11 @@ const requireGuestToken = (guestToken) => {
 
 // The link in the address is not checked: the guest's token is what finds
 // the order, and a replaced link must not lose a guest their order.
+// { order, live }.
 const getOrder = async (guestToken) => {
   requireGuestToken(guestToken);
 
-  return readBack(guestToken);
+  return followed(await loadForGuest(guestToken));
 };
 
 const cancelOrder = async (guestToken) => {
@@ -632,7 +649,7 @@ const cancelOrder = async (guestToken) => {
     );
   }
 
-  return readBack(guestToken);
+  return followed(await loadForGuest(guestToken));
 };
 
 // ---------------------------------------------------------------- the staff's settings

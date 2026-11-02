@@ -1769,7 +1769,9 @@ link for the main counter and for each outlet. Guests open
 minutes within Business hours, or the step set under Settings → Alerts and
 timings), give a name and mobile and send a **request**. They never see
 tables. Their status page shows *Request received*, then *Your table is
-confirmed* or your polite reason for declining. No SMS is sent.
+confirmed* or your polite reason for declining, by itself within a second or
+two of your answer (it says *Live* while it follows the booking). No SMS is
+sent.
 
 | Setting | Default | Limits |
 | --- | --- | --- |
@@ -1830,8 +1832,10 @@ commission to anyone.
   guest to the guest book, fills in the address and promised time, and applies
   the Website channel's delivery charge.
 - The guest follows the order on a status page (*Sent, Accepted, Ready, Out
-  for delivery, Delivered* or *Ready for pickup, Collected*) and can cancel
-  only until the restaurant has picked it up.
+  for delivery, Delivered* or *Ready for pickup, Collected*), which moves on by
+  itself within a second or two of each step: accepting it, the kitchen
+  marking it ready, the dispatch desk sending it out. It can be cancelled only
+  until the restaurant has picked it up.
 - **New link** works as for booking: the old link stops at once.
 - Service settings opens for roles with `orders.manage` (owners, managers and
   cashiers), and they are the ones who see, copy and change the links.
@@ -3105,7 +3109,7 @@ panel over it.
 | Business | **Purchases**, with Suppliers, Purchase orders (every business that keeps stock) and, for a wholesaler, Claims on suppliers | Record what was bought; stock goes up at once at its cost. |
 | Business | **Stock** (*Stock on hand*), with Stock movements, Stock counts, Expiring soon, Transfers and the type's own (Serial / IMEI register, Stock by weight, Cutting & processing, Wastage, Expiry, returns & recalls) | Stock by location and batch with its value; every change has a line in the movements ledger with its reason. A transfer is sent, is *on the way*, then is received (or cancelled). A count is entered over time and **approved** by someone allowed to; only then does stock change, and the differences become reasoned corrections. |
 | Business | The type's own records: **Registers & prescriptions** (pharmacy), **Booklists & orders** (books), **Repairs** (electronics), **Packages** (salon), **Lab orders** (clinic), **Farm inputs** (seeds, fertilisers & pesticides) | Described with each type below. |
-| Management | **Reports**, with the type's own reports, Staff commissions and Activity log | Money by day, locations compared, departments; who did what. |
+| Management | **Reports**, with the type's own reports, Staff commissions and Activity log | Money by day, locations compared, departments; who did what (what a guest did on the guests' site, such as a booking or an order sent online, shows as *Guest (online)*; what the business's own rules did on their own time, such as a request not answered in time expiring, shows as *Automatic*). |
 | Management | **Tasks** | See [Part 4](#part-4--tasks-issues--projects). |
 | Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (*Doctors & rooms* in a clinic), Licences (with Licences & registrations on), Personal data, and Pharmacy settings, Clinic & lab settings, Farm input checks, Garage settings, Membership plans, Pumps & nozzles or Room types & rates; and Your plan, for the owner alone | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill at the counter (with a reason; the owner is not limited), whether a walk-in may leave a bill unpaid, and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates. A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
 | Management | **Staff & access**, with Roles & permissions | Give a person from your staff list a role in this business, change it or switch it off. |

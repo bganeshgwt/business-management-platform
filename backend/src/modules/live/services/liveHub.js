@@ -203,6 +203,7 @@ const changed = (note) => {
   }
 
   const kind = restaurant ? "restaurant" : "business";
+  toGuests(kind, restaurant || business, area, idOf(note.id));
   const targets = scopes.get(keyOf(kind, restaurant || business));
 
   if (!targets) {
@@ -287,6 +288,8 @@ const connected = () => {
   for (const stream of streams) {
     write(stream, text);
   }
+
+  resyncGuests();
 };
 
 // Starts listening for changes (server.js, at start; open(), for the first
@@ -405,6 +408,7 @@ const stop = async () => {
     sweeper = null;
   }
 
+  stopGuests();
   await listener.stop();
 };
 
@@ -417,4 +421,218 @@ const stats = () => ({
   listening: listener.listening(),
 });
 
-module.exports = { start, open, stop, stats };
+// --- Guests' streams ---------------------------------------------------------
+//
+// A guest's page (a table's QR page, an online order's or a booking's status,
+// a business's guest page) has no login. It opens its stream with a guest live
+// key instead (guestKeys.js, routes/guestLive.routes.js), which names one
+// restaurant or business and the rows of it the page shows. Such a stream:
+//   - hears of a change to one of those rows only, as { area, id }: never of
+//     another row of the same restaurant, never an outlet or a location;
+//   - ends when its key does, two hours after it was issued ("expired"): the
+//     page reads its status again, which brings a fresh key, and opens a new
+//     stream with it;
+//   - is refused while this process holds LIVE_GUEST_STREAMS_MAX guests'
+//     streams, while the client's address (as TRUST_PROXY reads it) holds
+//     LIVE_GUEST_STREAMS_PER_ADDRESS, or while the key holds three: the page
+//     then reads its status on its own every few seconds and tries again;
+//   - gets a "ping" event whenever it has been quiet for 20 to 25 seconds (the
+//     staff's keep-alive, as an event the page can see), and the staff
+//     streams' resync and "restarting" end.
+// Guests' streams are kept apart from the staff's (sets, counts and sweep of
+// their own), so a guest never counts against a staff limit, and no staff
+// check ever runs on one.
+
+const GUEST_STREAMS_PER_KEY = 3;
+// How long a browser's EventSource waits before it reconnects by itself (the
+// guests' site closes and reopens its streams on its own).
+const GUEST_RETRY_MS = 15000;
+const GUEST_PING = "event: ping\ndata: {}\n\n";
+
+const guestStreams = new Set();
+// "restaurant:12" or "business:7" → its guests' streams.
+const guestScopes = new Map();
+// A client address → its guests' streams here; a key's digest → its streams.
+const guestAddresses = new Map();
+const guestKeyStreams = new Map();
+let guestSweeper = null;
+
+const lower = (counts, name) => {
+  const left = (counts.get(name) || 1) - 1;
+
+  if (left > 0) {
+    counts.set(name, left);
+  } else {
+    counts.delete(name);
+  }
+};
+
+const forgetGuest = (stream) => {
+  if (!guestStreams.delete(stream)) {
+    return;
+  }
+
+  stream.ended = true;
+  const scope = guestScopes.get(stream.key);
+  scope.delete(stream);
+
+  if (!scope.size) {
+    guestScopes.delete(stream.key);
+  }
+
+  lower(guestAddresses, stream.address);
+  lower(guestKeyStreams, stream.keyDigest);
+
+  if (!guestStreams.size && guestSweeper) {
+    clearInterval(guestSweeper);
+    guestSweeper = null;
+  }
+};
+
+const sweepGuests = () => {
+  const now = Date.now();
+
+  for (const stream of guestStreams) {
+    if (stream.ended) {
+      continue;
+    }
+
+    if (now >= stream.expiresAt) {
+      end(stream, "expired");
+      continue;
+    }
+
+    // An event, not a comment: a browser's EventSource never shows the page a
+    // comment, and the page treats a stream silent for 70 seconds as dropped.
+    if (now - stream.lastWrite >= KEEP_ALIVE_MS - SWEEP_MS) {
+      write(stream, GUEST_PING);
+    }
+  }
+};
+
+// A committed change (changed(), above), passed to the guests' streams that
+// watch its row. A change with no row is no guest's.
+function toGuests(kind, tenant, area, id) {
+  const targets = id ? guestScopes.get(keyOf(kind, tenant)) : null;
+
+  if (!targets) {
+    return;
+  }
+
+  const row = `${area}:${id}`;
+  let text = null;
+
+  for (const stream of targets) {
+    if (stream.watch.has(row)) {
+      text = text || frame("change", { area, id });
+      write(stream, text);
+    }
+  }
+}
+
+// The listening connection is back (connected(), above): every guest's page
+// reads its status once.
+function resyncGuests() {
+  const text = frame("resync", {});
+
+  for (const stream of guestStreams) {
+    write(stream, text);
+  }
+}
+
+// The process is stopping (stop(), above).
+function stopGuests() {
+  for (const stream of [...guestStreams]) {
+    end(stream, "restarting");
+  }
+
+  if (guestSweeper) {
+    clearInterval(guestSweeper);
+    guestSweeper = null;
+  }
+}
+
+// Opens a guest's stream on `res`, for what its key allows: { kind, tenant,
+// watch: [{ area, id }], expiresAt (ms), address, keyDigest }. Throws (before
+// anything is written) when a limit is reached.
+const openGuest = async (req, res, { kind, tenant, watch, expiresAt, address, keyDigest }) => {
+  if (closing) {
+    throw new AppError(503, "The server is restarting. This page carries on in a moment.", { reason: "restarting" });
+  }
+
+  if (!listener.listening()) {
+    await start();
+  }
+
+  if (guestStreams.size >= config.live.guestMax) {
+    throw new AppError(429, "This server has as many live pages open as it can take. This page checks for news every few seconds instead.", {
+      reason: "live_full",
+    });
+  }
+
+  if ((guestAddresses.get(address) || 0) >= config.live.guestPerAddress) {
+    throw new AppError(429, "Many live pages are open from this network. This page checks for news every few seconds instead.", {
+      reason: "live_address_limit",
+    });
+  }
+
+  if ((guestKeyStreams.get(keyDigest) || 0) >= GUEST_STREAMS_PER_KEY) {
+    throw new AppError(429, "This page is already open in several tabs. This one checks for news every few seconds instead.", {
+      reason: "live_key_limit",
+    });
+  }
+
+  if (res.destroyed || res.closed) {
+    return;
+  }
+
+  const stream = {
+    res,
+    key: keyOf(kind, tenant),
+    watch: new Set(watch.map((row) => `${row.area}:${row.id}`)),
+    address,
+    keyDigest,
+    expiresAt,
+    lastWrite: Date.now(),
+    ended: false,
+  };
+
+  guestStreams.add(stream);
+
+  if (!guestScopes.has(stream.key)) {
+    guestScopes.set(stream.key, new Set());
+  }
+
+  guestScopes.get(stream.key).add(stream);
+  guestAddresses.set(address, (guestAddresses.get(address) || 0) + 1);
+  guestKeyStreams.set(keyDigest, (guestKeyStreams.get(keyDigest) || 0) + 1);
+  res.on("close", () => forgetGuest(stream));
+  res.on("error", () => undefined);
+
+  if (!guestSweeper) {
+    guestSweeper = setInterval(sweepGuests, SWEEP_MS);
+    guestSweeper.unref();
+  }
+
+  res.status(200);
+  res.set({
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-cache, no-transform",
+    "X-Accel-Buffering": "no",
+  });
+  res.flushHeaders();
+
+  write(stream, `retry: ${GUEST_RETRY_MS}\n\n`);
+  write(stream, frame("ready", { keepAliveSeconds: KEEP_ALIVE_MS / 1000, expiresAt: new Date(expiresAt).toISOString() }));
+};
+
+// For the tests and the logs: the guests' streams this process holds.
+const guestStats = () => ({
+  streams: guestStreams.size,
+  addresses: guestAddresses.size,
+  keys: guestKeyStreams.size,
+  scopes: guestScopes.size,
+  sweeping: Boolean(guestSweeper),
+});
+
+module.exports = { start, open, stop, stats, openGuest, guestStats };

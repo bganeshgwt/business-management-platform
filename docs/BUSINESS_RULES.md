@@ -175,6 +175,18 @@ The DPDP Act 2023 and the DPDP Rules 2025, for every business: a shop's customer
 - **Why:** one record per purpose: a consent kept in two places would drift apart.
 - **Change it:** nothing to set.
 
+### A guest's customer record, from a business's guest page
+
+- **Rule:** a booking or an order a guest sends from a business's guest page (online booking, an online shop) belongs to the business's customer with the same mobile, matched on its last ten digits however it was typed at the counter, and the one used most recently when several have it; never to a supplier, an erased or switched-off customer, or another business's. That record is used as it is: a name, number or e-mail staff have set is never changed from the guests' site. Only when no customer has the mobile is a new one made, marked as made on the guests' site; its activity log entry, like everything a guest does there, says *Guest (online)*. A guest's mobile on these pages is an Indian mobile.
+- **Why:** a family shares one phone and each types a name their own way: a guest's typing must not rename the customer the counter knows, and one record per person keeps their bills, dues and consents together.
+- **Change it:** nothing to set; staff correct a customer on the customer's form.
+
+### Consent ticked on a guest page
+
+- **Rule:** a business's guest page asks for consent with one box per purpose it needs, in the business's own words from its privacy notice, none ever ticked for the guest, the notice a tap away. A ticked box is recorded as given on the guests' site, ticked online, with no one on the staff recording it, on the version of the notice the page showed. A box left unticked records nothing, and withdraws nothing given at the counter. Offers are never recorded for a customer marked as a child. With no notice published, a page asks for no consent.
+- **Why:** consent must be given by a clear act: a pre-ticked box is none (DPDP Act 2023; the Consumer Protection (E-Commerce) Rules 2020, rule 4(9); the Guidelines for Prevention and Regulation of Dark Patterns 2023). Leaving a box empty is not asking to stop.
+- **Change it:** the consent notices' words, in the privacy notice (*Settings › Personal data › Notice & contact*).
+
 ## An owner's GST thresholds
 
 For every business and the restaurant. What applies to a taxpayer's invoices in a financial year follows its aggregate turnover in the year before: e-invoicing and 6-digit HSN / SAC codes above ₹5 crore, and, from 1 April 2025, at ₹10 crore or more no invoice or credit note reported to the IRP more than 30 days after its date. The researchers read aggregate turnover as counting every GSTIN under one PAN, so several small businesses of one owner can cross ₹5 crore together; a platform holding all of them can see that coming. The screens are in [ADMIN_GUIDE.md › GST thresholds across your businesses](ADMIN_GUIDE.md#gst-thresholds-across-your-businesses); what is left, with the accountant's check of that reading, is in [BACKLOG.md §10](BACKLOG.md#10-new-business-types).

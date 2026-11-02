@@ -303,7 +303,7 @@ const createOrderRequest = async (data, items, maxOpen) => {
 // delivery the dispatch desk (the deliveries module's own rule).
 const findForGuest = async (guestToken, effectiveStatusSql) => {
   const result = await pool.query(
-    `SELECT r.id, r.online_link_id, r.status, r.service_type, r.payment_mode, r.notes, r.reject_reason,
+    `SELECT r.id, r.online_link_id, r.order_id, r.status, r.service_type, r.payment_mode, r.notes, r.reject_reason,
             r.item_count, r.estimated_total, r.delivery_charge, r.delivery_address,
             r.delivery_landmark, r.guest_name, r.created_at, r.resolved_at,
             o.order_number, o.order_status, o.kitchen_status, o.token_no,

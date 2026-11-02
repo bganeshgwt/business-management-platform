@@ -19,6 +19,8 @@ import {
   requestBooking,
 } from "../services/booking.service";
 import { PrivacyNote } from "../../privacy/GuestPrivacy";
+import { useGuestLive } from "../../../services/guestLive";
+import LiveDot from "../../../shared/LiveDot";
 import "../styles/booking.css";
 
 const OCCASIONS = [
@@ -484,44 +486,37 @@ function BookingStatus() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState("");
 
-  const load = useCallback(
-    () =>
-      getMyBooking(guestToken)
-        .then((data) => {
-          setBooking(data);
-          setError("");
-        })
-        .catch((err) => setError(bookingErrorMessage(err))),
-    [guestToken]
-  );
+  const [live, setLive] = useState(null);
+  // Reads may overlap (a change heard as the page opens): only the newest
+  // asked is applied, so an older answer never undoes a newer one.
+  const asked = useRef(0);
+
+  const load = useCallback(() => {
+    const turn = (asked.current += 1);
+
+    return getMyBooking(guestToken)
+      .then(({ booking: data, live: next }) => {
+        if (turn !== asked.current) return;
+        setBooking(data);
+        setLive(next);
+        setError("");
+      })
+      .catch((err) => {
+        if (turn === asked.current) setError(bookingErrorMessage(err));
+      });
+  }, [guestToken]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  // While the restaurant has not answered, look again every 20 seconds, and
-  // the moment the guest comes back to the tab.
+  // The restaurant's answer, and any change after it (a new time, a booking
+  // called off, the table ready), reach the page by themselves the moment the
+  // restaurant acts (useGuestLive), and when the guest comes back to the tab.
+  // While its live stream cannot open, the page asks on its own: every 20
+  // seconds while it waits for an answer, every minute after.
   const waiting = booking?.status === "requested";
-
-  useEffect(() => {
-    if (!waiting) {
-      return undefined;
-    }
-
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible") {
-        load();
-      }
-    }, 20000);
-    const onVisible = () => document.visibilityState === "visible" && load();
-
-    document.addEventListener("visibilitychange", onVisible);
-
-    return () => {
-      clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [waiting, load]);
+  const liveStatus = useGuestLive(live, load, { fallbackMs: waiting ? 20000 : 60000 });
 
   if (error && !booking) {
     return <Gone message={error} />;
@@ -548,7 +543,10 @@ function BookingStatus() {
 
     try {
       const result = await cancelMyBooking(guestToken);
+      // Newer than any read still on its way.
+      asked.current += 1;
       setBooking({ ...result.data });
+      setLive(result.live || null);
       setConfirming(false);
     } catch (err) {
       setActionError(bookingErrorMessage(err));
@@ -573,9 +571,10 @@ function BookingStatus() {
               <strong>{booking.status === "declined" ? "The restaurant says:" : "Reason:"}</strong> {booking.reason}
             </p>
           )}
-          {waiting && (
+          {live && (
             <p className="gb-status-live">
-              <span className="gb-pulse" aria-hidden="true" /> Waiting for the restaurant
+              {waiting && <span>Waiting for the restaurant</span>}
+              <LiveDot status={liveStatus} />
             </p>
           )}
         </section>

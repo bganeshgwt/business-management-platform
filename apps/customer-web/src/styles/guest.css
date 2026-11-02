@@ -1555,6 +1555,16 @@
   box-shadow: var(--ring);
 }
 
+/* The live dot under a status's steps (src/shared/LiveDot.jsx). */
+.g-status-live {
+  margin: -4px 0 0;
+}
+
+.g-requests + .g-status-live,
+.g-status-live + .g-requests {
+  margin-top: 10px;
+}
+
 .g-status-items {
   padding: 12px 14px;
   border: 1px solid var(--g-line);

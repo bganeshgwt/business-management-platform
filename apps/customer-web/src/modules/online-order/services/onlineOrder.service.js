@@ -26,5 +26,15 @@ export const placeOnlineOrder = async (token, payload) =>
 export const getOnlineOrder = async (token, guestToken) =>
   (await publicApi.get(`${at(token)}/orders/${encodeURIComponent(guestToken)}`)).data.data;
 
-export const cancelOnlineOrder = async (token, guestToken) =>
-  (await publicApi.post(`${at(token)}/orders/${encodeURIComponent(guestToken)}/cancel`)).data.data;
+// { order, live }: the order and the guest live key its status page watches
+// it with (null once it is final).
+export const followOnlineOrder = async (token, guestToken) => {
+  const body = (await publicApi.get(`${at(token)}/orders/${encodeURIComponent(guestToken)}`)).data;
+  return { order: body.data, live: body.live || null };
+};
+
+// { order, live }, as above.
+export const cancelOnlineOrder = async (token, guestToken) => {
+  const body = (await publicApi.post(`${at(token)}/orders/${encodeURIComponent(guestToken)}/cancel`)).data;
+  return { order: body.data, live: body.live || null };
+};

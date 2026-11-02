@@ -176,10 +176,12 @@ async function stopAll(db, { businessId, person, userId, reason, audit }) {
 }
 
 // A form's choices applied: records what is now given, withdraws what is not.
-async function apply(db, { businessId, person, choices, channel = 'counter', method = 'verbal', userId, audit, reason = 'Changed on the customer\'s record' }) {
+// `notice`: the privacy notice the person was shown (a guest's page may have
+// shown the version before the newest); left out, the one in force.
+async function apply(db, { businessId, person, choices, channel = 'counter', method = 'verbal', userId, audit, reason = 'Changed on the customer\'s record', notice }) {
   if (!choices) return;
   const given = Object.entries(choices).filter(([, yes]) => yes).map(([purpose]) => purpose);
-  if (given.length) await record(db, { businessId, person, purposes: given, channel, method, userId, audit });
+  if (given.length) await record(db, { businessId, person, purposes: given, channel, method, userId, audit, ...(notice !== undefined ? { notice } : {}) });
   for (const [purpose, yes] of Object.entries(choices)) {
     if (!yes) await withdraw(db, { businessId, person, purpose, userId, reason, channel, audit });
   }

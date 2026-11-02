@@ -52,7 +52,9 @@ business-management-platform/
 │   │                   services, styles), shared components, services and styles;
 │   │                   tests/ (Node tests, and browser/ for the Playwright specs)
 │   └── customer-web/   The guests' site (React + Vite, :5174): table QR ordering, online
-│                       ordering, table booking; tests/browser/
+│                       ordering, table booking; src/shared/ (the pieces a business's
+│                       guest pages are built from); tests/ (Node tests, and browser/
+│                       for the Playwright specs)
 ├── packages/
 │   ├── ui/             @bmp/ui: the shared look (tokens and global styles), icons, menu
 │   │                   choice components

@@ -12,6 +12,15 @@ restaurant's privacy notice and contact, and online ordering asks, purpose by
 purpose, for the guest's consent to bills on WhatsApp and to offers (neither
 needed for the order).
 
+Each status page (a table's orders and calls, an online order, a booking)
+follows what it shows live: its status answer carries a guest live key, and
+the page opens `GET /api/public/live?key=…` with the browser's `EventSource`
+(`src/services/guestLive.js`, `useGuestLive`). While the stream cannot open it
+asks on its own every few seconds; while it is open, still once a minute.
+`/privacy-notice/:ref` shows a business's privacy notice, from the link on its guest
+pages. `src/shared/` holds what a business's guest pages are built from
+([ARCHITECTURE › Build a guest page for a business](../../docs/ARCHITECTURE.md#810-build-a-guest-page-for-a-business)).
+
 Planned pages have their address and say what is coming: `/shop` (order from
 a shop), `/appointments` (salon and clinic bookings) and `/account` (a guest's
 orders, bookings and points); see `src/plannedPages.js`. Any other address
@@ -47,6 +56,10 @@ site together, and `npm run dev:customer` starts this site alone.
 
 ## Tests
 
+`npm test` (here, or `npm test --workspace apps/customer-web` from the root)
+runs the Node tests in `tests/`: the live updates' rules and the shared
+pieces' rules, with no browser and no server.
+
 The browser tests in `tests/browser/` run from the project root with
 `npm run test:browser`, which starts its own servers on a throwaway database
 and fills it with the data the tests need. See
@@ -71,9 +84,13 @@ and fills it with the data the tests need. See
 ```
 src/
 ├── main.jsx        The shared look (@bmp/ui/styles.css), BrowserRouter
-├── App.jsx         The routes: three built pages, three planned, everything else → StartPage
+├── App.jsx         The routes: three built pages and a business's privacy notice, three planned, everything else → StartPage
 ├── plannedPages.js What each planned page says
-├── pages/          StartPage (the bare address or an incomplete link), PlannedPage, pages.css
+├── pages/          StartPage (the bare address or an incomplete link), PlannedPage, PrivacyPage (a business's
+│                   privacy notice), pages.css
+├── services/       guestLive.js (useGuestLive: a status page's live updates), guestLiveRules.js (its rules)
+├── shared/         What a business's guest pages are built from: publicClient, GuestShell, the fields,
+│                   ConsentChoices, StatusSteps, LiveDot, GuestEmpty / GuestError / GuestSkeleton, shared.css
 ├── modules/
 │   ├── table-order/   QR ordering at the table: pages/QrLandingPage, services/tableOrder.service
 │   ├── online-order/  Online ordering and order status: pages/, services/, styles/

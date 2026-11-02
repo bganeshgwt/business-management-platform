@@ -21,6 +21,7 @@ const AppError = require("../../../../utils/AppError");
 const planGuard = require("../../../../middlewares/planGuard");
 const ruleSettings = require("../../setup/services/ruleSettings.service");
 const personalData = require("../../../personal-data/services/personalData.service");
+const guestKeys = require("../../../live/services/guestKeys");
 
 const {
   localClock,
@@ -469,12 +470,23 @@ const findOwn = async (guestToken) => {
   return row;
 };
 
-const status = async (guestToken) => {
-  const row = await findOwn(guestToken);
-  const view = toGuestView(row, localClock(row.timezone));
+// What can still happen to a booking in these states (an answer, a change of
+// time, a cancellation by the restaurant, the guest seated, the visit over).
+const FOLLOWED = ["requested", "booked", "confirmed", "seated"];
 
-  return { ...view, guestToken };
+// The guest's booking, { booking, live }: with the guest live key its status
+// page watches the reservation with (guestKeys.js), null once nothing more
+// can happen to it.
+const follow = async (guestToken) => {
+  const row = await findOwn(guestToken);
+
+  return {
+    booking: { ...toGuestView(row, localClock(row.timezone)), guestToken },
+    live: FOLLOWED.includes(row.status) ? guestKeys.issue({ restaurant: row.restaurant_id, watch: [{ area: "reservation", id: row.id }] }) : null,
+  };
 };
+
+const status = async (guestToken) => (await follow(guestToken)).booking;
 
 const GUEST_CANCEL_REASON = "Cancelled by the guest from their booking link";
 
@@ -513,7 +525,7 @@ const cancel = async (guestToken) => {
     details: { reason: GUEST_CANCEL_REASON },
   });
 
-  return status(guestToken);
+  return follow(guestToken);
 };
 
-module.exports = { info, times, request, status, cancel };
+module.exports = { info, times, request, status, follow, cancel };

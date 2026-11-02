@@ -13,6 +13,7 @@ const personalDataRestaurant = () => require("../../../personal-data/services/pe
 const AppError = require("../../../../utils/AppError");
 const { round2 } = require("../../../../utils/money");
 const planGuard = require("../../../../middlewares/planGuard");
+const guestKeys = require("../../../live/services/guestKeys");
 
 // A QR token is the 32 hex characters the Tables screen generates. Anything
 // that could not be one is turned away before it costs a database read.
@@ -673,15 +674,32 @@ const placeOrder = async (token, input) => {
 
 // ---------------------------------------------------------------- following up
 
+// The requests this phone follows, and the guest live key its page watches
+// them with (guestKeys.js): each one still moving, and the order it made once
+// accepted, whose dishes and kitchen status move "accepted" to "ready" and
+// "served" (a kitchen ticket's progress is written on the order's own lines,
+// so the order announces it). null when nothing is moving.
 const getRequests = async (token, ids) => {
   const table = await resolveTable(token);
 
   if (ids.length === 0) {
-    return [];
+    return { requests: [], live: null };
   }
 
   const rows = await tableRequestRepository.findForTable(table.restaurant_id, table.id, ids);
-  return rows.map(toGuestRequest);
+  const requests = rows.map(toGuestRequest);
+  const moving = rows.filter((row, index) => !requests[index].final);
+
+  return {
+    requests,
+    live: guestKeys.issue({
+      restaurant: table.restaurant_id,
+      watch: moving.flatMap((row) => [
+        { area: "table_request", id: row.id },
+        ...(row.order_id ? [{ area: "order", id: row.order_id }] : []),
+      ]),
+    }),
+  };
 };
 
 const getRequest = async (token, id) => {

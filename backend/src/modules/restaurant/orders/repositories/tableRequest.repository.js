@@ -552,7 +552,7 @@ const findForTable = async (restaurantId, tableId, ids) => {
   const result = await pool.query(
     `SELECT r.id, r.request_type, r.status, r.notes, r.reject_reason, r.item_count,
             r.estimated_total, r.repeat_count, r.created_at, r.acknowledged_at,
-            r.resolved_at, r.last_asked_at, r.kitchen_reached,
+            r.resolved_at, r.last_asked_at, r.kitchen_reached, r.order_id,
             o.order_number, o.order_status, o.kitchen_status,
             COALESCE(own.linked, 0) AS own_linked,
             COALESCE(own.live, 0) AS own_live,

@@ -24,8 +24,12 @@ export const getGuestMenu = async (token) => (await guestApi.get(`${at(token)}/m
 export const placeGuestOrder = async (token, payload) =>
   (await guestApi.post(`${at(token)}/orders`, payload)).data.data;
 
-export const getGuestRequests = async (token, ids) =>
-  (await guestApi.get(`${at(token)}/requests`, { params: { ids: ids.join(",") } })).data.data;
+// { requests, live }: the requests this phone follows, and the guest live key
+// the page watches them with (null when none is still moving).
+export const getGuestRequests = async (token, ids) => {
+  const body = (await guestApi.get(`${at(token)}/requests`, { params: { ids: ids.join(",") } })).data;
+  return { requests: body.data, live: body.live || null };
+};
 
 export const cancelGuestRequest = async (token, id) =>
   (await guestApi.post(`${at(token)}/requests/${id}/cancel`)).data.data;
@@ -46,16 +50,6 @@ export const guestErrorMessage = (error) => {
 };
 
 // The id a submission carries so that a double tap, or a retry after the
-// connection dropped, is recognised as the same order. crypto.randomUUID only
-// exists on https or localhost; a phone on the restaurant's own Wi-Fi may be
-// on plain http, where getRandomValues still works.
-export const newClientKey = () => {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-};
+// connection dropped, is recognised as the same order: the guest pages'
+// shared one (src/shared/publicClient.js).
+export { newClientKey } from "../../../shared/publicClient";

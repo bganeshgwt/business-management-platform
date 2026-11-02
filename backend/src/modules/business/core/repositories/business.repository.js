@@ -18,6 +18,19 @@ async function audit(db, businessId, actorId, action, entityId, details = {}) {
   await db.query('INSERT INTO business_audit(business_id,actor_id,action,entity_id,details) VALUES($1,$2,$3,$4,$5)',
     [businessId, actorId, action, entityId, JSON.stringify(details)]);
 }
+// The audit row of a guest's own action on the guests' site (a booking, an
+// order): no actor, channel guests_site; the activity log shows "Guest (online)".
+async function guestAudit(db, businessId, action, entityId, details = {}) {
+  await db.query(`INSERT INTO business_audit(business_id,actor_id,action,entity_id,details,channel) VALUES($1,NULL,$2,$3,$4,'guests_site')`,
+    [businessId, action, entityId, JSON.stringify(details)]);
+}
+// The audit row of the business's own rule acting on its own time (a request
+// not answered in time expires, an online order not accepted in time is
+// declined): no actor, channel automatic; the activity log shows "Automatic".
+async function automaticAudit(db, businessId, action, entityId, details = {}) {
+  await db.query(`INSERT INTO business_audit(business_id,actor_id,action,entity_id,details,channel) VALUES($1,NULL,$2,$3,$4,'automatic')`,
+    [businessId, action, entityId, JSON.stringify(details)]);
+}
 // The outbox row for a money, stock or appointment change. Always called with
 // the transaction's own client, so the event commits or rolls back with it.
 async function event(db, businessId, actorId, kind, entityType, entityId, payload = {}) {
@@ -253,8 +266,9 @@ const lists = {
     JOIN business_contacts c ON c.business_id=a.business_id AND c.id=a.contact_id
     JOIN catalog_skus s ON s.business_id=a.business_id AND s.id=a.sku_id WHERE a.business_id=$1`,
   search: ['contact_name', 'service_name', 'resource_name'], date: 'starts_at', filters: { status: 'status', location: 'location_id' }, order: 'starts_at DESC,id DESC' },
-  audit: { sql: `SELECT a.id,a.action,a.entity_id,a.created_at,a.actor_id,a.details,u.name AS actor_name FROM business_audit a
-    JOIN users u ON u.id=a.actor_id WHERE a.business_id=$1`, search: ['action', 'actor_name'], date: 'created_at', order: 'id DESC' },
+  audit: { sql: `SELECT a.id,a.action,a.entity_id,a.created_at,a.actor_id,a.details,a.channel,
+    CASE a.channel WHEN 'guests_site' THEN 'Guest (online)' WHEN 'automatic' THEN 'Automatic' ELSE u.name END AS actor_name FROM business_audit a
+    LEFT JOIN users u ON u.id=a.actor_id WHERE a.business_id=$1`, search: ['action', 'actor_name'], date: 'created_at', order: 'id DESC' },
 };
 const escapeLike = (text) => text.replace(/[\\%_]/g, (c) => `\\${c}`);
 // options: { limit, offset, search, from, to, timezone, filters: { name: value } }
@@ -354,4 +368,4 @@ async function summary(businessId, locationId = null) {
    +COALESCE((SELECT sum(amount) FROM business_refunds r WHERE r.business_id=d.business_id AND r.document_id=d.id),0)))
    FROM business_documents d WHERE d.business_id=$1 AND kind='purchase'),0) AS payables`, [businessId, locationId]);
 }
-module.exports = { pool, transaction, one, all, audit, event, platformCatalogue, list, access, markOpened, page, listFilters, summary, contactBalanceSql, addLists };
+module.exports = { pool, transaction, one, all, audit, guestAudit, automaticAudit, event, platformCatalogue, list, access, markOpened, page, listFilters, summary, contactBalanceSql, addLists };

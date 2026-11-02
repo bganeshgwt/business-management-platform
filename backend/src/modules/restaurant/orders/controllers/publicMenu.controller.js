@@ -222,12 +222,13 @@ const placeOrder = async (req, res) => {
   });
 };
 
+// The requests this phone follows, with the guest live key (`live`, beside
+// `data`) its page watches them with; null when none is still moving.
 const requests = async (req, res) => {
+  const { requests: list, live } = await tableRequestService.getRequests(req.params.token, readIds(req.query.ids));
+
   noStore(res);
-  res.json({
-    success: true,
-    data: await tableRequestService.getRequests(req.params.token, readIds(req.query.ids)),
-  });
+  res.json({ success: true, data: list, live });
 };
 
 const request = async (req, res) => {
@@ -398,17 +399,24 @@ const placeOnlineOrder = async (req, res) => {
   });
 };
 
+// The order, with the guest live key (`live`, beside `data`) its status page
+// watches it with; null once it is final.
 const onlineOrder = async (req, res) => {
+  const { order, live } = await onlineOrderService.getOrder(req.params.guestToken);
+
   noStore(res);
-  res.json({ success: true, data: await onlineOrderService.getOrder(req.params.guestToken) });
+  res.json({ success: true, data: order, live });
 };
 
 const cancelOnlineOrder = async (req, res) => {
+  const { order, live } = await onlineOrderService.cancelOrder(req.params.guestToken);
+
   noStore(res);
   res.json({
     success: true,
     message: "Your order has been cancelled",
-    data: await onlineOrderService.cancelOrder(req.params.guestToken),
+    data: order,
+    live,
   });
 };
 

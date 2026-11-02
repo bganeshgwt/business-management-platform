@@ -9,6 +9,7 @@ const routes = require("./routes");
 const notFound = require("./middlewares/notFound");
 const errorHandler = require("./middlewares/errorHandler");
 const { clearOnWrite } = require("./utils/dashboardCache");
+const { safeUrl } = require("./utils/requestLog");
 
 const app = express();
 
@@ -25,13 +26,19 @@ app.use(compression());
 // The guests' public API (/api/public: table QR ordering, online ordering,
 // booking) answers any web address: it needs no login and carries no cookies,
 // so a restaurant can point its own domain at the guests' site without a
-// change here. Everything else answers only the apps listed in CORS_ORIGIN.
-const isPublicGuestApi = (req) => req.path === "/api/public" || req.path.startsWith("/api/public/");
+// change here. So does the platform's public name and company details
+// (GET /api/site/info), which a guest page's foot shows ("Powered by").
+// Everything else answers only the apps listed in CORS_ORIGIN.
+const isPublicGuestApi = (req) => req.path === "/api/public" || req.path.startsWith("/api/public/") || req.path === "/api/site/info";
 app.use(cors((req, callback) => callback(null, { origin: isPublicGuestApi(req) ? true : config.corsOrigin })));
 // A shop's CSV import sends a whole file's rows at once: up to 5,000 rows, a
 // few megabytes (modules/business/core/services/businessImports.service.js).
 app.use(/^\/api\/businesses\/\d+\/(?:catalog|contacts)\/import$/, express.json({ limit: "5mb" }));
 app.use(express.json({ limit: "1mb" }));
+// The request log prints each address with any "key" in its query hidden:
+// a guest page's live updates are opened with their key in the address
+// (utils/requestLog.js).
+morgan.token("url", (req) => safeUrl(req.originalUrl || req.url));
 app.use(morgan("dev"));
 
 // Uploaded images are plain static files in the public uploads folder

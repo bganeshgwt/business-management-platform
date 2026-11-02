@@ -2051,7 +2051,7 @@ Errors: 400 cancelled with no reason; 409 the move is not allowed (already in th
 
 ### Public guest pages (no login)
 
-Mounted at `/api/public` (public.routes.js, publicBooking.routes.js, publicOnline.routes.js). These routes take no `Authorization` header and no `X-Outlet-Id`. The API answers them from any web address (CORS allows every origin under `/api/public`; they need no login and carry no cookies), so a restaurant can point its own domain at the guests' site; every other route answers only the addresses in `CORS_ORIGIN`, the staff app. Each request is scoped only by the token in its path. Every response sets `Cache-Control: no-store`. A token that is malformed, unknown, or replaced, or that belongs to a table, floor, section, outlet or restaurant that is not active, gets the same 404 sentence, so callers learn nothing about which case it was. Any price sent by a phone is ignored, and orders are priced from the menu.
+Mounted at `/api/public` (public.routes.js, publicBooking.routes.js, publicOnline.routes.js; before them, a guest page's live updates at `/api/public/live`, [Guests' live updates](#guests-live-updates), and a business's privacy notice at `/api/public/privacy`). These routes take no `Authorization` header and no `X-Outlet-Id`. The API answers them from any web address (CORS allows every origin under `/api/public`; they need no login and carry no cookies), so a restaurant can point its own domain at the guests' site; every other route but `GET /api/site/info` answers only the addresses in `CORS_ORIGIN`, the staff app. Each request is scoped only by the token in its path (a live stream by the key in its query). Every response sets `Cache-Control: no-store`. A token that is malformed, unknown, or replaced, or that belongs to a table, floor, section, outlet or restaurant that is not active, gets the same 404 sentence, so callers learn nothing about which case it was. Any price sent by a phone is ignored, and orders are priced from the menu.
 
 Rate limits use express-rate-limit with its in-memory store, counted per API process, so several processes are only more lenient. These routes do not use backend/src/middlewares/rateLimiters.js (login, password and PIN only). Address limits are keyed on `req.ip`, which honours `TRUST_PROXY` through `app.set("trust proxy")`. A limited request gets 429 `{ success: false, message }` with draft-8 `RateLimit` and `RateLimit-Policy` headers. The database rules hold however the counters are set: at most 3 orders waiting per table, the online link's "open orders per mobile", and the booking link's "open bookings per mobile".
 
@@ -2070,8 +2070,12 @@ Rate limits use express-rate-limit with its in-memory store, counted per API pro
 | `POST online/:token/orders` | address 10 min: 30; mobile 30 min: 5 | IP; normalised `guestMobile` (or the link when the number cannot be read) |
 | `GET online/:token/orders/:guestToken` | address 1 min: 3000; order 1 min: 60 | IP; `online-order:<guestToken>` |
 | `POST online/:token/orders/:guestToken/cancel` | address 10 min: 200; order 10 min: 10 | IP; guestToken |
+| `GET live?key=` (opening a guest page's stream) | address 1 min: 120 | the client's address as `TRUST_PROXY` reads it (`guestLimiter`) |
+| `GET privacy/:ref` | address 1 min: 300 | the client's address as `TRUST_PROXY` reads it (`guestLimiter`) |
 
-The address limits are not shared between groups. The two `GET tables/...` limits of 3000 are one counter, but the booking and online limits are separate instances, each counted on its own.
+The address limits are not shared between groups. The two `GET tables/...` limits of 3000 are one counter, but the booking and online limits are separate instances, each counted on its own. The live and privacy limits count the client's address through `utils/clientIp.js`, an IPv6 network as one (`modules/business/guests/services/guestLimiter.js`, the limiter a business's guest pages use).
+
+**`live` beside `data`.** Each answer that carries a guest's status (a table's requests, an online order's status, a booking's status, and their cancels) carries `live` next to `data`: `{ key, expiresAt }`, the guest live key the page opens its stream with, while something can still happen to what it shows; `null` once nothing can. The key names the restaurant and the rows the page watches; it lasts two hours, and every answer brings a fresh one ([Guests' live updates](#guests-live-updates)).
 
 Token rules:
 - Table QR token: `[A-Za-z0-9_-]{16,64}` (128 random bits), resolved to the table.
@@ -2097,7 +2101,7 @@ Errors: 400 bad input, a dish not on the menu or sold out, a size or add-on not 
 #### `GET /api/public/tables/:token/requests`
 Permission: public, rate limited
 Query: `ids` (comma-separated request ids, at most 20). With no `ids`, the result is an empty list.
-Returns: `data` = `[guest request]`. Only requests belonging to the table behind the token are returned.
+Returns: `data` = `[guest request]`. Only requests belonging to the table behind the token are returned. `live` = the key for those still moving (not final) and the order each made once accepted (areas `table_request` and `order`), or `null` when none is moving.
 Errors: 400 the ids cannot be read, or there are more than 20.
 
 #### `GET /api/public/tables/:token/requests/:id`
@@ -2125,13 +2129,13 @@ Errors: 400 a bad rating or field.
 
 #### `GET /api/public/booking/status/:guestToken`
 Permission: public, rate limited
-Returns: `data` = `{ reference, status, statusLabel, tone, guestName, guestMobile (masked), partySize, date, dateLabel, startTime, timeLabel, occasion, notes, reason, requestedAt, answeredAt, canCancel, bookAgain (link token or null), place: { name, outletName, contact, address }, guestToken }`. A request whose time passed before anyone answered it is expired first.
+Returns: `data` = `{ reference, status, statusLabel, tone, guestName, guestMobile (masked), partySize, date, dateLabel, startTime, timeLabel, occasion, notes, reason, requestedAt, answeredAt, canCancel, bookAgain (link token or null), place: { name, outletName, contact, address }, guestToken }`; `live` = the key for the reservation (area `reservation`) while it is requested, booked, confirmed or seated, else `null`. A request whose time passed before anyone answered it is expired first.
 Errors: 404 booking not found.
 
 #### `POST /api/public/booking/status/:guestToken/cancel`
 Permission: public, rate limited
 Body: none.
-Returns: `data` = the status view (cancelled).
+Returns: `data` = the status view (cancelled), `live` = `null`.
 Errors: 404 booking not found; 409 already cancelled, declined or finished; 409 the booking time has started; 409 the booking changed a moment ago.
 
 #### `GET /api/public/booking/:token`
@@ -2165,14 +2169,20 @@ Errors: 400 bad input, the service is not offered, the payment mode does not mat
 
 #### `GET /api/public/online/:token/orders/:guestToken`
 Permission: public, rate limited
-Returns: `data` = the guest order view (as above). `stage` is one of sent, accepted, ready, out, delivered, collected, rejected or cancelled.
+Returns: `data` = the guest order view (as above). `stage` is one of sent, accepted, ready, out, delivered, collected, rejected or cancelled. `live` = the key for the request (area `table_request`) and, once accepted, its order (`order`, which carries the kitchen's and the delivery's progress), or `null` once the order is final.
 Errors: 404 order not found.
 
 #### `POST /api/public/online/:token/orders/:guestToken/cancel`
 Permission: public, rate limited
 Body: none. The order can be cancelled only while it is pending.
-Returns: `data` = the guest order view (cancelled).
+Returns: `data` = the guest order view (cancelled), `live` = `null`.
 Errors: 404 order not found; 409 already cancelled, or the restaurant has already picked it up.
+
+#### `GET /api/public/privacy/:ref`
+Permission: public, rate limited
+A business's privacy notice for its guests, by the reference its guest pages link to (`/privacy-notice/:ref` on the guests' site; `privacy.url` of the business card). `:ref` is the business's id in base 36 with an HMAC of it (a key derived from `JWT_SECRET`), so no other business's can be made from it; it stays the same across the notice's versions.
+Returns: `data` = `{ business: { name, logoUrl (https only, or null) }, notice: { version, label, text, billsText, remindersText, offersText, contact, publishedAt } }`: the notice in force (its newest version).
+Errors: 404 for a reference that is not one, a business switched off, or one that has published no notice (one sentence for all).
 
 ---
 
@@ -4166,6 +4176,7 @@ Rows carry extra columns:
 - `documents` adds `location_name, paid, returned, refunded, walk_in_due, unpaid, lot_codes, created_by_name` and `paid_by` (`cash`, `upi`, `card`, `bank`, or `mixed` for a bill paid several ways). An invoice raised by dispatching a sales order also carries `order_no, salesperson_name, route_name, delivery_status`, and `source` is `order` (else `counter`). A hardware shop's bill carries `site_id` and `site_name` (filter `site`). The search covers the document number, the customer or supplier name, notes, the supplier's bill number, serial and batch numbers, the order number, the biller's name and the site's name.
 - `appointments` adds `resource_name, location_id, contact_name, service_name`. `members` adds `location_id, location_name, department_id, department_name` and `manages`: true when the caller manages this person, so may change them (`POST …/members`) and set their password, that is, the caller holds `access.edit`, the person is neither the owner nor the caller, and the rules under [Staff access and roles](#staff-access-and-roles) allow it (a login also used elsewhere still has its password changed there), and `login_elsewhere`: true when the login is also used in another active business or a restaurant other than this business's, whose password `POST …/staff-accounts/:userId/password` refuses (409), so the screen offers no *Password*. `roles` adds `member_count, permission_count, permissions[]`.
 - `transfers` and `counts` add line counts and value or progress. `supplier-payments` adds `location_name, created_by_name, allocated, unallocated`.
+- `audit` adds `actor_name` and `channel`. A guest's own action on the guests' site (a booking, an order, a customer record made for it, a consent ticked) has no actor: `actor_id` null, `channel` `guests_site`, and `actor_name` *Guest (online)*, which the search finds. The business's own rule acting on its own time (a request not answered in time expires, an online order not accepted in time is declined) has no actor either: `channel` `automatic` and `actor_name` *Automatic*. Every other row names its person and has no channel.
 
 See `backend/src/modules/business/core/repositories/business.repository.js` (`lists`).
 
@@ -7485,6 +7496,28 @@ A stream is checked again every minute, and at once when the database announces 
 | 429 | `reason: "live_limit"`: the login already holds `LIVE_STREAMS_PER_PERSON` streams in this API process (20 unless set); `reason: "live_full"`: the process holds `LIVE_STREAMS_MAX` (2,000 unless set). The staff app tries again a minute later. |
 | 503 | `reason: "restarting"`: the API process is stopping |
 
+### Guests' live updates
+
+`GET /api/public/live?key=<guest live key>`: the stream of a guest's status page (a table's QR page, an online order's, a booking's, a business's guest pages). Mounted by `modules/live/routes/guestLive.routes.js` before the rest of `/api/public`, so it answers any web address. There is no login: the key a status answer carried as `live.key` is all it needs, in the address, because a browser reads the stream with `EventSource`, which sends no headers. The request log prints it as `key=hidden`. The key names one restaurant or business and the rows the page shows (`{ area, id }` pairs of the areas above), and lasts two hours ([ARCHITECTURE.md › Live updates](ARCHITECTURE.md#35-live-updates), Guests' streams).
+
+**Response.** `200` with the staff streams' headers, a `retry: 15000` line, then:
+
+| Event | Data | Meaning |
+| --- | --- | --- |
+| `ready` | `{ keepAliveSeconds: 25, expiresAt }` | Listening. Read the status once: what changed before this moment was not heard. |
+| `change` | `{ area, id }` | One of the key's rows changed: read the status again. Only the key's restaurant or business and only its rows; never an outlet, a location or anything else. No `id:` line. |
+| `ping` | `{}` | Whenever the stream has been quiet for 20 to 25 seconds: an event, which `EventSource` shows the page (a comment it would not). |
+| `resync` | `{}` | The API process lost its listening connection for a moment: read the status once. |
+| `end` | `{ reason }` | `expired`: the key's two hours are up; read the status (its answer brings a fresh key) and open again. `restarting`: the API process is stopping. |
+
+**Errors** (JSON, before the stream starts):
+
+| Status | When |
+| --- | --- |
+| 403 | `reason: "invalid_key"`: no key, a key changed, made up or of another server, or the key twice in the address; `reason: "key_expired"`: a key past its two hours |
+| 429 | `reason: "live_key_limit"`: three streams of this process already hold the key; `"live_address_limit"`: the client's address (as `TRUST_PROXY` reads it) holds `LIVE_GUEST_STREAMS_PER_ADDRESS` (6 unless set); `"live_full"`: the process holds `LIVE_GUEST_STREAMS_MAX` (2,000 unless set). Opening more than 120 a minute from one address is refused as well. The page reads its status on its own meanwhile and tries again. |
+| 503 | `reason: "restarting"`: the API process is stopping |
+
 ## Personal data
 
 The DPDP Act 2023 and Rules 2025, for both engines, through one module (`backend/src/modules/personal-data`): the privacy notice and its contact, consent per purpose and per business, a child's mark, requests from a person, and the breach register. The same paths under two front doors:
@@ -7583,6 +7616,8 @@ How the rules work: [BUSINESS_RULES.md › An owner's GST thresholds](BUSINESS_R
 ## The platform's public site
 
 What the platform's public pages in the staff app (`/welcome`, `/pricing`, `/signup`, `/terms`, `/privacy-policy`, `/refunds`, `/contact`) read and send, with no login: `backend/src/modules/platform/routes/site.routes.js` and `services/site.service.js`. Money is a decimal string of rupees with two decimals, before GST.
+
+**Any web address.** `GET /api/site/info` answers any web address, as `/api/public` does: a guest page's foot names the platform from it (*Powered by*). The other routes here answer only the staff app's addresses (`CORS_ORIGIN`).
 
 **Kept a minute.** Each API process keeps the answers of the two reads for a minute: every visitor asks for the same. Saving the platform's settings or its price list (`planSettings.update`, `planCatalogue.update`, which call `forgetSiteCache()`) forgets them at once, so the next answer has the change; a change made by hand in the database shows within the minute.
 

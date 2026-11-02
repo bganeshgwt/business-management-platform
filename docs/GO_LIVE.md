@@ -67,10 +67,13 @@ with these differences.
 Every open staff screen holds one connection open to the API for its live
 updates ([ARCHITECTURE › Live updates](ARCHITECTURE.md#35-live-updates)):
 `GET /api/live` and `GET /api/businesses/<id>/live`, a stream of server-sent
-events that lasts as long as the screen is open. The proxy (or load balancer)
-in front of the API must pass it on as it comes:
+events that lasts as long as the screen is open. So does every guest's status
+page on the guests' site (a table's QR page with an order or call in progress,
+an online order's, a booking's): `GET /api/public/live?key=…`, which the
+guests' phones open from the guests' site's own address. The proxy (or load
+balancer) in front of the API must pass each on as it comes:
 
-- **Buffering off** for those two paths. The API already says so to nginx
+- **Buffering off** for those three paths. The API already says so to nginx
   (`X-Accel-Buffering: no`) and to every proxy (`Cache-Control: no-cache,
   no-transform`); a proxy that ignores both needs it set by hand. No
   compression on them either.
@@ -88,7 +91,7 @@ in front of the API must pass it on as it comes:
 With nginx, for example:
 
 ```
-location ~ ^/api/(live|businesses/[0-9]+/live)$ {
+location ~ ^/api/(live|businesses/[0-9]+/live|public/live)$ {
     proxy_pass http://127.0.0.1:5000;
     proxy_http_version 1.1;
     proxy_set_header Connection "";
@@ -105,7 +108,17 @@ To check it after go-live: open the kitchen display and the POS on two
 devices; the kitchen display says **Live**, and a KOT placed at the POS shows
 on it within a second or two. A screen that stays on **Connecting** or
 **Reconnecting** has a proxy holding its stream back; most screens still read
-on their own every minute meanwhile.
+on their own every minute meanwhile. On a phone, order from a table's QR code:
+the order's status says **Live**, and shows *Accepted* within a second or two
+of Table requests accepting it. A guest page whose proxy holds its stream back
+says *Updates every few seconds* instead, and asks on its own every few
+seconds.
+
+The guest's key travels in the address of `/api/public/live` (a browser's
+`EventSource` sends no headers). The API's own request log prints it as
+`key=hidden`; if the proxy keeps an access log, drop the query from that
+path's log too (nginx: a `log_format` without `$request_uri` or `$args` for
+that location, or `access_log off` there).
 
 **Connection counts.**
 
@@ -116,6 +129,15 @@ on their own every minute meanwhile.
   `LIVE_STREAMS_MAX` streams (2,000 unless set) and one login at most
   `LIVE_STREAMS_PER_PERSON` in it (20 unless set: one kitchen login on several
   screens); a screen refused tries again a minute later.
+- **Guests' phones:** one open connection per guest status page shown on a
+  screen (a page in a hidden tab closes its stream). Each API process holds at
+  most `LIVE_GUEST_STREAMS_MAX` of them (2,000 unless set), counted apart from
+  the staff's, and one client address at most
+  `LIVE_GUEST_STREAMS_PER_ADDRESS` (6 unless set). Guests on a restaurant's
+  own Wi-Fi all reach the API from its one address: past that number their
+  pages ask every few seconds instead, which works but costs more requests;
+  raise it where many guests use a restaurant's Wi-Fi at once. `TRUST_PROXY`
+  must be right (§2), or every guest shares the proxy's address and the limit.
 - **API processes to PostgreSQL:** each process holds one connection of its
   own for live updates (`application_name` "live updates"), besides its pool
   (`DB_POOL_MAX`, 10 unless set): processes × (pool + 1), plus the tools and
@@ -180,8 +202,10 @@ The other settings are optional, and each falls back to the default
 `DB_IDLE_TIMEOUT_MS`, `JWT_EXPIRES_IN`, `LOGIN_ATTEMPT_LIMIT`,
 `ACCOUNT_LOCK_ATTEMPTS`, `ACCOUNT_LOCK_WINDOW_MINUTES`, `ACCOUNT_LOCK_MINUTES`,
 `APPROVAL_TTL_SECONDS`, `NOTIFICATIONS_CACHE`, `SITE_FORM_LIMIT` (each public
-site form from one address in an hour), and `LIVE_STREAMS_MAX` and
-`LIVE_STREAMS_PER_PERSON` (the live screens' streams, §1). Every API process
+site form from one address in an hour), `LIVE_STREAMS_MAX` and
+`LIVE_STREAMS_PER_PERSON` (the live screens' streams, §1), and
+`LIVE_GUEST_STREAMS_MAX` and `LIVE_GUEST_STREAMS_PER_ADDRESS` (the guests'
+status pages' streams, §1). Every API process
 and tool shares PostgreSQL's own connection limit, so raise `DB_POOL_MAX` with
 care: each API process also holds one connection for live updates.
 
@@ -195,6 +219,11 @@ and set two-step sign-in up again. So:
   `TWO_FACTOR_KEY` with it, or the `JWT_SECRET` it falls back to.
 - Before you change `JWT_SECRET` on a server whose `TWO_FACTOR_KEY` is empty,
   set `TWO_FACTOR_KEY` to the current `JWT_SECRET`.
+
+Changing `JWT_SECRET` also signs everyone out, and changes the guests' live
+keys and the links to each business's privacy notice (both are made from it).
+Guest pages read them afresh: an open status page asks once and carries on
+live, but a notice link copied before the change no longer opens.
 
 **The web apps' settings** are read when the apps are built, not when they run:
 `VITE_API_BASE_URL` (both apps) and `VITE_CUSTOMER_WEB_URL` (the staff app). A
@@ -247,13 +276,14 @@ There are two ways to serve the apps.
 
 **One address.**
 
-- Send `^/(order|online|book|shop|appointments|account)(/|$)` to the guests'
+- Send `^/(order|online|book|privacy-notice|shop|appointments|account)(/|$)` to the guests'
   `index.html`, and `^/guest-assets/` to its files.
 - Send `/api/` and `/uploads/` to the API, and everything else to the staff
   build.
 - Build the staff app with `VITE_CUSTOMER_WEB_URL=same-origin`. Both apps can
   then use `VITE_API_BASE_URL=/api`.
-- Mind the slash: `/orders` is a staff screen.
+- Mind the slash: `/orders` is a staff screen, and so are `/privacy` and
+  `/privacy-policy` (a guest's notice is `/privacy-notice/…`).
 - Both apps share one browser storage.
 - If the server does not send the guest paths to the guests' site, the staff
   app answers them with "This guest page is not set up yet".

@@ -145,16 +145,20 @@ const request = async (req, res) => {
   });
 };
 
+// The booking, with the guest live key (`live`, beside `data`) its status
+// page watches it with; null once nothing more can happen to it.
 const status = async (req, res) => {
+  const { booking, live } = await publicBookingService.follow(req.params.guestToken);
+
   noStore(res);
-  res.json({ success: true, data: await publicBookingService.status(req.params.guestToken) });
+  res.json({ success: true, data: booking, live });
 };
 
 const cancel = async (req, res) => {
-  const booking = await publicBookingService.cancel(req.params.guestToken);
+  const { booking, live } = await publicBookingService.cancel(req.params.guestToken);
 
   noStore(res);
-  res.json({ success: true, message: "Your booking is cancelled. Thank you for letting us know.", data: booking });
+  res.json({ success: true, message: "Your booking is cancelled. Thank you for letting us know.", data: booking, live });
 };
 
 module.exports = { info, times, request, status, cancel };

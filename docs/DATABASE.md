@@ -1216,9 +1216,12 @@ Added by: 1791950404000 retail-completion.
 
 #### `business_audit`
 Purpose: the activity log, recording who did what. It is written in the same transaction as the change it records ([five layers](BUSINESS_PLATFORM_DATA_MODEL.md#the-five-layers)).
-Key columns: `actor_id` -> `users` (NOT NULL), `action`, `entity_id` (no FK), `details` (JSONB), `created_at`.
-Rules: there is no DB guard; rows are written by services only. Index on (business_id, created_at DESC).
-Added by: 1791280000000.
+Key columns: `actor_id` -> `users` (the person; null only on a guest's row), `action`, `entity_id` (no FK), `details` (JSONB), `channel` (`guests_site` on a guest's own action on the guests' site, such as a booking, an order, the customer record made for it or a consent ticked; null on every other row), `created_at`.
+Rules:
+- `channel`: who acted when no member of staff did. `guests_site` is a guest's own action on the guests' site, shown as *Guest (online)* (`repo.guestAudit` writes it). `automatic` is the business's own rule acting on its own time, such as a request not answered in time expiring or an online order not accepted in time being declined, shown as *Automatic* (`repo.automaticAudit` writes it).
+- CHECK `business_audit_actor_or_channel`: a row has no actor exactly when it has a channel, so a person's row always names them and a guest's or an automatic row never names anyone.
+- No other guard; rows are written by services only. Index on (business_id, created_at DESC).
+Added by: 1791280000000; guest-foundation (`channel`, and `actor_id` left empty on a guest's row).
 
 #### `business_events`
 Purpose: the event outbox. It gets one row for each committed change to money, stock or appointments, in the same transaction as the change ([event outbox](BUSINESS_PLATFORM_DATA_MODEL.md#cross-cutting-the-event-outbox)).
@@ -1300,7 +1303,8 @@ Rules:
 - GSTIN is unique per business and kind (partial unique index `business_contacts_gstin`).
 - CHECK: a non-zero opening balance needs a date.
 - Function `business_contact_is_customer()` is used as a trigger on the tables that need a customer.
-Added by: 1791280000000; 1791300000003 (the credit-term columns); 1791960001000 (`pan`); 1791977000000 (`erased_at`, `erased_by`).
+- `source` (CHECK `staff` or `guests_site`, default `staff`): where the record was made. `guests_site` for a customer made for a guest's booking or order when no active customer of the business had their mobile (`modules/business/guests`, `findOrCreateGuestContact`), with no one signed in; every record made on a screen or by an import, and every one made before, is `staff`.
+Added by: 1791280000000; 1791300000003 (the credit-term columns); 1791960001000 (`pan`); 1791977000000 (`erased_at`, `erased_by`); guest-foundation (`source`).
 
 #### `business_price_rules`
 Purpose: quantity-slab and customer-specific prices, optionally per pack ([wholesale](BUSINESS_PLATFORM_DATA_MODEL.md#wholesale--fmcg)).

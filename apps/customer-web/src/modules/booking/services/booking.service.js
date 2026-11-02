@@ -22,9 +22,14 @@ export const getBookingTimes = async (token, date, party) =>
 export const requestBooking = async (token, payload) =>
   (await bookingApi.post(`${at(token)}/requests`, payload)).data;
 
-export const getMyBooking = async (guestToken) =>
-  (await bookingApi.get(`/status/${encodeURIComponent(guestToken)}`)).data.data;
+// { booking, live }: the guest's booking and the guest live key its status
+// page watches it with (null once nothing more can happen to it).
+export const getMyBooking = async (guestToken) => {
+  const body = (await bookingApi.get(`/status/${encodeURIComponent(guestToken)}`)).data;
+  return { booking: body.data, live: body.live || null };
+};
 
+// The whole answer: its message, the booking (data) and `live`.
 export const cancelMyBooking = async (guestToken) =>
   (await bookingApi.post(`/status/${encodeURIComponent(guestToken)}/cancel`)).data;
 
