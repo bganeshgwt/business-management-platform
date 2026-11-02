@@ -487,9 +487,9 @@ test('hotels, lodges and guest houses: housekeeping, maintenance, the night audi
   });
 
   await t.test('a guest moved to another property mid-stay: checked out and billed at one with its GST, checked in at the other, linked', async () => {
-    // A guest at Hotel A since yesterday, with an advance of 9,000.
+    // A guest at Hotel A since yesterday, with an advance of 8,400: within the stay as booked on any day of the week.
     let moving = await gReserve({ locationId: hotelA.id, guest: { name: 'Moving Guest' }, source: 'phone', arrival: today, departure: addDays(today, 2), roomTypeId: gDeluxe.id,
-      advance: { amount: '9000', method: 'cash' } });
+      advance: { amount: '8400', method: 'cash' } });
     moving = await gCheckIn(moving, 'A4', [occupant('Moving Guest')]);
     await backdate(moving.id, 1);
     await request('POST', G('lodging/night-audit'), {});
