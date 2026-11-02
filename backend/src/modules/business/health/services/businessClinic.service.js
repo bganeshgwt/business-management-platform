@@ -262,6 +262,9 @@ async function openVisit(business, user, body) {
       const existing = await repo.one(db, 'SELECT * FROM health_visits WHERE business_id=$1 AND appointment_id=$2', [business.id, appointment.id]);
       if (existing) return existing;
       if (appointment.status === 'cancelled' || appointment.status === 'no_show') fail('This appointment was cancelled or missed', 409);
+      // A guest's online request is accepted first (Online booking); one declined or not answered in time was never booked.
+      if (appointment.status === 'requested') fail('This is an online booking request: accept it in Online booking first', 409);
+      if (appointment.status === 'declined' || appointment.status === 'expired') fail('This online booking request was not accepted, so it was never booked', 409);
       contactId = appointment.contact_id; resourceId = appointment.resource_id;
     }
     if (!contactId) fail('Choose the patient or the appointment');
@@ -529,13 +532,17 @@ async function today(business, query) {
       EXISTS (SELECT 1 FROM business_consents k WHERE k.business_id=a.business_id AND k.contact_id=a.contact_id AND k.purpose='treatment' AND k.withdrawn_at IS NULL) AS consent_active,
       (SELECT CASE WHEN count(*)=0 THEN 'none' WHEN bool_and(o.status='approved') THEN 'ready' ELSE 'pending' END FROM lab_orders o
         WHERE o.business_id=v.business_id AND o.visit_id=v.id AND o.status<>'cancelled') AS lab_status,
-      tk.id AS token_id,tk.token_no,tk.status AS token_status
+      tk.id AS token_id,tk.token_no,tk.status AS token_status,
+      -- A guest's online booking: who it is for (a child booked by a parent), new or a follow-up, the reason given.
+      a.source,business_appointment_holds(a.status,a.request_expires_at) AS holds,ob.booker_name,ob.mobile AS booker_mobile,ob.for_whom,ob.person_name,ob.person_age,ob.person_sex,
+      ob.visit_kind,ob.reason AS online_reason
     FROM business_appointments a JOIN businesses b ON b.id=a.business_id
     JOIN business_contacts c ON c.business_id=a.business_id AND c.id=a.contact_id JOIN business_resources r ON r.business_id=a.business_id AND r.id=a.resource_id
     JOIN catalog_skus s ON s.business_id=a.business_id AND s.id=a.sku_id
     LEFT JOIN health_patients p ON p.business_id=a.business_id AND p.contact_id=a.contact_id
     LEFT JOIN health_visits v ON v.business_id=a.business_id AND v.appointment_id=a.id
     LEFT JOIN health_tokens tk ON tk.business_id=a.business_id AND tk.appointment_id=a.id AND tk.status<>'cancelled'
+    LEFT JOIN business_online_bookings ob ON ob.business_id=a.business_id AND ob.id=a.online_booking_id
     WHERE a.business_id=$1 AND (a.starts_at AT TIME ZONE b.timezone)::date=$2::date AND ($3::bigint IS NULL OR a.resource_id=$3) AND ($4::bigint IS NULL OR r.location_id=$4)
     ORDER BY a.starts_at,a.id`, [business.id, day, resource, location]);
   const walkIns = await repo.all(repo.pool, `SELECT v.id AS visit_id,v.visit_no,v.status AS visit_status,v.contact_id,v.created_at,c.name AS patient_name,p.patient_no,r.name AS doctor_name,v.document_id

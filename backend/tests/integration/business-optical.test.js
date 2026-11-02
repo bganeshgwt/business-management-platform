@@ -98,8 +98,9 @@ test('the optical shop', { timeout: 300000 }, async (t) => {
     const grants = async (business, template) => (await one(`SELECT COALESCE(array_agg(rp.permission_code ORDER BY rp.permission_code),'{}') AS p FROM business_role_permissions rp
       JOIN business_roles r ON r.business_id=rp.business_id AND r.id=rp.role_id WHERE r.business_id=$1 AND r.template_code=$2`, [business.id, template])).p;
     const opticalGrants = async (business, template) => (await grants(business, template)).filter((p) => p.startsWith('optical.'));
+    // The optometrist also answers the eye tests guests ask for online (Online booking).
     assert.deepEqual(await grants(optical, 'optometrist'), ['appointments.create', 'appointments.edit', 'appointments.view', 'catalog.view', 'contacts.create', 'contacts.view',
-      'optical.approve', 'optical.create', 'optical.print', 'optical.view']);
+      'online_appointments.approve', 'online_appointments.view', 'optical.approve', 'optical.create', 'optical.print', 'optical.view']);
     assert.ok(!(await grants(optical, 'optometrist')).some((p) => /^(sales|receivables|purchasing)\./.test(p)), 'the optometrist takes no money');
     assert.deepEqual(await opticalGrants(optical, 'manager'), ['optical.approve', 'optical.cancel', 'optical.create', 'optical.edit', 'optical.manage', 'optical.print', 'optical.view']);
     assert.deepEqual(await opticalGrants(optical, 'cashier'), ['optical.create', 'optical.edit', 'optical.print', 'optical.view']);

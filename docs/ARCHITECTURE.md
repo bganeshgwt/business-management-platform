@@ -131,7 +131,7 @@ written down.
 | Application | State |
 | --- | --- |
 | **Staff app** (`apps/business-web`, port 5173 in development) | Built, and installable on a phone, tablet or computer, each workspace as an app of its own (§3.6). A switcher in the header opens any business you belong to. For a restaurant (run as a restaurant, café, bakery or cloud kitchen) it is the full restaurant admin, with the POS screen, the kitchen display and the captain app. For the other types it is Business Admin, whose menu is built from that business's modules. It also holds the platform's public site, each owner's *Your plan* and the platform console. |
-| **Guests' site** (`apps/customer-web`, port 5174) | Built: QR table ordering, online ordering and table booking, with no sign-in; each status page follows its order or booking live (§3.5). A business's privacy notice for its guests, and the shared pieces a business's guest pages are built from (§8.10). Its planned pages answer already, with what is coming. |
+| **Guests' site** (`apps/customer-web`, port 5174) | Built: QR table ordering, online ordering, table booking and a business's online booking of appointments, with no sign-in; each status page follows its order or booking live (§3.5). A business's privacy notice for its guests, and the shared pieces a business's guest pages are built from (§8.10). Its planned pages answer already, with what is coming. |
 | **API** (`backend`, port 5010 as `.env.example` sets it) | Built: one Express API and one PostgreSQL database for both apps. |
 | POS app (an offline-capable till) | Planned. The POS *screen* is in the staff app (`/pos`). The offline base it builds on is in place: the service worker, the outbox, this device's copies and offline boot (§3.6). |
 | Captain / waiter app | Built, as part of the staff app (`/captain`), and installable as an app of its own (the *Captain app*): a route group with a layout of its own (`src/workspaces/captain`), phone first, on the POS's own order screen and the order, KOT, table-request and captain-section APIs, with live updates. Alerts reach the phone while the app is closed too (Web Push, §3.6), and with no network it keeps its screen with the floor as last read; it takes no orders offline. |
@@ -171,7 +171,7 @@ written down.
 | `/book/…` | Booking a table, and the booking's status | Built |
 | `/privacy-notice/:ref` | A business's privacy notice, from the link on its guest pages (`:ref` names the business without its id) | Built |
 | `/shop/…` | A shop's customers ordering online | **Planned** |
-| `/appointments/…` | Salon and clinic clients booking | **Planned** |
+| `/appointments/:token`, `/appointments/status/:guestToken`, `/appointments` | A business's booking link (a salon, clinic, optical shop, garage, gym or repair shop): choosing the service, the person, the day and time and booking; the guest's own booking, followed live, changed or cancelled; the bookings made on this phone | Built |
 | `/account` | A returning guest's orders, bookings and points | **Planned** |
 | Anything else | A link with part missing, or the bare address | A page that says how to open the right link |
 
@@ -1223,7 +1223,9 @@ workspaces; the backend has its own install.
 │   │   │   │                 type but the restaurant), hardware, agri, optical, garage, memberships,
 │   │   │   │                 laundry, jewellery, rentals, fuel, lodging; guests (the shared pieces of a
 │   │   │   │                 business's guest pages: a guest's customer record and consents, the business
-│   │   │   │                 card, taking orders, rate limits, the privacy notice's public link)
+│   │   │   │                 card, taking orders, rate limits, the privacy notice's public link);
+│   │   │   │                 online-booking (a business's booking link: the desk's /online-booking
+│   │   │   │                 and the guests' /api/public/appointments)
 │   │   │   ├── tax-changes/  GST rates by date for every business: a shop's items and a restaurant's dishes
 │   │   │   ├── live/         live updates for every business: the LISTEN connection, the screens' streams, and
 │   │   │   │                 guests' streams with their guest live keys (/api/public/live)
@@ -1313,9 +1315,9 @@ workspaces; the backend has its own install.
 │   └── customer-web/         the guests' site (React + Vite, :5174)
 │       ├── src/
 │       │   ├── main.jsx      the shared look, Router (no sign-in, no staff providers)
-│       │   ├── App.jsx       /order/:token, /online/:token/*, /book/*, /privacy-notice/:ref; planned /shop,
-│       │   │                 /appointments, /account; any other address → StartPage; all inside PageLoadBoundary
-│       │   ├── modules/      table-order/ (pages/, services/); online-order/, booking/ (pages/, services/, styles/);
+│       │   ├── App.jsx       /order/:token, /online/:token/*, /book/*, /privacy-notice/:ref, /appointments/*;
+│       │   │                 planned /shop, /account; any other address → StartPage; all inside PageLoadBoundary
+│       │   ├── modules/      table-order/ (pages/, services/); online-order/, booking/, appointments/ (pages/, services/, styles/);
 │       │   │                 privacy/ (the privacy notice and the consent ticks the guests' pages show)
 │       │   ├── services/     guestLive (useGuestLive: a status page's live updates) and its rules
 │       │   ├── shared/       what a business's guest pages are built from (§8.10): publicClient, GuestShell,
@@ -1568,6 +1570,7 @@ file behind an index file with the module's name, which callers import:
 | Personal data (`modules/personal-data`) | `routes/personalData.routes.js` (both front doors: `businessRoutes`, mounted from `business.routes.js`, and `restaurantRouter`, at `/api/privacy` in `routes/index.js`), `services/` (`personalData.service` the notice, consents and a child's mark; `privacyRegister.service` requests, the access export, erasure and breaches; `personalDataShop` and `personalDataRestaurant` the two worlds; `personalDataRegistry` where a customer's data lives, table by table; `consents` what every module uses to record and check a consent; `privacyNotice` the starter notice); bell provider `notifications/providers/privacy.js`, and a business's bell in `businessNotifications.service.js` | `BusinessPrivacyPage`, `RestaurantPrivacyPage`, `PrivacyView` (the three tabs), `RequestsTab`, `BreachesTab`, `NoticeTab`, `usePagedList`; components `ConsentChoices` (+ `NewCustomerConsents`), `ConsentLink`, `AskConsentDialog`, `ChildMark`; `useConsentGate`, `usePrivacy`, `consentStore.js`, `printLine.js`; words in `personalData.js`; API calls `services/privacy.service.js`; styles `styles/personal-data.css`; the guests' site's `modules/privacy/GuestPrivacy.jsx` | `business_privacy_notices`, `business_consents`, `business_children`, `business_privacy_requests`, `business_privacy_breaches`, `business_privacy_breach_people`, `business_privacy_breach_notices` |
 | An owner's GST thresholds (`modules/gst-thresholds`) | `routes/gstThresholds.routes.js` (three doors: `ownerRoutes` and `businessRoutes`, mounted from `business.routes.js`, and `restaurantRouter`, at `/api/gst-thresholds` in `routes/index.js`), `services/` (`gstThresholds.service` the owner's view, the warning level, the recorded PAN, the codes to fix and the bells' lines; `gstTurnover` what each business's records say: its owners, PAN sources, date, sales less returns, HSN / SAC codes; `gstThresholdsRules` the pure part: a PAN from a GSTIN, the financial year, the projection, the figures in force and where a PAN stands, the words; `standingCache` a business's standing kept five minutes for the bells); bell provider `notifications/providers/gstThresholds.js`, and a business's bell in `businessNotifications.service.js` | `GstThresholdsPage` (`/business-admin/gst-thresholds`), `OwnerThresholdsCard` (on Your businesses), `HsnToFix` (on a catalogue), `MenuHsnNotice` (on the restaurant's Tax rates); words in `gstThresholds.js`; API calls `services/gstThresholds.service.js`; styles `styles/gst-thresholds.css` | `platform_gst_thresholds`, `business_gst_pans`, `owner_gst_settings`; reads the core's documents and returns, and the restaurant's bills and credit notes |
 | A business's guest pages (`modules/business/guests`) | `index.js` (every piece), `services/` (`guestContacts` a guest's customer record by mobile, `guestConsents` what a guest ticked, `guestBusinessCard` the band and the seller details, `guestHours` open now (pure), `guestOrders` whether the business takes anything now, `guestLimiter` rate limits by client address, link or mobile, `privacyRef` and `guestNotice` the privacy notice's public link), `routes/guestNotice.routes.js` (`/api/public/privacy/:ref`); `repo.guestAudit` in `business.repository.js` | none in the staff app (the activity log shows a guest's rows as *Guest (online)*); the guests' site's `src/shared/` and `pages/PrivacyPage.jsx` | `business_contacts` (`source`), `business_audit` (`channel`) |
+| Online booking of appointments (`modules/business/online-booking`) | `routes/onlineBooking.routes.js` (the desk's, mounted from `business.routes.js`), `routes/publicAppointments.routes.js` (the guests', `/api/public/appointments`, mounted in `routes/index.js`), `services/` (`onlineBookingRules` the business's clock, free times, any stylist, expiry and what a guest may do (pure), `onlineBookingEngine` what a link offers and the free days and times, one engine for every kind: a salon's, a clinic's, the others' by opening hours, `onlineBookingWrites` a booking's time checked again under the lock and its appointments made or moved (a salon's through `bookIn`, the rest through the core's `appointmentClash`), `onlineBookingGuest.service` the guest's page, booking, status, cancel and move, `onlineBookingLinks.service` the links, their rules and what shows, `onlineBookingDesk.service` requests, accept and decline, the list, tomorrow and the bell, `onlineBookingExpiry` a request not answered in time, `onlineBookingCommon` the link's refusals and the guest's view) | `business/online-booking/` (`OnlineBookingPage`: requests, bookings, tomorrow; `OnlineBookingSettings`: the link, its QR poster and rules, what shows; words in `onlineBooking.js`); the tags on the salon calendar, `AppointmentsPage` and `ClinicTodayPage`; the guests' site's `modules/appointments/` | `business_booking_links`, `business_booking_link_services`, `business_booking_link_people`, `business_online_bookings`; `business_appointments` (`source`, requests); `business_appointment_holds()` |
 
 Where each area's tests are: [TESTING.md](TESTING.md).
 
@@ -1982,8 +1985,10 @@ address.
 
 They follow the guest look (`styles/guest.css`) and the platform's tokens,
 light and dark, from 360 px. A page remembers the guest's own links on the
-device (as the booking page's `book.mine`), and opens the privacy notice in a
-tab of its own (`/privacy-notice/:ref`).
+device (as the booking page's `book.mine` and online booking's
+`appointments.mine`), and opens the privacy notice in a tab of its own
+(`/privacy-notice/:ref`). Online booking (`modules/business/online-booking`
+and the guests' site's `modules/appointments`) is built this way.
 
 ---
 

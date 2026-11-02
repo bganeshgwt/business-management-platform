@@ -220,6 +220,8 @@ const LodgingMaintenancePage = lazy(() => import("../../lodging/pages/Maintenanc
 const LodgingReportsPage = lazy(() => import("../../lodging/pages/LodgingReportsPage"));
 // Your plan (modules/plan), for the business's owner; the same screen serves a restaurant at /plan.
 const YourPlanPage = lazy(() => import("../../../plan/pages/YourPlanPage"));
+// Online booking: guests' requests and bookings from the booking link, and the link itself.
+const OnlineBookingPage = lazy(() => import("../../online-booking/pages/OnlineBookingPage"));
 
 function Notice({ title, children }) {
   return (
@@ -434,6 +436,7 @@ function screens(type) {
     "lodging-maintenance": <LodgingMaintenancePage />,
     "lodging-reports": <LodgingReportsPage />,
     "plan": <YourPlanPage />,
+    "online-booking": <OnlineBookingPage />,
   };
 }
 

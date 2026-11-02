@@ -75,7 +75,7 @@ repo.addLists({
       COALESCE((SELECT json_agg(json_build_object('sku_id',k.sku_id,'label',s.label) ORDER BY s.label) FROM salon_staff_skills k
         JOIN catalog_skus s ON s.business_id=k.business_id AND s.id=k.sku_id WHERE k.business_id=r.business_id AND k.resource_id=r.id),'[]') AS skills,
       (SELECT count(*)::int FROM business_appointments a JOIN businesses b ON b.id=a.business_id WHERE a.business_id=r.business_id AND a.resource_id=r.id
-        AND a.status='booked' AND (a.starts_at AT TIME ZONE b.timezone)::date = ${TODAY}) AS booked_today,
+        AND business_appointment_holds(a.status,a.request_expires_at) AND (a.starts_at AT TIME ZONE b.timezone)::date = ${TODAY}) AS booked_today,
       COALESCE(pr.weekly_off,'{}') AS weekly_off,pr.works_from,pr.works_to,
       COALESCE((SELECT json_agg(json_build_object('dow',w.dow,'off',w.off,'works_from',w.works_from,'works_to',w.works_to) ORDER BY w.dow) FROM salon_staff_week w
         WHERE w.business_id=r.business_id AND w.resource_id=r.id),'[]') AS week,
@@ -205,7 +205,9 @@ async function saveStaff(business, user, resourceId, body) {
     const resource = await repo.one(db, 'SELECT * FROM business_resources WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(resourceId, 'Stylist or room')]);
     if (!resource) fail('Stylist or room not found', 404);
     if (kind === 'room') {
-      const booked = await repo.one(db, `SELECT count(*)::int AS n FROM business_appointments WHERE business_id=$1 AND resource_id=$2 AND status='booked' AND ends_at>now()`, [business.id, resource.id]);
+      // Online booking requests not yet answered count: they hold their time.
+      const booked = await repo.one(db, `SELECT count(*)::int AS n FROM business_appointments WHERE business_id=$1 AND resource_id=$2
+        AND business_appointment_holds(status,request_expires_at) AND ends_at>now()`, [business.id, resource.id]);
       if (booked.n) fail(`${resource.name} has ${booked.n} upcoming booking${booked.n === 1 ? '' : 's'} as a stylist; move them before making it a room`, 409);
     }
     // Rename, change the role, or switch off (not with bookings to come).
@@ -214,7 +216,7 @@ async function saveStaff(business, user, resourceId, body) {
     const active = v.requiredBoolean(body.active, 'Active', resource.active);
     if (!active && resource.active) {
       const coming = await repo.one(db, `SELECT count(*)::int AS n FROM business_appointments a LEFT JOIN salon_appointment_details d ON d.business_id=a.business_id AND d.appointment_id=a.id
-        WHERE a.business_id=$1 AND (a.resource_id=$2 OR d.room_id=$2) AND a.status='booked' AND a.ends_at>now()`, [business.id, resource.id]);
+        WHERE a.business_id=$1 AND (a.resource_id=$2 OR d.room_id=$2) AND business_appointment_holds(a.status,a.request_expires_at) AND a.ends_at>now()`, [business.id, resource.id]);
       if (coming.n) fail(`${resource.name} has ${coming.n} booking${coming.n === 1 ? '' : 's'} to come; move ${coming.n === 1 ? 'it' : 'them'} first`, 409);
     }
     if (name !== resource.name || roleLabel !== resource.role_label || active !== resource.active) {
@@ -306,6 +308,8 @@ async function calendar(business, query) {
   // A week (or a few days) at once.
   const days = query.days === undefined || query.days === '' ? 1 : Number(query.days);
   if (!Number.isInteger(days) || days < 1 || days > 7) fail('Show 1 to 7 days at a time');
+  // Online booking requests not answered in time are marked expired before the calendar shows them.
+  await require('../../online-booking/services/onlineBookingExpiry').expireDue(business.id);
   const db = repo.pool;
   const [settings, resources, appointments, services, holidays] = await Promise.all([
     settingsRow(db, business.id),
@@ -324,7 +328,11 @@ async function calendar(business, query) {
       d.fee_document_id,fd.document_no AS fee_no,fd.total AS fee_total,d.bill_document_id,bd.document_no AS bill_no,bd.total AS bill_total,
       d.arrived_at,d.confirmation_sent_at,d.reminder_sent_at,COALESCE(d.walk_in,false) AS walk_in,COALESCE(d.moved_count,0) AS moved_count,
       (a.starts_at AT TIME ZONE b.timezone)::date::text AS day,
-      (a.status='booked' AND a.starts_at < now() AND d.arrived_at IS NULL) AS late,
+      -- Late: still booked, not here, 15 minutes after the start (no one is marked a no-show by itself).
+      (a.status='booked' AND a.starts_at < now() - interval '15 minutes' AND d.arrived_at IS NULL) AS late,
+      -- A guest's online booking: who it is for, and why it waits for the desk while it is a request.
+      ob.booker_name AS online_booker,ob.person_name AS online_person,ob.request_reason AS online_request_reason,
+      business_appointment_holds(a.status,a.request_expires_at) AS holds,
       (SELECT count(*)::int FROM business_appointments x WHERE x.business_id=a.business_id AND x.contact_id=a.contact_id AND x.status='no_show') AS client_no_shows,
       EXISTS (SELECT 1 FROM salon_client_plans cp WHERE cp.business_id=a.business_id AND cp.contact_id=a.contact_id AND cp.kind='membership' AND cp.status='active'
         AND cp.ends_on >= (now() AT TIME ZONE b.timezone)::date) AS member,
@@ -339,6 +347,7 @@ async function calendar(business, query) {
       LEFT JOIN business_collections k ON k.business_id=d.business_id AND k.id=d.deposit_collection_id
       LEFT JOIN business_documents fd ON fd.business_id=d.business_id AND fd.id=d.fee_document_id
       LEFT JOIN business_documents bd ON bd.business_id=d.business_id AND bd.id=d.bill_document_id
+      LEFT JOIN business_online_bookings ob ON ob.business_id=a.business_id AND ob.id=a.online_booking_id
       JOIN catalog_products sp ON sp.business_id=s.business_id AND sp.id=s.product_id
       LEFT JOIN catalog_categories cat ON cat.business_id=sp.business_id AND cat.id=sp.category_id
       WHERE a.business_id=$1 AND (a.starts_at AT TIME ZONE b.timezone)::date BETWEEN $2::date AND $2::date + ($4::int - 1) AND ($3::bigint IS NULL OR r.location_id=$3)
@@ -370,10 +379,14 @@ async function lockResource(db, business, resourceId, kind, label) {
   access.requireLocation(business, row.location_id);
   return row;
 }
-async function clash(db, business, column, resourceId, starts, ends) {
+// A booking of this stylist or room overlapping [starts, ends): bookings, and
+// online requests not yet answered nor expired (they hold their time).
+// `except`: a booking's own rows when it is being moved.
+async function clash(db, business, column, resourceId, starts, ends, except = []) {
   const join = column === 'room' ? 'JOIN salon_appointment_details d ON d.business_id=a.business_id AND d.appointment_id=a.id AND d.room_id=$2' : '';
-  return repo.one(db, `SELECT a.id,a.starts_at FROM business_appointments a ${join} WHERE a.business_id=$1 ${column === 'room' ? '' : 'AND a.resource_id=$2'}
-    AND a.status='booked' AND a.starts_at<$4 AND a.ends_at>$3 LIMIT 1`, [business.id, resourceId, starts, ends]);
+  return repo.one(db, `SELECT a.id,a.starts_at,a.status FROM business_appointments a ${join} WHERE a.business_id=$1 ${column === 'room' ? '' : 'AND a.resource_id=$2'}
+    AND business_appointment_holds(a.status,a.request_expires_at) AND a.starts_at<$4 AND a.ends_at>$3 AND NOT (a.id=ANY($5::bigint[])) LIMIT 1`,
+  [business.id, resourceId, starts, ends, except]);
 }
 
 // A client's money taken in advance: a shared receivables collection with
@@ -432,8 +445,13 @@ async function readBooking(business, body, user) {
   return { requestKey, hash, starts, deposit, notes, override };
 }
 // Inside the caller's transaction. options.walkIn: seated from the waiting
-// list now, so the client is marked arrived.
+// list now, so the client is marked arrived. options.guest: a guest's online
+// booking (modules/business/online-booking), with no one signed in (`user`
+// null): { onlineBookingId, status: booked | requested, expiresAt } — every rule
+// below holds the same, it takes no deposit, and its audit row is the guest's.
 async function bookIn(db, business, user, body, { requestKey, hash, starts, deposit, notes, override = null }, options = {}) {
+  const guest = options.guest || null;
+  if (!user && !guest) throw new Error('bookIn needs the person booking, or a guest');
   {
     await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
     const old = await repo.one(db, 'SELECT * FROM salon_appointment_details WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
@@ -470,12 +488,18 @@ async function bookIn(db, business, user, body, { requestKey, hash, starts, depo
     if (room && Number(room.location_id) !== Number(staff.location_id)) fail(`${room.name} is at another location than ${staff.name}`);
     const away = await staffAvailable(db, business, staff, starts, ends, override);
     broken = [broken, away].filter(Boolean).join(' ') || null;
-    if (await clash(db, business, 'staff', staff.id, starts, ends)) fail(`${staff.name} already has an appointment at that time`, 409);
-    if (room && await clash(db, business, 'room', room.id, starts, ends)) fail(`${room.name} is already booked at that time`, 409);
-    const appointment = await repo.one(db, `INSERT INTO business_appointments(business_id,resource_id,contact_id,sku_id,starts_at,ends_at,created_by)
+    const staffClash = await clash(db, business, 'staff', staff.id, starts, ends);
+    if (staffClash) fail(staffClash.status === 'requested' ? `${staff.name} has an online booking request waiting for that time: answer it in Online booking first`
+      : `${staff.name} already has an appointment at that time`, 409, guest ? { reason: 'slot_taken' } : undefined);
+    if (room && await clash(db, business, 'room', room.id, starts, ends)) fail(`${room.name} is already booked at that time`, 409, guest ? { reason: 'slot_taken' } : undefined);
+    const appointment = guest
+      ? await repo.one(db, `INSERT INTO business_appointments(business_id,resource_id,contact_id,sku_id,starts_at,ends_at,created_by,source,online_booking_id,status,request_expires_at)
+        VALUES($1,$2,$3,$4,$5,$6,NULL,'guests_site',$7,$8,$9) RETURNING *`,
+      [business.id, staff.id, contact.id, service.id, starts, ends, guest.onlineBookingId, guest.status, guest.status === 'requested' ? guest.expiresAt : null])
+      : await repo.one(db, `INSERT INTO business_appointments(business_id,resource_id,contact_id,sku_id,starts_at,ends_at,created_by)
       VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [business.id, staff.id, contact.id, service.id, starts, ends, user.id]);
     let collection = null;
-    if (deposit) {
+    if (deposit && !guest) {
       const location = await repo.one(db, 'SELECT * FROM business_locations WHERE business_id=$1 AND id=$2', [business.id, staff.location_id]);
       collection = await takeDeposit(db, business, user, { location, contact, ...deposit, requestKey,
         note: `Deposit for ${service.label} on ${starts.toISOString().slice(0, 10)}` });
@@ -484,6 +508,14 @@ async function bookIn(db, business, user, body, { requestKey, hash, starts, depo
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,CASE WHEN $9 THEN now() END)`, [business.id, appointment.id, room?.id || null, service.price, collection?.id || null, notes, requestKey, hash,
       Boolean(options.walkIn)]);
     if (broken) await recordOverride(db, business, user, appointment.id, 'booked', broken, override);
+    if (guest) {
+      await repo.guestAudit(db, business.id, `appointment.${guest.status}`, appointment.id, { roomId: room?.id || null, onlineBookingId: guest.onlineBookingId });
+      await repo.event(db, business.id, null, `appointment.${guest.status}`, 'appointment', appointment.id, {
+        resourceId: staff.id, roomId: room?.id || null, contactId: contact.id, skuId: service.id, startsAt: appointment.starts_at, endsAt: appointment.ends_at,
+        locationId: staff.location_id, source: 'guests_site', onlineBookingId: guest.onlineBookingId,
+      });
+      return { ...appointment, room_id: room?.id || null, deposit_collection_id: null, deposit_no: null };
+    }
     await repo.audit(db, business.id, user.id, 'appointment.booked', appointment.id, { roomId: room?.id || null, deposit: collection ? collection.amount : null, ...(broken ? { override: override.reason } : {}) });
     await repo.event(db, business.id, user.id, 'appointment.booked', 'appointment', appointment.id, {
       resourceId: staff.id, roomId: room?.id || null, contactId: contact.id, skuId: service.id, startsAt: appointment.starts_at, endsAt: appointment.ends_at,
@@ -553,6 +585,8 @@ async function setStatus(business, user, appointmentId, body) {
     if (!appointment) fail('Appointment not found', 404);
     if (appointment.status !== 'booked') {
       if (appointment.status === status) return { appointment, fee: null, repeated: true };
+      // A guest's request is answered in Online booking (accept or decline), never marked here.
+      if (appointment.status === 'requested') fail('This is an online booking request: accept or decline it in Online booking', 409);
       fail('Appointment is not booked any more', 409);
     }
     await core.statusAllowed(db, business, appointment, status);
@@ -1058,4 +1092,6 @@ module.exports = {
   createPlan, updatePlan, cancelClientPlan, createRule, updateRule, commissionReport, payCommission, requireSalon,
   // Used by businessSalonDesk.service.js.
   bookIn, readBooking, readOverride, staffAvailable, availabilityProblem, recordOverride, freeSql, notHeldSql, lockResource, settingsRow, derivedKey, timeText,
+  // Used by online booking (modules/business/online-booking): a guest's change of time, and the deposit the desk takes on accepting.
+  clash, takeDeposit,
 };

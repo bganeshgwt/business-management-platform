@@ -18,12 +18,16 @@ the page opens `GET /api/public/live?key=…` with the browser's `EventSource`
 (`src/services/guestLive.js`, `useGuestLive`). While the stream cannot open it
 asks on its own every few seconds; while it is open, still once a minute.
 `/privacy-notice/:ref` shows a business's privacy notice, from the link on its guest
-pages. `src/shared/` holds what a business's guest pages are built from
+pages. `/appointments/:token` is a business's online booking link (a salon,
+clinic, optical shop, garage, gym or repair shop): the guest books a free time
+and follows the booking at `/appointments/status/:guestToken`, live, with
+*Change the time* and *Cancel*; `/appointments` lists the bookings made on
+this phone. `src/shared/` holds what a business's guest pages are built from
 ([ARCHITECTURE › Build a guest page for a business](../../docs/ARCHITECTURE.md#810-build-a-guest-page-for-a-business)).
 
 Planned pages have their address and say what is coming: `/shop` (order from
-a shop), `/appointments` (salon and clinic bookings) and `/account` (a guest's
-orders, bookings and points); see `src/plannedPages.js`. Any other address
+a shop) and `/account` (a guest's orders, bookings and points); see
+`src/plannedPages.js`. Any other address
 shows how to reach the right link, never "Page not found".
 
 ## Setup
@@ -57,8 +61,8 @@ site together, and `npm run dev:customer` starts this site alone.
 ## Tests
 
 `npm test` (here, or `npm test --workspace apps/customer-web` from the root)
-runs the Node tests in `tests/`: the live updates' rules and the shared
-pieces' rules, with no browser and no server.
+runs the Node tests in `tests/`: the live updates' rules, the shared
+pieces' rules and online booking's words, with no browser and no server.
 
 The browser tests in `tests/browser/` run from the project root with
 `npm run test:browser`, which starts its own servers on a throwaway database
@@ -84,7 +88,7 @@ and fills it with the data the tests need. See
 ```
 src/
 ├── main.jsx        The shared look (@bmp/ui/styles.css), BrowserRouter
-├── App.jsx         The routes: three built pages and a business's privacy notice, three planned, everything else → StartPage
+├── App.jsx         The routes: four built pages and a business's privacy notice, two planned, everything else → StartPage
 ├── plannedPages.js What each planned page says
 ├── pages/          StartPage (the bare address or an incomplete link), PlannedPage, PrivacyPage (a business's
 │                   privacy notice), pages.css
@@ -95,6 +99,7 @@ src/
 │   ├── table-order/   QR ordering at the table: pages/QrLandingPage, services/tableOrder.service
 │   ├── online-order/  Online ordering and order status: pages/, services/, styles/
 │   ├── booking/       Table booking and a booking's status: pages/, services/, styles/
+│   ├── appointments/  A business's online booking, a booking's own page and this phone's bookings: pages/, services/, styles/
 │   └── privacy/       The restaurant's privacy notice and the consent ticks, where a page takes a name and number
 └── styles/guest.css   The guest pages' own look (on top of the shared tokens)
 ```

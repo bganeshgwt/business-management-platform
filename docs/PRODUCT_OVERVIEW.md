@@ -44,7 +44,7 @@ Read the diagram top to bottom:
 3. The shared core does the common work.
 4. Each business type adds only its own modules.
 
-The restaurant and its formats run their own engine, with roles of their own, but share the login, the switcher and tasks. Guests never sign in: table QR ordering, online ordering and table booking open on the separate guests' site. The diagram's source is `images/business-admin-overview.html`: edit the words there and render it again.
+The restaurant and its formats run their own engine, with roles of their own, but share the login, the switcher and tasks. Guests never sign in: table QR ordering, online ordering, table booking and a business's online booking of appointments open on the separate guests' site. The diagram's source is `images/business-admin-overview.html`: edit the words there and render it again.
 
 ## The shared core
 
@@ -61,6 +61,7 @@ Every business except the restaurant runs on the same core. It is built once, so
 | Products | Products, categories, units | GST rate, HSN, MRP, shelf location, member price, departments, batch / expiry / serial tracking, pack sizes, opening stock when an item is added; the yearly GST rate change entered ahead, in force on its date by itself, with each item's GST history |
 | Stock | Stock, transfers, counts | Stock by branch and batch with its value; transfers in transit; counts approved before stock changes |
 | Time | Appointments | Staff and rooms without double booking; done, no-show and cancel rules |
+| Time | Online booking | A booking link per branch for salons, clinics, opticians, garages, gyms and repair shops, with its QR poster: guests book free times themselves (at once, or as requests the desk accepts), follow them live and change or cancel online; the desk answers requests, sends tomorrow's reminders on WhatsApp and sees online bookings on its calendar |
 | Money | Daily money and expenses | Takings by method, person and counter matched with cash, with a cash check and each cashier's shift; expenses paid out, corrected only by a reversal with a reason |
 | Settings | Business settings | Legal name, GSTIN, address, tax mode, rounding, financial year, opening hours, rules, number series, payment methods |
 | Settings | Personal data | The privacy notice and its contact, a line of which every bill prints; each customer's consent to bills on WhatsApp, reminders and offers, checked before a message goes; their requests to see, correct or erase their data, answered within 90 days; the breach register with the Board's 72 hours. A restaurant has the same |
@@ -152,6 +153,7 @@ Each business type adds only what is truly its own on top of the shared core. Th
 - **Calendar:** a column per stylist and room, with deposits and fair no-show charges.
 - **Bill:** services and products in separate tabs by category; products kept for salon use cannot be sold.
 - **Packages, memberships, commissions and schedules.**
+- **Online booking:** clients book one to three services with a stylist or *any stylist* from the salon's link; a salon that takes deposits confirms each booking, with the advance paid by UPI where it asks.
 
 ### Meat, seafood and weight-based shops
 
@@ -181,7 +183,8 @@ Each business type adds only what is truly its own on top of the shared core. Th
   - OPD timings by weekday, with morning and evening sessions and leave;
   - appointments are booked only into a doctor's free slots;
   - the bill picks the right fee;
-  - an earnings report shows each doctor's patients, fees and share.
+  - an earnings report shows each doctor's patients, fees and share;
+  - with online booking, patients book an OPD slot from the clinic's link, seeing the fee, qualifications and registration number first; the front desk confirms each request, and part of every session stays for walk-ins.
 - **Patients and consent, consultations:** registration with recorded consent; vitals, diagnosis, prescription, follow-up and a referral with its printed letter (doctors only).
 - **The clinic's drug list and the prescription:** the clinic keeps its own list of medicines (strength, form, usual dose, the most a day, allergy group), imported from a spreadsheet or typed; the prescription picks from it, filling the usual dose, or takes a medicine written by hand; each line is checked as it is written for the patient's allergies, the same medicine or group twice and a day's dose over the most, and the doctor goes on with a reason that stays with the prescription.
 - **Lab:**

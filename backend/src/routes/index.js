@@ -102,6 +102,8 @@ router.use("/plan", require("../modules/platform/routes/plan.routes").restaurant
 router.use("/public/live", require("../modules/live/routes/guestLive.routes"));
 // A business's privacy notice for its guests, by the reference its guest pages link to.
 router.use("/public/privacy", require("../modules/business/guests/routes/guestNotice.routes"));
+// A business's online booking: its booking link's page, free times and bookings, and each guest's own booking.
+router.use("/public/appointments", require("../modules/business/online-booking/routes/publicAppointments.routes"));
 
 // The one mount with no login in front of it: a guest at a table, holding a
 // QR code. Everything behind it is scoped by that code and rate limited.

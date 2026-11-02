@@ -55,7 +55,9 @@ export const addDays = (day, days) => {
 };
 export const longDay = (day) => new Date(`${day}T00:00:00Z`).toLocaleDateString("en-IN", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" });
 
-export const STATUS_WORDS = { booked: "Booked", completed: "Done", no_show: "No-show", cancelled: "Cancelled" };
+export const STATUS_WORDS = { booked: "Booked", completed: "Done", no_show: "No-show", cancelled: "Cancelled", requested: "Request", declined: "Declined", expired: "Not answered" };
+// What the calendar draws: a booking, or a guest's online request still holding its time (declined, expired and cancelled ones are not).
+export const onCalendar = (a) => !['cancelled', 'declined', 'expired'].includes(a.status) && (a.status !== 'requested' || a.holds !== false);
 export const PLAN_STATE = {
   active: { tone: "active", label: "In use" }, used_up: { tone: "neutral", label: "All used" }, expired: { tone: "inactive", label: "Expired" },
   cancelled: { tone: "inactive", label: "Cancelled" }, upcoming: { tone: "info", label: "Starts later" },

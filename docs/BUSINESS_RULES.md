@@ -36,6 +36,7 @@ The everyday numbers, such as expiring-soon days, voucher validity, credit age g
 - [Rentals & hire](#rentals--hire)
 - [Fuel stations](#fuel-stations)
 - [Hotels, lodges & guest houses](#hotels-lodges--guest-houses)
+- [Online booking](#online-booking)
 - [Restaurant and food formats](#restaurant-and-food-formats)
 
 ## Fixed on purpose
@@ -160,7 +161,7 @@ The DPDP Act 2023 and the DPDP Rules 2025, for every business: a shop's customer
 
 ### An erasure keeps the tax records, the consents and the request
 
-- **Rule:** an erasure, done from an erasure request, removes the person's name, phone, e-mail, address, GSTIN and PAN from their record (it becomes *Erased customer #id*, or *Erased guest #id*, and no longer changes), and their copies on the records that hold them, closed ones included: job cards, repair jobs, warranties, garment orders, rental bookings with the ID and licence, stays, spectacle orders, gold schemes, quotations, book and pickup orders, salon notes and the client card, a farmer's details and a site. Bills and other tax records keep what tax law needs (the name, GSTIN, address and PAN they were made out to), and so do money received, returns, the old gold voucher's ID and the lodging guest register; what is kept, and why, is written on the request for the accountant. Points left are cancelled with an entry. Their consents are withdrawn and kept, and so is the request, as the record. The activity log is kept at least a year. A restaurant guest's erasure from the guest book is kept in the register as an erasure request received and done that day.
+- **Rule:** an erasure, done from an erasure request, removes the person's name, phone, e-mail, address, GSTIN and PAN from their record (it becomes *Erased customer #id*, or *Erased guest #id*, and no longer changes), and their copies on the records that hold them, closed ones included: job cards, repair jobs, warranties, garment orders, rental bookings with the ID and licence, stays, spectacle orders, gold schemes, quotations, book and pickup orders, online bookings (the booker, the person booked for, the note, the reason and the vehicle), salon notes and the client card, a farmer's details and a site. Bills and other tax records keep what tax law needs (the name, GSTIN, address and PAN they were made out to), and so do money received, returns, the old gold voucher's ID and the lodging guest register; what is kept, and why, is written on the request for the accountant. Points left are cancelled with an entry. Their consents are withdrawn and kept, and so is the request, as the record. The activity log is kept at least a year. A restaurant guest's erasure from the guest book is kept in the register as an erasure request received and done that day.
 - **Why:** the DPDP Act erases data no law requires keeping; tax law requires bills (how long was not verified: it is for the accountant), and the Rules keep processing logs at least a year.
 - **Change it:** nothing to set.
 
@@ -404,7 +405,7 @@ For every business and the restaurant. A business pays per business for a plan o
 
 ### The starting price list
 
-- **Rule:** each business type starts with one plan, Basic, its default: its type's modules that start on, without the applications. Basic costs ₹499 a month or ₹4,999 a year for a grocery, general store, books, meat, weight-based, optical, seeds and fertilisers, hardware, garments, electronics or pharmacy business; ₹799 / ₹7,999 for a supermarket, wholesaler, jeweller, fuel station or restaurant (whose Basic also holds pre-orders and brands); ₹599 / ₹5,999 for a salon, gym, laundry, garage or rental business; ₹1,199 / ₹11,999 for a clinic or a hotel. Other modules cost ₹199 / ₹1,999; of the applications, the captain app, the kitchen display and QR table ordering cost ₹299 / ₹2,999, the online ordering page ₹399 / ₹3,999 and the laboratory ₹499 / ₹4,999. A business already on the platform when the paid-plans migration runs is given time with no end that unlocks everything, and every restaurant gets the captain app switched on.
+- **Rule:** each business type starts with one plan, Basic, its default: its type's modules that start on, without the applications. Basic costs ₹499 a month or ₹4,999 a year for a grocery, general store, books, meat, weight-based, optical, seeds and fertilisers, hardware, garments, electronics or pharmacy business; ₹799 / ₹7,999 for a supermarket, wholesaler, jeweller, fuel station or restaurant (whose Basic also holds pre-orders and brands); ₹599 / ₹5,999 for a salon, gym, laundry, garage or rental business; ₹1,199 / ₹11,999 for a clinic or a hotel. Other modules cost ₹199 / ₹1,999; of the applications, the captain app, the kitchen display, QR table ordering and online booking cost ₹299 / ₹2,999, the online ordering page ₹399 / ₹3,999 and the laboratory ₹499 / ₹4,999. A business already on the platform when the paid-plans migration runs is given time with no end that unlocks everything, and every restaurant gets the captain app switched on.
 - **Why:** a starting point the super admin reviews before the first payment; a business already on the platform keeps everything it uses.
 - **Change it:** *Platform › Settings › Prices*.
 
@@ -2344,6 +2345,94 @@ A hotel, lodge or guest house bills on bills of the shared core ([Shops and the 
 - **Rule:** a guest in the house moves to another property of the business from their second day: a check-out at the first property (every folio billed there with its own GST invoice, the place of supply that property's state, paid first by the stay's advances and deposits) and, in the same step, a reservation and check-in at the other for the same guest, party, source and company billed, arriving today on that property's rates and rooms, its occupants recorded again there; the two stays are linked. No late check-out or early check-in is charged for the move. What is left of the first stay's advances and deposits carries on and pays the new stay's bill. A move on the arrival day, of a day use or of a group's room is refused.
 - **Why:** GST is per property (each its own GSTIN and state), so the folio is billed, not carried.
 - **Change it:** who moves a guest is `lodging.create` with `sales.create`.
+
+## Online booking
+
+A salon's, clinic's, optical shop's, garage's, gym's or repair shop's own booking link, where guests book a time themselves ([ADMIN_GUIDE.md › Online booking for appointments](ADMIN_GUIDE.md#online-booking-for-appointments)). The rules a new link starts with are in that section's table.
+
+### One booking engine: a person is never booked twice
+
+- **Rule:** an online booking is an appointment made by the same rules as one booked at the desk: a salon's service times with clean-up, stylists' skills, weeks, leave, the salon's holidays and its rooms; a clinic's OPD sessions, slot length and leave; anyone else's opening hours and people. Every screen and every check counts what holds a time: a booking, and a request until it is answered or expires (the database function `business_appointment_holds`); a declined, expired, cancelled, done or missed one holds nothing. The time is checked again as the booking is saved, one booking at a time per business, and a time taken a moment before is refused with the next three free ones.
+- **Why:** a guest and the desk reaching for the last Saturday 4:30 pm at once: one gets it, the other is told at once and offered the next free times.
+- **Change it:** nothing to set.
+
+### Booked at once, or a request the desk answers
+
+- **Rule:** a link books a free time at once, or, set to *I confirm each one*, makes a request. Whatever the setting, a booking comes as a request when the salon takes a deposit (the desk takes it by phone as it accepts), when the salon asks the advance by UPI, or when the guest's mobile has missed the link's number of bookings in the last 90 days at the business. A request holds its time until the desk accepts or declines it, the guest withdraws it, or it expires. The desk may accept it at another time or with another person agreed with the guest by phone, on the same rules. A decline carries the words the guest reads.
+- **Why:** a doctor's day, a deposit and a regular no-show each need a person's look; a time must not be given away while they look.
+- **Change it:** *Online booking › Booking link › Booking rules*; who answers is `online_appointments.approve` (the front desk, an optometrist, a manager and the owner).
+
+### A request not answered in time expires
+
+- **Rule:** a request waits the link's hours to answer (12 to start with, from 1 to 72), and never past its own start; then it expires. Its time is free again, the guest's page says it was not confirmed in time with the phone number, the activity log records it as done *Automatic*, and the desk's *Not answered in time* list and the bell keep it for the desk to call the guest. The desk can no longer accept it: the guest books again.
+- **Why:** a guest is never left holding a time nobody will confirm, and an unanswered request never blocks a slot for long.
+- **Change it:** *Hours to answer a request*.
+
+### The advance by UPI
+
+- **Rule:** a salon that takes a deposit can ask the advance as guests book: the salon's deposit % of the services' prices including GST, in whole rupees up. The guest pays it from their own UPI app to the salon's UPI id and types the payment's 12-digit UTR; the booking is a request, marked *Advance to check*. The desk finds the UTR in its UPI or bank app and accepts with *It reached our account*: the advance becomes the booking's deposit, a receipt in the guest's name by UPI with the UTR as its reference, used on the bill like any deposit. Declined or not answered, the salon returns it from its own UPI app: the guest's page says it will. A booking holding a deposit is not cancelled or moved online.
+- **Why:** there is no payment gateway yet, and a UTR is how a UPI payment is found in a bank statement. A deposit's cancellation and no-show charges ([Salon & spa](#salon--spa)) are the desk's to apply.
+- **Change it:** *Ask for the advance by UPI when guests book*, the UPI id and the name on it; the deposit % in *Stylists & services › Booking rules*. A card deposit, and money confirmed by itself, need the payment gateway ([BACKLOG.md](BACKLOG.md#7-left-inside-built-modules)).
+
+### Missed bookings before: the desk confirms
+
+- **Rule:** when a mobile has missed the link's number of bookings (no-shows) in the last 90 days at the business, under any of its customers with that number, its next bookings come as requests marked *Missed visits before*, with the count beside the guest. 0 switches it off.
+- **Why:** a salon or a doctor calls a guest who missed before, rather than keep a slot for them blindly.
+- **Change it:** *No-shows in 90 days before you confirm* (2 to start with).
+
+### How many bookings, from where
+
+- **Rule:** one mobile holds at most the link's open bookings at the business (3 to start with): a booking or a request still to come counts; one more is refused until one is cancelled or done. Bookings are also limited by the guest's address (30 in 10 minutes), by link (60 in 10 minutes) and by mobile (8 an hour). Sending the same booking again (its `clientKey`) answers the booking already made, never a second one; the same key with other details is refused.
+- **Why:** nobody holds every Saturday "just in case", and a flood from one place is a bot. A guest on a weak network who presses *Book now* twice books once.
+- **Change it:** *Bookings one mobile may hold*; the others are fixed.
+
+### Which times are offered
+
+- **Rule:** times start at least the link's notice from now and run up to its days ahead, on its step (a clinic: the doctor's slot). A salon offers times within the calendar hours and each stylist's hours that day, never on leave or a holiday; a visit of up to three services is back to back with one stylist (who does them all), each service with its clean-up, with a free room where a service needs one; *Any stylist* gives the free stylist with the fewest bookings that day. A clinic offers each doctor's OPD sessions that weekday, not on leave. An optical shop, a garage, a gym or a repair shop offers the location's opening hours, and only the services given a length on the link. Days and times are on the business's own clock.
+- **Why:** the same calendar as the desk's, so what a guest sees is what the desk could book.
+- **Change it:** *Days guests can book ahead*, *Notice before a booking*, *Times every*; a salon's hours and stylists' weeks in *Stylists & services*; a clinic's timings in *Doctors, fees & OPD*; a location's opening hours in *Settings › Locations*.
+
+### A clinic's OPD: online share, and booking closes as the session starts
+
+- **Rule:** only the link's share of an OPD session's slots (of its maximum patients, when set) is booked online, half to start with; the rest is for walk-ins and the phone. Online booking for a session stops as the session starts: later that day the page says to walk in. A booking is a request the front desk confirms, unless the link books at once. On the day the patient who came takes a token for the booking on their own record ([One family mobile, several patients](#one-family-mobile-several-patients)), registered with their consent if they are new.
+- **Why:** Indian OPDs run on walk-ins and tokens; a patient registered with consent at the desk is the clinic's record, not the booker's typing.
+- **Change it:** *Share of each OPD session booked online (%)*; the confirm setting.
+
+### One family mobile, several patients
+
+- **Rule:** a family books on one phone, so a clinic's online booking may be for a child or a parent who is a patient already, or may find another family member's record (the one used last on that mobile). Before registering anyone for it, the front desk sees the clinic's patients whose mobile has the same last ten digits as the booking's, however it was typed (switched-off and erased records never), each with their patient number, age and sex beside what the guest typed, and gives the token to the one who came: the booking then passes to that patient's own record (`appointment.patient_set` in the activity log, with why). A booking made for someone else may pass to any patient; the booker's own only to a patient who shares their mobile. A new patient is registered only when none of them is the one who came.
+- **Why:** a second record for the same person splits their history, prescriptions and lab reports, and the doctor reads only half of it.
+- **Change it:** nothing to set; the desk chooses on *Today's patients* (*Arrived: token*).
+
+### What a patient sees before booking a doctor
+
+- **Rule:** a doctor shows on the link only with OPD timings and a consultation fee. The page shows the fee (the price including any GST; consultations are usually nil-rated), the follow-up rule, the doctor's qualifications, and their registration number with its medical council; a doctor with no registration number given is flagged on *Doctors, fees & OPD* and on the link's notes. Online the booking asks only the patient's age and sex, whether they visited before, and an optional reason of up to 200 characters: no diagnosis, history or reports.
+- **Why:** the Indian Medical Council (Professional Conduct, Etiquette and Ethics) Regulations, 2002 ask a doctor to display their registration number (1.4.1) and only recognised degrees (1.4.2), and to announce the fee before the service (1.8). Health details are collected at the desk with the patient's consent to treatment, not on a public page.
+- **Change it:** the fee, timings, qualifications, registration number and council in *Doctors, fees & OPD* (a doctor who signs prescriptions has those of their signature used while these are empty).
+
+### The age declaration at a salon
+
+- **Rule:** a salon's booking asks the guest to tick *I am 18 or over, or I am booking for my child as their parent or guardian*; without it the booking is refused, and the time it was ticked is kept with the booking.
+- **Why:** under the DPDP Rules 2025 a child's data is taken with a parent's consent; the person booking says they are an adult or the parent, and offers are never taken for a child.
+- **Change it:** nothing to set.
+
+### Cancelling and changing online
+
+- **Rule:** a guest cancels, or moves to another free time with the same person and services, until the link's hours before the start (3 to start with), and moves it at most the link's number of times (2). A request may be withdrawn until its start. After the cut-off the page gives the phone number to call. The desk cancels or moves any booking as before.
+- **Why:** the business keeps a few hours to fill a freed time; a guest who keeps moving a booking calls instead.
+- **Change it:** *Guests cancel or change online until*, *Changes online per booking*.
+
+### A gym's link books a free trial
+
+- **Rule:** a gym's, studio's or coaching centre's link books a free trial for someone new: a mobile whose customer already has a membership or a trial pass is asked to call. Each trial makes an enquiry from the website, to follow up on the trial's day. Members book their classes with the desk.
+- **Why:** a trial is for a newcomer; booking a member's class needs the member signed in, which the guests' site does not do yet.
+- **Change it:** nothing to set.
+
+### Not taking online bookings now
+
+- **Rule:** with online booking switched off for the business or not in its plan, the plan ended, the business switched off, the location closed or the link switched off, the link's page says *Not taking online bookings now* with the business's phone number; the API refuses with the same reasons as a restaurant's online booking (403 `feature_off`, 409 `not_taking_orders` or `booking_off`). Bookings already made keep their pages. A link replaced by a new one is not in use (404).
+- **Why:** a guest who cannot book online should still know how to book.
+- **Change it:** *Settings › Business tools* (Online booking), *Your plan*, and *Stop taking bookings online* or *Make a new link* on the link.
 
 ## Restaurant and food formats
 

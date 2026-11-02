@@ -12,6 +12,7 @@ import { CLINIC_LAB } from "./test-data.mjs";
 import { ACCESS_RULES } from "./test-data.mjs";
 import { DASHBOARDS } from "./test-data.mjs";
 import { YOUR_PLAN } from "./test-data.mjs";
+import { ONLINE_BOOKING } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -1355,6 +1356,60 @@ export async function buildTestData({ api, logins, sql }) {
     if (state.state !== "ended") {
       throw new Error(`Test data: ${YOUR_PLAN.ended.name} is ${state.state}, not ended.`);
     }
+  }
+
+  // Online booking (online-appointments.spec.js, online-booking.spec.js),
+  // switched on by the owner for every trade that books people's time; the
+  // salon's haircut timed as Stylists & services › Service times times it;
+  // the clinic's paediatrician with her fee, her OPD every morning and evening
+  // and her registration, as Doctors, fees & OPD saves them; and the salon's
+  // and the clinic's booking links, made as Online booking › Booking link
+  // makes one, each on its trade's own rules (the salon books at once, the
+  // clinic confirms each request).
+  {
+    for (const type of ONLINE_BOOKING.types) await owner("PUT", at(type)("modules/online_appointments"), { enabled: true });
+    await owner("PUT", at("salon")(`salon/services/${businesses.salon.service.id}`), { durationMinutes: ONLINE_BOOKING.haircutMinutes, bufferMinutes: 0, needsRoom: false });
+    const { doctor } = ONLINE_BOOKING;
+    const B = at("healthcare");
+    const person = await owner("POST", B("resources"), { name: doctor.name, roleLabel: doctor.role, locationId: businesses.healthcare.locationId }, 201);
+    const fee = await owner("POST", B("catalog"), {
+      name: doctor.fee.service, code: doctor.fee.code, kind: "service", unit: "service", tracking: "none", price: String(doctor.fee.price), taxRate: "0",
+    }, 201);
+    await owner("PUT", B(`clinic/doctors/${person.id}`), {
+      speciality: doctor.speciality, consultationSkuId: fee.id, slotMinutes: doctor.slotMinutes, followUpDays: 0,
+      sessions: [0, 1, 2, 3, 4, 5, 6].flatMap((dow) => doctor.sessions.map((session) => ({ dow, ...session }))),
+      qualifications: doctor.qualifications, registrationNo: doctor.registrationNo, council: doctor.council,
+    });
+    for (const type of ["salon", "healthcare"]) {
+      const link = await owner("POST", at(type)("online-booking/links"), { locationId: businesses[type].locationId }, 201);
+      businesses[type].onlineBooking = { linkId: link.id, token: link.token };
+    }
+    businesses.healthcare.onlineBooking.doctor = { id: person.id, name: person.name };
+
+    // A family on one mobile (online-booking.spec.js): the father and his son,
+    // registered at the front desk with their consent; the father's booking for
+    // his son on the clinic's link, five days on, accepted, then brought to
+    // noon today on the clinic's clock in the database (no guest books a
+    // session already started).
+    const { family } = ONLINE_BOOKING;
+    const consent = { purposes: ["treatment"], method: "signed_form", givenBy: "Self" };
+    const father = await owner("POST", B("clinic/patients"), { ...family.father, consent }, 201);
+    const son = await owner("POST", B("clinic/patients"), { ...family.son, consent: { ...consent, givenBy: family.father.name } }, 201);
+    const guest = caller(api);
+    const link = businesses.healthcare.onlineBooking;
+    const [ahead] = await sql("SELECT (business_local_today($1) + 5)::text AS day", [businesses.healthcare.id]);
+    const { groups } = await guest("GET", `/public/appointments/${link.token}/times?${new URLSearchParams({ services: "", person: String(person.id), date: ahead.day })}`);
+    const made = await guest("POST", `/public/appointments/${link.token}/bookings`, {
+      clientKey: crypto.randomUUID(), services: [], person: person.id, date: ahead.day, time: groups[0].times[0].time, name: family.father.name, mobile: family.mobile,
+      forWhom: "someone_else", personName: family.son.name, personAge: family.son.ageYears, personSex: family.son.sex, visitKind: "follow_up", consents: [],
+    }, 201);
+    const [booking] = await sql("SELECT id FROM business_online_bookings WHERE guest_token=$1", [made.guestToken]);
+    await owner("POST", B(`online-booking/bookings/${booking.id}/accept`), { requestKey: requestKey() });
+    const [moved] = await sql(`UPDATE business_appointments a SET starts_at=(business_local_today(a.business_id) + time '12:00') AT TIME ZONE b.timezone,
+        ends_at=(business_local_today(a.business_id) + time '12:15') AT TIME ZONE b.timezone
+      FROM businesses b WHERE b.id=a.business_id AND a.online_booking_id=$1 RETURNING a.id`, [booking.id]);
+    link.family = { appointmentId: moved.id, father: { contactId: father.contact_id, name: family.father.name },
+      son: { contactId: son.contact_id, name: family.son.name, patientNo: son.patient_no } };
   }
 
   // The logins nothing above signed in as choose their own password now, so

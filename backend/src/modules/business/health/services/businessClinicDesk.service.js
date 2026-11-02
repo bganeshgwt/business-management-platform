@@ -45,7 +45,9 @@ async function serviceSku(db, business, value, name) {
 // --- Doctors: fees, sessions, leave -----------------------------------------------------
 
 const DOCTOR_SQL = `SELECT r.id,r.name,r.role_label,r.location_id,r.active,l.name AS location_name,
-    g.id AS signatory_id,g.name AS signed_name,g.qualification,g.registration_no,
+    g.id AS signatory_id,g.name AS signed_name,COALESCE(NULLIF(btrim(p.qualifications),''),g.qualification) AS qualification,
+    COALESCE(NULLIF(btrim(p.registration_no),''),g.registration_no) AS registration_no,COALESCE(NULLIF(btrim(p.council),''),g.council) AS council,
+    p.qualifications AS profile_qualifications,p.registration_no AS profile_registration_no,p.council AS profile_council,
     (g.id IS NOT NULL OR p.resource_id IS NOT NULL) AS is_doctor,
     p.speciality,p.consultation_sku_id,p.follow_up_sku_id,COALESCE(p.follow_up_days,0) AS follow_up_days,COALESCE(p.slot_minutes,10) AS slot_minutes,
     COALESCE(p.share_percent,0) AS share_percent,cs.label AS consultation_label,cs.price AS consultation_price,fs.label AS follow_up_label,fs.price AS follow_up_price,
@@ -71,7 +73,11 @@ async function doctors(business, query = {}) {
 }
 
 // body: { speciality, consultationSkuId, followUpSkuId, followUpDays, slotMinutes, sharePercent,
-//         sessions: [{ dow, starts: 'HH:MM', ends: 'HH:MM', maxPatients }] }
+//         sessions: [{ dow, starts: 'HH:MM', ends: 'HH:MM', maxPatients }],
+//         qualifications?, registrationNo?, council? (kept when left out) }
+// Patients booking online see the qualifications and the registration number
+// with its council (IMC Regulations 2002, 1.4.1 and 1.8); a doctor who signs
+// prescriptions has them on their signature, used while these are empty.
 async function saveDoctor(business, user, resourceId, body) {
   clinic.requireClinic(business);
   await access.require(business, 'settings.edit');
@@ -98,11 +104,16 @@ async function saveDoctor(business, user, resourceId, body) {
     const consultation = await serviceSku(db, business, body.consultationSkuId, 'Consultation fee');
     const followUp = await serviceSku(db, business, body.followUpSkuId, 'Follow-up fee');
     if (followUp && !consultation) fail('Choose the consultation fee before the follow-up fee');
-    await db.query(`INSERT INTO health_doctor_profiles(business_id,resource_id,speciality,consultation_sku_id,follow_up_sku_id,follow_up_days,slot_minutes,share_percent,updated_by,updated_at)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,now())
+    const was = await repo.one(db, 'SELECT qualifications,registration_no,council FROM health_doctor_profiles WHERE business_id=$1 AND resource_id=$2', [business.id, doctor.id]) || {};
+    const kept = (key, column, label, max) => (body[key] === undefined ? was[column] || null : text(body[key], label, max));
+    await db.query(`INSERT INTO health_doctor_profiles(business_id,resource_id,speciality,consultation_sku_id,follow_up_sku_id,follow_up_days,slot_minutes,share_percent,updated_by,updated_at,
+        qualifications,registration_no,council)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,now(),$10,$11,$12)
       ON CONFLICT (business_id,resource_id) DO UPDATE SET speciality=EXCLUDED.speciality,consultation_sku_id=EXCLUDED.consultation_sku_id,follow_up_sku_id=EXCLUDED.follow_up_sku_id,
-        follow_up_days=EXCLUDED.follow_up_days,slot_minutes=EXCLUDED.slot_minutes,share_percent=EXCLUDED.share_percent,updated_by=EXCLUDED.updated_by,updated_at=now()`,
-    [business.id, doctor.id, text(body.speciality, 'Speciality', 80), consultation, followUp, followUpDays, slotMinutes, share.toFixed(2), user.id]);
+        follow_up_days=EXCLUDED.follow_up_days,slot_minutes=EXCLUDED.slot_minutes,share_percent=EXCLUDED.share_percent,updated_by=EXCLUDED.updated_by,updated_at=now(),
+        qualifications=EXCLUDED.qualifications,registration_no=EXCLUDED.registration_no,council=EXCLUDED.council`,
+    [business.id, doctor.id, text(body.speciality, 'Speciality', 80), consultation, followUp, followUpDays, slotMinutes, share.toFixed(2), user.id,
+      kept('qualifications', 'qualifications', 'Qualifications', 120), kept('registrationNo', 'registration_no', 'Registration number', 60), kept('council', 'council', 'Medical council', 150)]);
     if (sessions) {
       await db.query('DELETE FROM health_doctor_sessions WHERE business_id=$1 AND resource_id=$2', [business.id, doctor.id]);
       for (const s of sessions) {
@@ -126,7 +137,7 @@ async function addLeave(business, user, resourceId, body) {
       [business.id, doctor.id, from, to, text(body.reason, 'Reason', 200), user.id]);
     // Patients already booked on those days are for the desk to call and move.
     const booked = await repo.one(db, `SELECT count(*)::int AS n FROM business_appointments a JOIN businesses b ON b.id=a.business_id
-      WHERE a.business_id=$1 AND a.resource_id=$2 AND a.status='booked' AND (a.starts_at AT TIME ZONE b.timezone)::date BETWEEN $3::date AND $4::date`, [business.id, doctor.id, from, to]);
+      WHERE a.business_id=$1 AND a.resource_id=$2 AND business_appointment_holds(a.status,a.request_expires_at) AND (a.starts_at AT TIME ZONE b.timezone)::date BETWEEN $3::date AND $4::date`, [business.id, doctor.id, from, to]);
     await repo.audit(db, business.id, user.id, 'doctor.leave_added', doctor.id, { name: doctor.name, from, to, booked: booked.n });
     return { ...row, from_date: from, to_date: to, booked: booked.n };
   });
@@ -175,7 +186,7 @@ async function slots(business, query) {
   const leave = doctor.leave.find((l) => l.from_date <= day && day <= l.to_date) || null;
   const rows = sessions.length && !leave ? await repo.all(repo.pool, `
     SELECT g AS starts_at, g + make_interval(mins => $4) AS ends_at, g < now() AS past,
-      EXISTS (SELECT 1 FROM business_appointments a WHERE a.business_id=$1 AND a.resource_id=$2 AND a.status='booked'
+      EXISTS (SELECT 1 FROM business_appointments a WHERE a.business_id=$1 AND a.resource_id=$2 AND business_appointment_holds(a.status,a.request_expires_at)
         AND a.starts_at < g + make_interval(mins => $4) AND a.ends_at > g) AS taken
     FROM businesses b, LATERAL unnest($5::text[], $6::text[]) AS s(starts, ends),
       LATERAL generate_series(($3::date + s.starts::time) AT TIME ZONE b.timezone, ($3::date + s.ends::time) AT TIME ZONE b.timezone - make_interval(mins => $4), make_interval(mins => $4)) g
@@ -258,7 +269,44 @@ const TOKEN_SQL = `SELECT t.*,c.name AS patient_name,c.phone AS patient_phone,p.
   WHERE t.business_id=$1`;
 const tokenRow = (db, business, tokenId) => repo.one(db, `${TOKEN_SQL} AND t.id=$2`, [business.id, tokenId]);
 
+// A contact's mobile as its last ten digits, however it was typed: the rule a
+// guest's customer record is found by (business/guests guestContacts).
+const SAME_MOBILE = "right(regexp_replace(COALESCE(phone,''),'\\D','','g'),10)";
+
+// The clinic's patients who share an online booking's mobile, for the front
+// desk before it registers anyone: a family books on one phone, and the child
+// or parent who comes may be a patient already. Each with what the patients
+// list shows of them (name, patient number, age, sex, consent) and whether the
+// booking is on their record now; the record the booking found first, then by
+// name. Switched-off and erased records never show; a booking made at the desk
+// has no booker's mobile, and finds none.
+async function sameMobile(business, appointmentId) {
+  clinic.requireClinic(business);
+  await access.require(business, 'patients.view');
+  const appointment = await repo.one(repo.pool, `SELECT a.id,a.contact_id,r.location_id,ob.mobile FROM business_appointments a
+    JOIN business_resources r ON r.business_id=a.business_id AND r.id=a.resource_id
+    LEFT JOIN business_online_bookings ob ON ob.business_id=a.business_id AND ob.id=a.online_booking_id
+    WHERE a.business_id=$1 AND a.id=$2`, [business.id, id(appointmentId, 'Appointment')]);
+  if (!appointment) fail('Appointment not found', 404);
+  access.requireLocation(business, appointment.location_id);
+  if (!appointment.mobile) return { patients: [] };
+  const patients = await repo.all(repo.pool, `SELECT p.contact_id,c.name,p.patient_no,p.sex,
+      CASE WHEN p.date_of_birth IS NOT NULL THEN date_part('year', age((now() AT TIME ZONE b.timezone)::date, p.date_of_birth))::int
+        ELSE p.age_years + floor(extract(epoch FROM now()-p.created_at)/31557600)::int END AS age,
+      EXISTS (SELECT 1 FROM business_consents k WHERE k.business_id=p.business_id AND k.contact_id=p.contact_id AND k.purpose='treatment' AND k.withdrawn_at IS NULL) AS consent_active,
+      (c.id=$3) AS booked
+    FROM health_patients p JOIN businesses b ON b.id=p.business_id JOIN business_contacts c ON c.business_id=p.business_id AND c.id=p.contact_id
+    WHERE p.business_id=$1 AND c.kind='customer' AND c.active AND c.erased_at IS NULL AND right(regexp_replace(COALESCE(c.phone,''),'\\D','','g'),10)=$2
+    ORDER BY (c.id=$3) DESC,c.name,p.patient_no LIMIT 20`, [business.id, appointment.mobile, appointment.contact_id]);
+  return { patients };
+}
+
 // body: { appointmentId } or { contactId, resourceId? }, priority?, note?, locationId?
+// An online booking takes { appointmentId, contactId } for the patient who
+// came, who becomes the appointment's patient (audited): for a booking made for
+// someone else (a child, a parent: the booker's mobile is its customer), any
+// patient; for the booker's own, a patient who shares the booker's mobile (a
+// family books on one phone, and the booking may have found another of them).
 async function issueToken(business, user, body) {
   clinic.requireClinic(business);
   await access.require(business, 'patients.create');
@@ -276,6 +324,18 @@ async function issueToken(business, user, body) {
       if (appointment.day !== day) fail('A token is given on the day of the appointment', 409);
       const existing = await repo.one(db, "SELECT id FROM health_tokens WHERE business_id=$1 AND appointment_id=$2 AND status<>'cancelled'", [business.id, appointment.id]);
       if (existing) return tokenRow(db, business, existing.id);
+      if (contactId && Number(contactId) !== Number(appointment.contact_id)) {
+        const online = appointment.online_booking_id
+          ? await repo.one(db, 'SELECT for_whom,mobile FROM business_online_bookings WHERE business_id=$1 AND id=$2', [business.id, appointment.online_booking_id]) : null;
+        const family = online && online.for_whom !== 'someone_else' && online.mobile
+          ? await repo.one(db, `SELECT 1 FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer' AND active AND erased_at IS NULL
+            AND ${SAME_MOBILE}=$3`, [business.id, contactId, online.mobile]) : null;
+        if (!online || (online.for_whom !== 'someone_else' && !family)) fail('This appointment is another patient\'s', 409);
+        await db.query('UPDATE business_appointments SET contact_id=$3 WHERE business_id=$1 AND id=$2', [business.id, appointment.id, contactId]);
+        await repo.audit(db, business.id, user.id, 'appointment.patient_set', appointment.id,
+          { from: Number(appointment.contact_id), to: Number(contactId), why: family ? 'same_mobile' : 'someone_else' });
+        appointment.contact_id = contactId;
+      }
       contactId = appointment.contact_id; resourceId = appointment.resource_id;
     }
     if (!contactId) fail('Choose the patient or the appointment');
@@ -410,4 +470,4 @@ async function callNext(business, user, body) {
   });
 }
 
-module.exports = { doctors, saveDoctor, addLeave, cancelLeave, availabilityProblem, slots, feeFor, visitFee, doctorEarnings, issueToken, queue, tokenAction, callNext };
+module.exports = { doctors, saveDoctor, addLeave, cancelLeave, availabilityProblem, slots, feeFor, visitFee, doctorEarnings, issueToken, queue, tokenAction, callNext, sameMobile };

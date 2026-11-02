@@ -261,11 +261,14 @@ const lists = {
     (SELECT count(*)::int FROM business_stock_count_lines x WHERE x.business_id=c.business_id AND x.count_id=c.id AND x.adjustment_id IS NOT NULL) AS corrected_count
     FROM business_stock_counts c JOIN business_locations l ON l.business_id=c.business_id AND l.id=c.location_id WHERE c.business_id=$1`,
   search: ['count_no', 'location_name', 'notes'], date: 'created_at', filters: { status: 'status', location: 'location_id' }, order: 'id DESC' },
-  appointments: { sql: `SELECT a.*,r.name AS resource_name,r.location_id,c.name AS contact_name,s.label AS service_name
+  // A guest's online booking (source guests_site) carries the guest's note and who it is for.
+  appointments: { sql: `SELECT a.*,r.name AS resource_name,r.location_id,c.name AS contact_name,s.label AS service_name,
+    ob.note AS online_note,ob.person_name AS online_person,ob.vehicle_no AS online_vehicle,ob.request_reason AS online_request_reason
     FROM business_appointments a JOIN business_resources r ON r.business_id=a.business_id AND r.id=a.resource_id
     JOIN business_contacts c ON c.business_id=a.business_id AND c.id=a.contact_id
-    JOIN catalog_skus s ON s.business_id=a.business_id AND s.id=a.sku_id WHERE a.business_id=$1`,
-  search: ['contact_name', 'service_name', 'resource_name'], date: 'starts_at', filters: { status: 'status', location: 'location_id' }, order: 'starts_at DESC,id DESC' },
+    JOIN catalog_skus s ON s.business_id=a.business_id AND s.id=a.sku_id
+    LEFT JOIN business_online_bookings ob ON ob.business_id=a.business_id AND ob.id=a.online_booking_id WHERE a.business_id=$1`,
+  search: ['contact_name', 'service_name', 'resource_name'], date: 'starts_at', filters: { status: 'status', location: 'location_id', source: 'source' }, order: 'starts_at DESC,id DESC' },
   audit: { sql: `SELECT a.id,a.action,a.entity_id,a.created_at,a.actor_id,a.details,a.channel,
     CASE a.channel WHEN 'guests_site' THEN 'Guest (online)' WHEN 'automatic' THEN 'Automatic' ELSE u.name END AS actor_name FROM business_audit a
     LEFT JOIN users u ON u.id=a.actor_id WHERE a.business_id=$1`, search: ['action', 'actor_name'], date: 'created_at', order: 'id DESC' },

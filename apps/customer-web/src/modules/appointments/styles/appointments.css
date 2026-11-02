@@ -1,0 +1,802 @@
+/* Online booking for guests (/appointments): one step per screen on a phone,
+   a summary bar at the bottom, the guest's own booking with its timeline.
+   Built on the guest look (guest.css, shared.css) and the platform's tokens,
+   so it follows light and dark; designed at 360 px and grown outwards.
+   Motion is transform and opacity only, and stills under reduced motion. */
+
+.ap-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  /* Room for the summary bar. */
+  padding-bottom: 96px;
+  scroll-margin-top: 80px;
+}
+
+.ap-title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.ap-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.ap-center {
+  text-align: center;
+}
+
+.ap-note,
+.ap-ok,
+.ap-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 0.875rem;
+}
+
+.ap-note {
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+.ap-ok {
+  background: var(--g-good-bg);
+  color: var(--g-good);
+  font-weight: 600;
+}
+
+.ap-error {
+  border: 1px solid var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.ap-note svg,
+.ap-ok svg,
+.ap-error svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* --- The steps ------------------------------------------------------------------------------------ */
+
+.ap-progress {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ap-progress li {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.ap-progress-bar {
+  height: 4px;
+  border-radius: 4px;
+  background: var(--g-line);
+  overflow: hidden;
+}
+
+.ap-progress-bar::after {
+  content: "";
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 220ms var(--motion-ease, ease);
+}
+
+.ap-progress .is-done .ap-progress-bar::after,
+.ap-progress .is-now .ap-progress-bar::after {
+  transform: scaleX(1);
+}
+
+.ap-progress .is-now .ap-progress-bar::after {
+  opacity: 0.55;
+}
+
+.ap-progress-label {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ap-progress .is-now .ap-progress-label {
+  color: var(--text);
+}
+
+/* --- Choices: services, people ------------------------------------------------------------------- */
+
+.ap-group + .ap-group {
+  margin-top: 6px;
+}
+
+.ap-group-title,
+.ap-part-title {
+  margin: 0 0 8px;
+  color: var(--text-2);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.ap-options {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ap-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 14px;
+  border: 1px solid var(--g-line);
+  border-radius: var(--g-radius);
+  background: var(--surface);
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+  box-shadow: var(--g-shadow);
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 140ms ease;
+}
+
+.ap-option:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.ap-option:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+.ap-option.is-on {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary-soft) 70%, var(--surface));
+}
+
+.ap-option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ap-option.is-past {
+  opacity: 0.7;
+}
+
+.ap-option-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ap-option-main strong {
+  font-size: 0.975rem;
+}
+
+.ap-option-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.ap-option-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ap-option-price small {
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.ap-tick {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 50%;
+}
+
+.ap-option.is-on .ap-tick {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-text);
+}
+
+.ap-avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: var(--g-hero);
+  color: #fff;
+  font-weight: 800;
+}
+
+.ap-avatar.is-any {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+/* --- Day and time ---------------------------------------------------------------------------------- */
+
+.ap-days {
+  display: flex;
+  gap: 8px;
+  margin: 0 -16px;
+  padding: 2px 16px 6px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 16px;
+  scrollbar-width: thin;
+}
+
+.ap-day {
+  display: flex;
+  flex: 0 0 68px;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-height: 76px;
+  padding: 8px 2px;
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  background: var(--surface);
+  color: inherit;
+  cursor: pointer;
+  scroll-snap-align: start;
+}
+
+.ap-day strong {
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.ap-day-week,
+.ap-day-note {
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ap-day.is-on {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-text);
+}
+
+.ap-day.is-on .ap-day-week,
+.ap-day.is-on .ap-day-note {
+  color: inherit;
+  opacity: 0.9;
+}
+
+.ap-day.is-closed:not(.is-on) {
+  border-style: dashed;
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.ap-day.skeleton {
+  border: 0;
+}
+
+.ap-day:focus-visible,
+.ap-chip:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+.ap-part + .ap-part {
+  margin-top: 14px;
+}
+
+.ap-times,
+.ap-chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+}
+
+.ap-chips {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+.ap-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  color: inherit;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: transform 120ms ease, background 140ms ease;
+}
+
+.ap-chip:active {
+  transform: scale(0.97);
+}
+
+.ap-chip.is-on {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-text);
+}
+
+.ap-next {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--warning-border);
+  border-radius: 14px;
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-weight: 600;
+}
+
+.ap-empty-times {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 14px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 14px;
+  color: var(--muted);
+}
+
+/* --- Details ----------------------------------------------------------------------------------------- */
+
+.ap-details {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ap-recap {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--g-radius);
+  background: var(--surface-2);
+}
+
+.ap-recap > span {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ap-recap > span span {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.ap-recap-price {
+  font-variant-numeric: tabular-nums;
+}
+
+.ap-who {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ap-who legend {
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.ap-segment {
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+
+.ap-segment label {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 42px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+/* The radio itself covers its whole choice, unseen: a tap anywhere on it is a
+   tap on the radio, and it keeps the keyboard and screen readers' radio. */
+.ap-segment input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ap-segment label.is-on {
+  background: var(--surface);
+  box-shadow: var(--g-shadow);
+}
+
+.ap-segment label:has(input:focus-visible) {
+  box-shadow: var(--ring);
+}
+
+.ap-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ap-plate {
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ap-website {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.ap-advance {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--g-radius);
+  background: color-mix(in srgb, var(--warning-bg) 60%, var(--surface));
+}
+
+.ap-advance h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1rem;
+}
+
+.ap-advance p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.ap-upi-id {
+  color: var(--muted);
+  word-break: break-all;
+}
+
+/* --- The summary bar ----------------------------------------------------------------------------------- */
+
+.ap-bar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 45;
+  border-top: 1px solid var(--g-line);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: saturate(160%) blur(10px);
+  box-shadow: 0 -8px 24px rgb(0 0 0 / 8%);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.ap-bar-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 10px 16px;
+}
+
+.ap-bar-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.ap-bar-text strong,
+.ap-bar-text span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ap-bar-text span {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.ap-bar-text .ap-bar-price {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.ap-bar-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.ap-back {
+  width: 48px;
+  padding: 0;
+}
+
+/* --- The guest's booking ----------------------------------------------------------------------------- */
+
+.ap-status {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ap-card {
+  padding: 16px;
+  border: 1px solid var(--g-line);
+  border-radius: var(--g-radius);
+  background: var(--surface);
+  box-shadow: var(--g-shadow);
+}
+
+.ap-card-title {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.ap-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 4px solid var(--primary);
+  animation: ap-rise 260ms var(--motion-ease, ease) both;
+}
+
+.ap-hero.is-waiting {
+  border-top-color: var(--warning);
+}
+
+.ap-hero.is-stopped {
+  border-top-color: var(--danger);
+}
+
+.ap-hero.is-done {
+  border-top-color: var(--g-good);
+}
+
+.ap-hero-label {
+  width: fit-content;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.ap-hero.is-waiting .ap-hero-label {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.ap-hero.is-stopped .ap-hero-label {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.ap-hero-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.ap-hero-when,
+.ap-hero-who {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-weight: 600;
+}
+
+.ap-hero-who {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.ap-hero-next {
+  margin: 4px 0;
+  font-size: 0.9375rem;
+}
+
+.ap-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ap-actions > * {
+  flex: 1 1 140px;
+}
+
+.ap-danger {
+  color: var(--danger);
+}
+
+.ap-danger-solid {
+  background: var(--danger-solid, var(--danger));
+  box-shadow: none;
+}
+
+.ap-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--danger-bg);
+}
+
+.ap-confirm p {
+  margin: 0;
+  font-weight: 600;
+}
+
+.ap-change {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ap-facts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.ap-facts div {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 8px;
+}
+
+.ap-facts dt {
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.ap-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ap-again {
+  margin: 0;
+  text-align: center;
+}
+
+.ap-call {
+  margin-top: 6px;
+}
+
+/* --- This phone's bookings --------------------------------------------------------------------------- */
+
+.ap-mine-page .gs-main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ap-mine {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ap-how p {
+  margin: 0 0 8px;
+}
+
+@keyframes ap-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ap-hero {
+    animation: none;
+  }
+
+  .ap-option,
+  .ap-chip,
+  .ap-progress-bar::after {
+    transition: none;
+  }
+}
+
+@media (min-width: 720px) {
+  .ap-options {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ap-people {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ap-flow {
+    padding-bottom: 110px;
+  }
+}

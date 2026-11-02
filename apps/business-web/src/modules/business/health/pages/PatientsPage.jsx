@@ -53,8 +53,9 @@ export function RegisterDialog({ onClose, onSaved, prefill = {} }) {
   const biz = useOpenBusiness();
   const today = businessToday(biz.business.timezone);
   const [notice, setNotice] = useState(null);
-  const [form, setForm] = useState({ name: prefill.name || "", phone: prefill.phone || "", email: "", address: "", sex: "", dateOfBirth: "", ageYears: "", guardianName: "", emergencyPhone: "",
-    purposes: ["treatment"], method: "signed_form", givenBy: "Self", agreed: false });
+  // prefill: a customer already known (contactId, name), or what a guest gave online (name, phone, sex, ageYears, guardianName, givenBy).
+  const [form, setForm] = useState({ name: prefill.name || "", phone: prefill.phone || "", email: "", address: "", sex: prefill.sex || "", dateOfBirth: "", ageYears: prefill.ageYears ?? "",
+    guardianName: prefill.guardianName || "", emergencyPhone: "", purposes: ["treatment"], method: "signed_form", givenBy: prefill.givenBy || "Self", agreed: false });
   useEffect(() => {
     businessRead(biz.id, "health/settings").then((s) => setNotice({ text: s.consent_notice, version: s.consent_version })).catch(() => setNotice({ text: "", version: "" }));
   }, [biz.id]);

@@ -336,16 +336,20 @@ async function bookingFor(db, business, appointmentId, customers) {
 }
 
 // Service bookings a job card may be opened from: booked, today or earlier
-// (the last week), with no job card yet; at the person's location.
+// (the last week), with no job card yet; at the person's location. An online
+// request is accepted first (Online booking); a booking made online carries the
+// vehicle the guest typed and the garage's own record of it when it has one.
 async function openBookings(business) {
   c.requireGarage(business);
   await access.require(business, 'garage.create');
   if (!business.modules.includes('appointments')) return [];
-  return repo.all(repo.pool, `SELECT a.id,a.starts_at,a.ends_at,a.contact_id,k.name AS customer_name,k.phone AS customer_phone,s.label AS service,r.name AS resource_name,
+  return repo.all(repo.pool, `SELECT a.id,a.starts_at,a.ends_at,a.contact_id,k.name AS customer_name,k.phone AS customer_phone,s.label AS service,r.name AS resource_name,a.source,
+      ob.vehicle_no AS online_vehicle_no,ob.vehicle_make AS online_vehicle_make,ob.vehicle_model AS online_vehicle_model,ob.vehicle_id AS online_vehicle_id,ob.note AS online_note,
       (SELECT json_agg(json_build_object('id',v.id,'registration_no',v.registration_no,'vehicle_name',concat_ws(' ',v.make,v.model,v.variant)) ORDER BY v.registration_no)
         FROM garage_vehicles v WHERE v.business_id=a.business_id AND v.contact_id=a.contact_id AND v.active) AS vehicles
     FROM business_appointments a JOIN businesses b ON b.id=a.business_id JOIN business_contacts k ON k.business_id=a.business_id AND k.id=a.contact_id
     JOIN catalog_skus s ON s.business_id=a.business_id AND s.id=a.sku_id JOIN business_resources r ON r.business_id=a.business_id AND r.id=a.resource_id
+    LEFT JOIN business_online_bookings ob ON ob.business_id=a.business_id AND ob.id=a.online_booking_id
     WHERE a.business_id=$1 AND a.status='booked' AND (a.starts_at AT TIME ZONE b.timezone)::date BETWEEN (now() AT TIME ZONE b.timezone)::date - 7 AND (now() AT TIME ZONE b.timezone)::date
       AND ($2::bigint IS NULL OR r.location_id=$2)
       AND NOT EXISTS (SELECT 1 FROM garage_job_cards j WHERE j.business_id=a.business_id AND j.appointment_id=a.id)

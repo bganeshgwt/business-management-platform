@@ -76,7 +76,8 @@ async function overview(business) {
         ORDER BY a.starts_at LIMIT 6`, values),
       // Each person's day: bookings, done, busy now, the next one; their sales and commission today.
       repo.all(repo.pool, `SELECT r.id,r.name,r.role_label,
-          count(a.id) FILTER (WHERE a.status<>'cancelled')::int AS booked,
+          -- Bookings that hold their time or were kept (done, missed); a request declined or expired was never booked.
+          count(a.id) FILTER (WHERE business_appointment_holds(a.status,a.request_expires_at) OR a.status IN ('completed','no_show'))::int AS booked,
           count(a.id) FILTER (WHERE a.status='completed')::int AS done,
           bool_or(a.status='booked' AND a.starts_at <= now() AND a.ends_at > now()) AS busy,
           min(a.starts_at) FILTER (WHERE a.status='booked' AND a.starts_at > now()) AS next_at,
@@ -88,7 +89,7 @@ async function overview(business) {
         FROM business_resources r
         LEFT JOIN business_appointments a ON a.business_id=r.business_id AND a.resource_id=r.id AND (a.starts_at AT TIME ZONE $2)::date=(now() AT TIME ZONE $2)::date
         WHERE r.business_id=$1 AND r.active AND ($3::bigint IS NULL OR r.location_id=$3)
-        GROUP BY r.id ORDER BY count(a.id) FILTER (WHERE a.status<>'cancelled') DESC, r.name LIMIT 12`, values),
+        GROUP BY r.id ORDER BY count(a.id) FILTER (WHERE business_appointment_holds(a.status,a.request_expires_at) OR a.status IN ('completed','no_show')) DESC, r.name LIMIT 12`, values),
     ]);
     result.appointments = {
       next,

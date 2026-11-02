@@ -39,7 +39,7 @@ test("a link with part of it missing says what to do", async ({ page }) => {
 });
 
 test("planned pages say what is coming", async ({ page }) => {
-  for (const [path, title] of [["/shop", "Order from a shop"], ["/appointments/x", "Book an appointment"], ["/account", "Your account"]]) {
+  for (const [path, title] of [["/shop", "Order from a shop"], ["/account", "Your account"]]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { name: title })).toBeVisible();
     await expect(page.getByText("Coming soon")).toBeVisible();
@@ -129,4 +129,12 @@ test("a table's QR code opens its menu", async ({ page }) => {
     await expect(page.getByRole("button", { name: `${dish.name}, details`, exact: true })).toBeVisible();
   }
   await expect(page).toHaveTitle(`${name} · Table ${table.tableNo}`);
+});
+
+test("an online booking link not in use says so, and a new phone has no bookings to list", async ({ page }) => {
+  await page.goto("/appointments/x");
+  await expect(page.getByRole("heading", { name: "This booking link isn't in use" })).toBeVisible();
+  await page.goto("/appointments");
+  await expect(page.getByRole("heading", { name: "Your bookings" })).toBeVisible();
+  await expect(page.getByText("No bookings on this phone yet")).toBeVisible();
 });

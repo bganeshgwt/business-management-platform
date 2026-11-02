@@ -759,3 +759,41 @@ export const YOUR_PLAN = {
   // A supplier the read-only kirana tries to add.
   supplier: "Cauvery Traders",
 };
+
+// Online booking (online-appointments.spec.js and online-booking.spec.js),
+// switched on for the trades that book people's time. The salon books its
+// haircut (timed for its calendar) at once; the clinic's paediatrician, with
+// her consultation fee, her OPD every morning and evening and her
+// registration, takes requests the front desk confirms. Each has its booking
+// link; the optician, the garage and the gym have none yet. The guests book
+// under their own names and mobiles: a salon client; a father booking for his
+// son at the clinic; and the desk's own: two requests, one accepted and one
+// declined, and the bookings it sees on the salon's calendar.
+export const ONLINE_BOOKING = {
+  types: ["salon", "healthcare", "optical", "garage", "memberships"],
+  haircutMinutes: 30,
+  doctor: {
+    name: "Dr. Anjali Deshpande", role: "Paediatrician", speciality: "Paediatrics", qualifications: "MBBS, DCH",
+    registrationNo: "TSMC 52714", council: "Telangana State Medical Council", slotMinutes: 15,
+    fee: { service: "Paediatric consultation", code: "SVC-CONSULT-PAED", price: 400 },
+    // Every day of the week.
+    sessions: [{ starts: "10:00", ends: "13:00" }, { starts: "17:00", ends: "20:00" }],
+  },
+  guests: {
+    salon: { name: "Nandini Rao", mobile: "9849012345" },
+    clinic: { name: "Prakash Joshi", mobile: "9849023456", patient: { name: "Aarav Joshi", age: "6", sex: "male" } },
+    accepted: { name: "Farhan Ali", mobile: "9849034567" },
+    declined: { name: "Shalini Verma", mobile: "9849045678", reason: "Fully booked at that time" },
+    calendar: { name: "Deepika Nair", mobile: "9849056789" },
+    request: { name: "Rohit Bansal", mobile: "9849067890" },
+  },
+  // A family on one mobile at the clinic: the father and his son, patients
+  // already (the mobile typed two ways), and the father's booking for his son,
+  // brought to today, for the front desk to give the son the token on his own
+  // record.
+  family: {
+    mobile: "9849078901",
+    father: { name: "Ramesh Iyer", phone: "+91 98490 78901", sex: "male", ageYears: 41 },
+    son: { name: "Advik Iyer", phone: "98490 78901", sex: "male", ageYears: 6, guardianName: "Ramesh Iyer" },
+  },
+};

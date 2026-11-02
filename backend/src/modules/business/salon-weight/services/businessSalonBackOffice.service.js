@@ -38,7 +38,7 @@ repo.addLists({
     sql: `SELECT h.id,h.business_id,h.location_id,h.day::text AS day,h.name,h.created_at,h.created_by,(h.day::timestamp AT TIME ZONE hb.timezone) AS day_at,
       l.name AS location_name,u.name AS created_by_name,
       (SELECT count(*)::int FROM business_appointments a JOIN businesses b ON b.id=a.business_id JOIN business_resources r ON r.business_id=a.business_id AND r.id=a.resource_id
-        WHERE a.business_id=h.business_id AND a.status='booked' AND (a.starts_at AT TIME ZONE b.timezone)::date=h.day AND (h.location_id IS NULL OR r.location_id=h.location_id)) AS booked
+        WHERE a.business_id=h.business_id AND business_appointment_holds(a.status,a.request_expires_at) AND (a.starts_at AT TIME ZONE b.timezone)::date=h.day AND (h.location_id IS NULL OR r.location_id=h.location_id)) AS booked
       FROM salon_holidays h JOIN businesses hb ON hb.id=h.business_id JOIN users u ON u.id=h.created_by LEFT JOIN business_locations l ON l.business_id=h.business_id AND l.id=h.location_id
       WHERE h.business_id=$1 AND h.cancelled_at IS NULL`,
     // A salon-wide holiday (no location) is every branch's.
@@ -104,7 +104,7 @@ async function saveWeek(business, user, resourceId, body) {
         [business.id, staff.id, d.dow, d.off, d.from, d.to, user.id]);
     }
     // Bookings still to come that the new week no longer covers are listed, not moved.
-    const coming = await repo.all(db, `SELECT a.id,a.starts_at,a.ends_at FROM business_appointments a WHERE a.business_id=$1 AND a.resource_id=$2 AND a.status='booked' AND a.starts_at > now()
+    const coming = await repo.all(db, `SELECT a.id,a.starts_at,a.ends_at FROM business_appointments a WHERE a.business_id=$1 AND a.resource_id=$2 AND business_appointment_holds(a.status,a.request_expires_at) AND a.starts_at > now()
       ORDER BY a.starts_at LIMIT 200`, [business.id, staff.id]);
     const clashes = [];
     for (const a of coming) {
@@ -129,7 +129,7 @@ async function addHoliday(business, user, body) {
     if (past.past) fail('That day has already passed');
     const booked = await repo.one(db, `SELECT count(*)::int AS n FROM business_appointments a JOIN businesses b ON b.id=a.business_id
       JOIN business_resources r ON r.business_id=a.business_id AND r.id=a.resource_id
-      WHERE a.business_id=$1 AND a.status='booked' AND (a.starts_at AT TIME ZONE b.timezone)::date=$2::date AND ($3::bigint IS NULL OR r.location_id=$3)`, [business.id, day, locationId]);
+      WHERE a.business_id=$1 AND business_appointment_holds(a.status,a.request_expires_at) AND (a.starts_at AT TIME ZONE b.timezone)::date=$2::date AND ($3::bigint IS NULL OR r.location_id=$3)`, [business.id, day, locationId]);
     if (booked.n) fail(`${booked.n} booking${booked.n === 1 ? ' is' : 's are'} made for that day. Move ${booked.n === 1 ? 'it' : 'them'} first.`, 409);
     const same = await repo.one(db, `SELECT id FROM salon_holidays WHERE business_id=$1 AND cancelled_at IS NULL AND day=$2 AND COALESCE(location_id,0)=COALESCE($3::bigint,0)`,
       [business.id, day, locationId]);

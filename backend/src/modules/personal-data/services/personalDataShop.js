@@ -57,7 +57,7 @@ async function openItems(db, business, contactId) {
        WHERE v.business_id=$1 AND v.contact_id=$2 AND v.amount > v.used AND v.expires_on >= (now() AT TIME ZONE x.timezone)::date`, 'credit voucher with money left on it'],
     [`SELECT count(*)::int AS n FROM salon_client_plans s JOIN businesses x ON x.id=s.business_id
        WHERE s.business_id=$1 AND s.contact_id=$2 AND s.status = 'active' AND (s.ends_on IS NULL OR s.ends_on >= (now() AT TIME ZONE x.timezone)::date)`, 'salon package or membership still running'],
-    ["SELECT count(*)::int AS n FROM business_appointments WHERE business_id=$1 AND contact_id=$2 AND status = 'booked' AND starts_at > now()", 'appointment still to come'],
+    ["SELECT count(*)::int AS n FROM business_appointments WHERE business_id=$1 AND contact_id=$2 AND business_appointment_holds(status,request_expires_at) AND starts_at > now()", 'appointment still to come'],
     ["SELECT count(*)::int AS n FROM business_quotations WHERE business_id=$1 AND contact_id=$2 AND status = 'open'", 'quotation still open'],
     ["SELECT count(*)::int AS n FROM wholesale_orders WHERE business_id=$1 AND contact_id=$2 AND status IN ('open','part_dispatched','dispatched')", 'sales order not closed'],
     ["SELECT count(*)::int AS n FROM jewellery_orders WHERE business_id=$1 AND contact_id=$2 AND status NOT IN ('delivered','cancelled')", 'custom order not delivered'],

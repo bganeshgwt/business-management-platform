@@ -21,6 +21,7 @@ const access = require('./businessAccess.service');
 //   stays              Form-III reports overdue or due, reservations past their arrival day, guests past their departure
 //                      day, room nights the night audit has still to post (hotels, lodges and guest houses)
 //   appointments       still to come today
+//   online booking     requests waiting (by when to answer), new online bookings today, requests not answered in time
 //   licences           running out within 60 days, or run out
 //   farm inputs        last month's Form XIV and Form D returns not marked sent; insecticides kept
 //                      where food or feed is stored or sold (seeds, fertilisers & pesticides shops)
@@ -202,6 +203,9 @@ async function feed(business) {
   items.push(...await require('../../../gst-thresholds/services/gstThresholds.service').bell(business, base));
   // Tasks & issues (modules/tasks): your overdue tasks, the team's, reviews, serious issues.
   items.push(...await require('../../../tasks/services/notifications').forBusiness(business));
+  // Online booking: requests waiting, new online bookings today, requests not answered in time
+  // (it marks requests whose time to answer is up expired first).
+  items.push(...await require('../../online-booking/services/onlineBookingDesk.service').bell(business, base));
   const counts = { critical: 0, warning: 0, info: 0 };
   for (const item of items) counts[item.severity] += 1;
   return { items, counts, generatedAt: nowIso };

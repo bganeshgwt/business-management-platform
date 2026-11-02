@@ -2,7 +2,7 @@
 // has switched on and what this person's role allows. The server checks the
 // same two things on every request; the menu only hides what would be refused.
 
-import { AGRI, CLINIC, FUEL, GARAGE, GOODS, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEMBERSHIPS, OPTICAL, PHARMACY, RENTALS, RETAIL, SALON, WEIGHED } from './businessTypes.js';
+import { AGRI, BOOKS_ONLINE, CLINIC, FUEL, GARAGE, GOODS, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEMBERSHIPS, OPTICAL, PHARMACY, RENTALS, RETAIL, SALON, WEIGHED } from './businessTypes.js';
 import { dailyWorkspaces, WORKSPACES, workspaceLabel, workspaceSections } from './businessWorkspace.js';
 
 export { GOODS };
@@ -147,6 +147,8 @@ export function businessSections(type) {
         { section: "emi-finance", label: "EMI & financiers", icon: "wallet", need: "finance.view" },
         // Salon packages and memberships.
         { section: "packages", label: "Packages", icon: "package", need: "packages.view", types: SALON },
+        // Guests' bookings from the booking link: requests to answer, every online booking, the link and its rules.
+        { section: "online-booking", label: "Online booking", icon: "calendar", need: "online_appointments.view", types: BOOKS_ONLINE },
       ],
     },
     {

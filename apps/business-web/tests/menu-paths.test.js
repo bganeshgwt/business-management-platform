@@ -122,6 +122,7 @@ const SHOP_PARTS = {
   'Stylists & services': listed('modules/business/salon/pages/SalonSetupPage.jsx'),
   'Staff & access': ['New staff login', 'Give access'],
   Warranties: ['Register a warranty'],
+  'Online booking': listed('modules/business/online-booking/pages/OnlineBookingPage.jsx'),
 };
 const MENUS = {
   restaurant: { menus: [RESTAURANT], parts: RESTAURANT_PARTS },

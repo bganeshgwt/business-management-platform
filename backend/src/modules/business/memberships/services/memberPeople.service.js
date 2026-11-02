@@ -129,10 +129,11 @@ async function updateResult(business, user, resultId, body) {
 
 const LEADS_SQL = `SELECT x.*,(x.status IN ('open','trial') AND x.follow_up_on IS NOT NULL AND x.follow_up_on<=x.today) AS due FROM (
   SELECT l.id,l.location_id,lc.name AS location_name,l.name,l.phone,l.email,l.source,l.interest,l.follow_up_on,l.status,l.notes,l.lost_reason,l.contact_id,
-    l.trial_membership_id,tm.membership_no AS trial_no,tm.end_on AS trial_end_on,l.membership_id,mm.membership_no,l.created_at,u.name AS created_by_name,pr.member_code,
+    l.trial_membership_id,tm.membership_no AS trial_no,tm.end_on AS trial_end_on,l.membership_id,mm.membership_no,l.created_at,
+    CASE WHEN l.created_by IS NULL THEN 'Guest (online)' ELSE u.name END AS created_by_name,pr.member_code,
     (now() AT TIME ZONE b.timezone)::date AS today
   FROM member_leads l JOIN businesses b ON b.id=l.business_id JOIN business_locations lc ON lc.business_id=l.business_id AND lc.id=l.location_id
-  JOIN users u ON u.id=l.created_by LEFT JOIN member_memberships tm ON tm.business_id=l.business_id AND tm.id=l.trial_membership_id
+  LEFT JOIN users u ON u.id=l.created_by LEFT JOIN member_memberships tm ON tm.business_id=l.business_id AND tm.id=l.trial_membership_id
   LEFT JOIN member_memberships mm ON mm.business_id=l.business_id AND mm.id=l.membership_id
   LEFT JOIN member_profiles pr ON pr.business_id=l.business_id AND pr.contact_id=l.contact_id
   WHERE l.business_id=$1) x`;
@@ -190,6 +191,18 @@ async function updateLead(business, user, leadId, body) {
   });
 }
 
+// A free trial booked on the guests' site (Online booking): an enquiry from the
+// website with no one who made it, tied to the customer found or made for the
+// guest's mobile, to follow up on the trial's day. In the caller's transaction;
+// its audit row is the guest's. The desk gives the trial pass from it as from
+// any enquiry (trial below).
+async function addWebsiteLead(db, business, { locationId, name, phone, contactId, interest, followUpOn }) {
+  const row = await repo.one(db, `INSERT INTO member_leads(business_id,location_id,name,phone,source,interest,follow_up_on,contact_id,created_by,updated_by)
+    VALUES($1,$2,$3,$4,'website',$5,$6,$7,NULL,NULL) RETURNING id`, [business.id, locationId, String(name).slice(0, 150), phone || null, String(interest || '').slice(0, 200) || null, followUpOn, contactId]);
+  await repo.guestAudit(db, business.id, 'member_lead.created', row.id, { name, source: 'website', interest, followUpOn });
+  return row;
+}
+
 // body: { requestKey, planId, days (1–30), visits? (1–30), startOn? } — a trial pass: a membership with no bill.
 async function trial(business, user, leadId, body) {
   c.requireMemberships(business);
@@ -241,4 +254,4 @@ async function trial(business, user, leadId, body) {
   });
 }
 
-module.exports = { saveProfile, addGuardian, updateGuardian, addResult, updateResult, addLead, updateLead, trial, SOURCES };
+module.exports = { saveProfile, addGuardian, updateGuardian, addResult, updateResult, addLead, updateLead, trial, SOURCES, addWebsiteLead };

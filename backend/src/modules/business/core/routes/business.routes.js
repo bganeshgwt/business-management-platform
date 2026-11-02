@@ -271,6 +271,8 @@ require('../../../tax-changes/routes/taxChanges.routes').businessRoutes(router, 
 require('../../../personal-data/routes/personalData.routes').businessRoutes(router, { context, send, b });
 // An owner's GST thresholds (one module for both engines): the PAN an owner records, the HSN / SAC codes to fix.
 require('../../../gst-thresholds/routes/gstThresholds.routes').businessRoutes(router, { context, send, b });
+// Online booking (salons, clinics, optical shops, garages, gyms, electronics): the booking link and its rules, requests to answer, online bookings.
+require('../../online-booking/routes/onlineBooking.routes')(router, { context, send, b });
 
 // Scoped constraint failures are the person's conflict, not a server fault.
 router.use((error, req, res, next) => {

@@ -99,7 +99,8 @@ test('the garage', { timeout: 300000 }, async (t) => {
     const grants = async (business, template) => (await one(`SELECT COALESCE(array_agg(rp.permission_code ORDER BY rp.permission_code),'{}') AS p FROM business_role_permissions rp
       JOIN business_roles r ON r.business_id=rp.business_id AND r.id=rp.role_id WHERE r.business_id=$1 AND r.template_code=$2`, [business.id, template])).p;
     const garageGrants = async (business, template) => (await grants(business, template)).filter((p) => p.startsWith('garage.'));
-    assert.deepEqual(await grants(garage, 'mechanic'), ['appointments.view', 'catalog.view', 'garage.edit', 'garage.print', 'inventory.view']);
+    // The mechanic also sees the service bookings guests make online (Online booking), with no money.
+    assert.deepEqual(await grants(garage, 'mechanic'), ['appointments.view', 'catalog.view', 'garage.edit', 'garage.print', 'inventory.view', 'online_appointments.view']);
     assert.ok(!(await grants(garage, 'mechanic')).some((p) => /^(sales|receivables|purchasing)\./.test(p)), 'the mechanic takes no money');
     assert.deepEqual(await garageGrants(garage, 'manager'), ['garage.approve', 'garage.cancel', 'garage.create', 'garage.edit', 'garage.print', 'garage.view']);
     assert.deepEqual(await garageGrants(garage, 'cashier'), ['garage.create', 'garage.edit', 'garage.print', 'garage.view']);

@@ -117,7 +117,8 @@ test('gyms, studios and coaching', { timeout: 600000 }, async (t) => {
     const grants = async (business, template) => (await one(`SELECT COALESCE(array_agg(rp.permission_code ORDER BY rp.permission_code),'{}') AS p FROM business_role_permissions rp
       JOIN business_roles r ON r.business_id=rp.business_id AND r.id=rp.role_id WHERE r.business_id=$1 AND r.template_code=$2`, [business.id, template])).p;
     const own = async (business, template) => (await grants(business, template)).filter((p) => p.startsWith('member_plans.'));
-    assert.deepEqual(await grants(gym, 'trainer'), ['appointments.edit', 'appointments.view', 'member_plans.create', 'member_plans.view']);
+    // The trainer also sees the trials and sessions guests book online (Online booking).
+    assert.deepEqual(await grants(gym, 'trainer'), ['appointments.edit', 'appointments.view', 'member_plans.create', 'member_plans.view', 'online_appointments.view']);
     assert.ok(!(await grants(gym, 'trainer')).some((p) => /^(sales|receivables|purchasing|contacts)\./.test(p)), 'the trainer sees no money');
     assert.deepEqual(await own(gym, 'manager'), ['member_plans.approve', 'member_plans.cancel', 'member_plans.create', 'member_plans.edit', 'member_plans.export',
       'member_plans.manage', 'member_plans.refund', 'member_plans.view']);

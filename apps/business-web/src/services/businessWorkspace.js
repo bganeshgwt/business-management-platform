@@ -13,8 +13,8 @@ export const WORKSPACES = {
   customers: ['customers', 'loyalty', 'sites', 'fitters', 'prescriptions', 'recall', 'contact-lenses', 'vehicles', 'service-due', 'fuel-fleet', 'laundry-packages'],
   sales: ['sales', 'quotations', 'tinting', 'exchanges', 'warranties', 'pickup-orders', 'custom-orders', 'approvals'],
   orders: ['sales-orders', 'back-orders', 'dispatch', 'price-groups', 'pricing', 'routes'],
-  appointments: ['salon-calendar', 'appointments'],
-  care: ['clinic-today', 'clinic-queue', 'visits', 'appointments', 'doctors', 'clinic-drugs'],
+  appointments: ['salon-calendar', 'appointments', 'online-booking'],
+  care: ['clinic-today', 'clinic-queue', 'visits', 'appointments', 'doctors', 'clinic-drugs', 'online-booking'],
   patients: ['patients', 'customers'],
   laboratory: ['lab-orders', 'lab-tests', 'lab-qc'],
   reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'cash-report', 'fuel-outlets', 'activity', 'referrals', 'mechanic-commission', 'member-pay', 'lodging-reports'],
@@ -47,7 +47,7 @@ export const WORKSPACES = {
   lodgingGuests: ['lodging-form-iii', 'lodging-register'],
   staff: ['staff', 'roles'],
   money: ['day-close', 'expenses', 'emi-finance'],
-  repairs: ['repairs', 'appointments'],
+  repairs: ['repairs', 'appointments', 'online-booking'],
   packages: ['packages'],
   bookOrders: ['book-orders'],
   offers: ['offers'],
@@ -59,7 +59,7 @@ export const WORKSPACES = {
 const BOOKS_APPOINTMENTS = ['salon', 'healthcare', 'electronics', 'optical', 'garage', 'memberships'];
 
 export function workspaceFor(section, type) {
-  if (section === 'appointments') return type === 'healthcare' ? 'care' : type === 'electronics' ? 'repairs' : 'appointments';
+  if (section === 'appointments' || section === 'online-booking') return type === 'healthcare' ? 'care' : type === 'electronics' ? 'repairs' : 'appointments';
   if (section === 'pricing') return type === 'wholesale' ? 'orders' : 'products';
   if (section === 'customers' && type === 'healthcare') return 'patients';
   if ((section === 'customers' || section === 'loyalty') && type === 'memberships') return 'members';
@@ -84,7 +84,7 @@ export function workspaceSections(key, type) {
     // Weighed stock is checked on the weight screens, not by counting pieces.
     if (section === 'counts') return !WEIGHED.includes(type);
     if (section === 'salon-setup') return type === 'salon';
-    if (section === 'appointments') return BOOKS_APPOINTMENTS.includes(type);
+    if (section === 'appointments' || section === 'online-booking') return BOOKS_APPOINTMENTS.includes(type);
     // Routes and salespeople are a wholesaler's beat; a hardware shop's orders go to sites.
     if (section === 'routes') return type !== 'hardware';
     if (section === 'day-close' || section === 'expenses') return type !== 'restaurant';

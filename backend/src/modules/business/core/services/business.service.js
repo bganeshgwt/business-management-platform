@@ -1248,6 +1248,16 @@ async function resource(business, user, body) {
 // hours, stylist skills, rooms, deposits): businessSalon.service.js. Required
 // here lazily, because that service requires this one.
 const salonRules = (business) => (business.business_type === 'salon' ? require('../../salon-weight/services/businessSalon.service') : null);
+// The one clash check of every booking path, the desk's and online
+// (modules/business/online-booking): the first booking of this person or room
+// overlapping [starts, ends), or nothing. A booking holds its time, and so does
+// a guest's request not yet answered nor expired (business_appointment_holds);
+// `except`: a booking's own rows when it is being moved.
+async function appointmentClash(db, businessId, resourceId, starts, ends, except = []) {
+  return repo.one(db, `SELECT id,starts_at,status FROM business_appointments WHERE business_id=$1 AND resource_id=$2
+    AND business_appointment_holds(status,request_expires_at) AND starts_at<$4 AND ends_at>$3 AND NOT (id=ANY($5::bigint[])) ORDER BY starts_at LIMIT 1`,
+  [businessId, resourceId, starts, ends, except]);
+}
 async function appointment(business, user, body) {
   await access.require(business, 'appointments.create');
   if (salonRules(business)) {
@@ -1268,9 +1278,9 @@ async function appointment(business, user, body) {
       const problem = await require('../../health/services/businessClinicDesk.service').availabilityProblem(db, business, staff.id, starts, ends);
       if (problem) fail(problem, 409, { reason: 'doctor_unavailable' });
     }
-    const overlap = await repo.one(db, `SELECT id FROM business_appointments WHERE business_id=$1 AND resource_id=$2
-      AND status='booked' AND starts_at<$4 AND ends_at>$3`, [business.id, staff.id, starts, ends]);
-    if (overlap) fail('This staff member already has an appointment at that time', 409);
+    const overlap = await appointmentClash(db, business.id, staff.id, starts, ends);
+    if (overlap) fail(overlap.status === 'requested' ? 'This staff member has an online booking request waiting for that time: answer it in Online booking first'
+      : 'This staff member already has an appointment at that time', 409);
     const result = await repo.one(db, `INSERT INTO business_appointments(business_id,resource_id,contact_id,sku_id,starts_at,ends_at,created_by)
      VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [business.id, staff.id, contact.id, sku.id, starts, ends, user.id]);
     await repo.audit(db, business.id, user.id, 'appointment.booked', result.id);
@@ -1302,6 +1312,10 @@ async function appointmentStatus(business, user, appointmentId, body) {
     const current = await repo.one(db, `SELECT * FROM business_appointments WHERE business_id=$1 AND id=$2 AND status='booked' FOR UPDATE`, [business.id, id(appointmentId)]);
     if (current) await statusAllowed(db, business, current, status);
     const result = await repo.one(db, `UPDATE business_appointments SET status=$3 WHERE business_id=$1 AND id=$2 AND status='booked' RETURNING *`, [business.id, id(appointmentId), status]);
+    // A guest's request is answered in Online booking (accept or decline), never marked here.
+    if (!result && (await repo.one(db, 'SELECT status FROM business_appointments WHERE business_id=$1 AND id=$2', [business.id, id(appointmentId)]))?.status === 'requested') {
+      fail('This is an online booking request: accept or decline it in Online booking', 409);
+    }
     if (!result) fail('Appointment is not booked or does not exist', 409);
     await repo.audit(db, business.id, user.id, `appointment.${status}`, result.id);
     await repo.event(db, business.id, user.id, `appointment.${status}`, 'appointment', result.id, { status });
@@ -1358,4 +1372,6 @@ async function reports(business, filters) {
 module.exports = { statusAllowed, list, linkRestaurant, createLocation, updateLocation, updateContact, reports, createCatalog, updateCatalog, createContact,
   createPriceRule, disablePriceRule, document, detail, payment, resource, appointment, appointmentStatus, decimal, dateText, uuid,
   lineNet, lineTax, inclusiveNet, kindPermission, readUnit, postDocument, recordPayment, conversion, requiredDecimals, readPayments,
-  readMrp, checkMrp, branchSeller, requireDepartmentItem, deliverLine, readHsn, readBarcode, readPan, signedDecimal, postOpeningStock };
+  readMrp, checkMrp, branchSeller, requireDepartmentItem, deliverLine, readHsn, readBarcode, readPan, signedDecimal, postOpeningStock,
+  // Online booking (modules/business/online-booking) books through the same clash check.
+  appointmentClash };

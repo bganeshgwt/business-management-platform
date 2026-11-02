@@ -10,12 +10,6 @@ export const PLANNED_PAGES = {
     coming: "Soon you will be able to see a shop's products here and order for pickup or delivery.",
     today: "please call or message the shop to place your order.",
   },
-  appointments: {
-    title: "Book an appointment",
-    icon: "calendar",
-    coming: "Soon you will be able to book a salon or clinic appointment here.",
-    today: "please call the salon or clinic to book.",
-  },
   account: {
     title: "Your account",
     icon: "user",

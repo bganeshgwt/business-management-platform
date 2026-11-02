@@ -12,7 +12,7 @@ PostgreSQL 15 or newer (built and tested on 18). One database holds the whole pl
 | [Live updates](#live-updates) | no tables: the triggers that announce each committed change to the live screens, for both engines | the restaurant or business named in each notification |
 | [Catalogues](#business-types) | business types, platform module codes, business and restaurant permission codes | — |
 
-**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Laundry & dry cleaning](#laundry--dry-cleaning) · [Jewellery & gold](#jewellery--gold) · [Rentals & hire](#rentals--hire) · [Fuel stations](#fuel-stations) · [Hotels, lodges & guest houses](#hotels-lodges--guest-houses) · [Tasks, issues & projects](#tasks-issues--projects) · [GST rates by date](#gst-rates-by-date) · [Live updates](#live-updates) · [Personal data](#personal-data) · [Owner's GST thresholds](#owners-gst-thresholds) · [Paid plans](#paid-plans). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
+**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Laundry & dry cleaning](#laundry--dry-cleaning) · [Jewellery & gold](#jewellery--gold) · [Rentals & hire](#rentals--hire) · [Fuel stations](#fuel-stations) · [Hotels, lodges & guest houses](#hotels-lodges--guest-houses) · [Tasks, issues & projects](#tasks-issues--projects) · [GST rates by date](#gst-rates-by-date) · [Live updates](#live-updates) · [Personal data](#personal-data) · [Owner's GST thresholds](#owners-gst-thresholds) · [Paid plans](#paid-plans) · [Online booking](#online-booking). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
 
 The business platform's design (its five layers, the rules every table follows, and why) is explained in [BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md). This file gives the table-by-table reference and links there instead of repeating it. A restaurant also appears on the platform as one `businesses` row whose `legacy_restaurant_id` points at it; its own tables are unchanged.
 
@@ -1526,12 +1526,13 @@ Key columns: `location_id`, `name`, `role_label`, `active`.
 Added by: 1791280000000.
 
 #### `business_appointments`
-Purpose: a booking of a resource for a contact and a service SKU.
-Key columns: `resource_id`, `contact_id`, `sku_id`, `starts_at`, `ends_at`, `status` (booked, completed, cancelled or no_show).
+Purpose: a booking of a resource for a contact and a service SKU, made at the desk or by a guest from a booking link ([Online booking](#online-booking)).
+Key columns: `resource_id`, `contact_id`, `sku_id`, `starts_at`, `ends_at`, `status` (booked, completed, cancelled or no_show; a guest's request: requested, declined or expired), `source` (staff or guests_site), `created_by` (empty exactly on a guest's row), `online_booking_id` -> `business_online_bookings`, `request_expires_at` (a request's time to answer).
 Rules:
 - CHECK: `ends_at > starts_at`.
-- Partial index on booked rows. The database does not prevent overlaps; the service checks them.
-Added by: 1791280000000; 1791974000000 (live updates: `business_appointments_live`).
+- CHECK `business_appointments_made_by`: `created_by` is empty exactly when the source is the guests' site; `business_appointments_online`: `online_booking_id` is set exactly on a guest's row; `business_appointments_requests`: only a guest's row is requested, declined or expired; `business_appointments_request_expiry`: a request has its time to answer.
+- Partial index on booked rows; partial index `business_appointments_requests` on requests; partial index `business_appointments_online_booking`. The database does not prevent overlaps; the services check them, every one through `business_appointment_holds` (a booking, or a request not answered nor expired, holds its time: [Online booking](#online-booking)).
+Added by: 1791280000000; 1791974000000 (live updates: `business_appointments_live`); online-appointments (the guest's requests, `source`, `online_booking_id`, `request_expires_at`, an empty `created_by`).
 
 ### Collections and supplier payments
 
@@ -2124,10 +2125,10 @@ Added by: 1791620001000.
 Purpose: the salon extras on a booking.
 Key columns: PK (`business_id`, `appointment_id` -> `business_appointments`), `room_id` -> `business_resources`, `price_at_booking`, `deposit_collection_id` -> `business_collections`, `fee_document_id`, `bill_document_id`, `notes`, `arrived_at`, `confirmation_sent_at`, `reminder_sent_at`, `moved_count`, `walk_in`, `request_key` (unique), `request_hash`.
 Rules: trigger `salon_appointment_details_fixed`:
-- the room may change (a booking is moved); price, deposit and request key never change;
+- the room may change (a booking is moved); price, deposit and request key never change, except that a guest's online booking, made with no deposit, takes its deposit once, when the desk accepts it;
 - the fee bill and the final bill are each set once;
 - no deletes.
-Added by: 1791430000000; 1791600000000 (`arrived_at`, `confirmation_sent_at`, `reminder_sent_at`, `moved_count`, `walk_in`, and a room that may change).
+Added by: 1791430000000; 1791600000000 (`arrived_at`, `confirmation_sent_at`, `reminder_sent_at`, `moved_count`, `walk_in`, and a room that may change); online-appointments (`salon_appointment_details_fixed()` replaced: an online booking's deposit set once).
 
 #### `salon_booking_overrides`
 Purpose: a booking made (`action` booked) or moved (`moved`) outside the stylist's hours, on leave, on a day off, on a holiday or outside calendar hours.
@@ -2460,10 +2461,10 @@ Added by: 1791620004000.
 
 #### `health_doctor_profiles`
 Purpose: a doctor's consultation terms: the service billed for a first visit, the one billed for a follow-up inside the follow-up window (none: the follow-up is free), the length of an appointment slot, and the doctor's share of their fees.
-Key columns: PK (`business_id`, `resource_id`), `speciality`, `consultation_sku_id`, `follow_up_sku_id`, `follow_up_days` (0–90), `slot_minutes` (5–120, default 10), `share_percent` (0–100), `updated_by`, `updated_at`.
+Key columns: PK (`business_id`, `resource_id`), `speciality`, `consultation_sku_id`, `follow_up_sku_id`, `follow_up_days` (0–90), `slot_minutes` (5–120, default 10), `share_percent` (0–100), `qualifications`, `registration_no`, `council` (what patients see before booking online; a signing doctor's `health_signatories` ones are used while these are empty), `updated_by`, `updated_at`.
 Relations: (`business_id`, `resource_id`) -> `business_resources` (the doctor's calendar); both services -> `catalog_skus`.
 Rules: CHECK a follow-up service needs a consultation service.
-Added by: 1791950408000 clinic-doctors-tokens.
+Added by: 1791950408000 clinic-doctors-tokens; online-appointments (`qualifications`, `registration_no`, `council`).
 
 #### `health_doctor_sessions`
 Purpose: a doctor's OPD sessions; a doctor may sit mornings and evenings (two rows on one day).
@@ -3404,8 +3405,8 @@ Added by: memberships-more.
 Purpose: an enquiry, its trial pass and the member it became.
 Key columns: `location_id`, `name`, `phone`, `email`, `source` (walk_in, phone, whatsapp, social, website, referral, other), `interest`, `follow_up_on`, `status` (open, trial, member, lost), `notes`, `lost_reason` (exactly when lost), `contact_id`, `trial_membership_id` (with a contact; on a trial), `membership_id` (exactly when a member), `created_by`/`created_at`, `updated_by`/`updated_at`.
 Relations: (`business_id`, ...) -> `business_locations`, `business_contacts`, `member_memberships` (trial and membership).
-Rules: partial index `member_leads_follow_up` (open or on a trial); partial index `member_leads_contact`. An erasure blanks the name (to the erased name), phone, e-mail, interest and notes.
-Added by: memberships-more.
+Rules: partial index `member_leads_follow_up` (open or on a trial); partial index `member_leads_contact`. CHECK `member_leads_made_by`: `created_by` is empty only on an enquiry from the website (a free trial a guest booked online). An erasure blanks the name (to the erased name), phone, e-mail, interest and notes.
+Added by: memberships-more; online-appointments (`member_leads_made_by`, an empty `created_by`).
 
 #### `member_acceptances`
 Purpose: the member's signature accepting the refund policy, a picture kept privately (`PRIVATE_UPLOADS_DIR/memberships/<business>/`).
@@ -4724,6 +4725,7 @@ Triggers (all `AFTER … FOR EACH ROW`):
 | `business_tasks_live`, `business_task_assignees_live`, `business_task_items_live` | `business_tasks`, `business_task_assignees`, `business_task_items` | insert, update, delete | `task`, the task |
 | `business_issues_live` | `business_issues` | insert, update, delete | `issue` |
 | `jewellery_rate_sheets_live` | `jewellery_rate_sheets` | insert | `jewellery_rates` |
+| `business_online_bookings_live` | `business_online_bookings` | insert, update, delete | `online_booking` |
 | `trg_users_live_session` | `users` | update of `token_version`, `status`, `restaurant_id`, `outlet_id` or `password_must_change` (when one changes) | `live_session` `{user}` |
 | `trg_restaurants_live_session` | `restaurants` | update of `status` (when it changes) | `live_session` `{restaurant}` |
 | `businesses_live_session` | `businesses` | update of `status` (when it changes) | `live_session` `{business}` |
@@ -4731,7 +4733,7 @@ Triggers (all `AFTER … FOR EACH ROW`):
 | `business_memberships_live_session_gone` | `business_memberships` | delete | `live_session` `{user, business}` |
 | `business_roles_live_session` | `business_roles` | update of `active` (when it changes) | `live_session` `{business}` |
 
-1791974000000's Down half drops its 34 triggers and 7 functions; 1791976000000's drops the lab's three triggers and `live_lab_order_part()`; clinic-lab-more's drops `lab_order_tests_live`.
+1791974000000's Down half drops its 34 triggers and 7 functions; 1791976000000's drops the lab's three triggers and `live_lab_order_part()`; clinic-lab-more's drops `lab_order_tests_live`; online-appointments' drops `business_online_bookings_live` with its table.
 
 ## Personal data
 
@@ -4949,6 +4951,36 @@ Purpose: the super admin's changes to settings, prices and leads (a business's o
 Key columns: `actor_id` -> `users`, `action` (`<area>.<what>`: `platform.settings_updated`, `platform.prices_updated`, `platform.lead_status_changed`, `platform.lead_note_added`), `entity_type`, `entity_id`, `details` (JSONB object), `created_at`.
 Added by: paid-plans.
 
+## Online booking
+
+Linked sections: [ADMIN_GUIDE.md › Online booking for appointments](ADMIN_GUIDE.md#online-booking-for-appointments), [BUSINESS_RULES.md › Online booking](BUSINESS_RULES.md#online-booking), [API.md › Online booking](API.md#online-booking). Migration online-appointments; module code `backend/src/modules/business/online-booking/`. A guest's booking is a `business_appointments` row (`source` guests_site) made by the same rules as the desk's, belonging to a `business_online_bookings` row.
+
+Function:
+- `business_appointment_holds(status, expires)` (SQL, stable): whether an appointment holds its time: a booking does, and a request does while `expires` is ahead (until it is answered or expires). Every clash check, free time and count of what is to come asks it, the desk's and online alike. A request past its time is marked `expired` by the first read after it (audit channel `automatic`, event `appointment.expired`).
+
+#### `business_booking_links`
+Purpose: a location's booking link for guests (`/appointments/<token>` on the guests' site) and its rules.
+Key columns: `location_id`, `token` (UNIQUE, 32–64 characters of `[A-Za-z0-9_-]`; replaced to stop an old link and every QR printed with it), `enabled`, `confirm_mode` (instant, confirm), `days_ahead` (1–90), `min_notice_minutes` (0–2880), `slot_step_minutes` (10, 15, 20, 30 or 60), `cancel_hours` (0–168), `max_changes` (0–5), `max_open_per_mobile` (1–10), `show_prices`, `allow_any_staff`, `confirm_after_no_shows` (0–10; 0: never), `request_expiry_hours` (1–72), `online_share_percent` (10–100, a clinic's), `upi_advance`, `upi_id` (name@bank), `upi_payee`, `guest_note` (300), `created_by`, `updated_by`.
+Rules: UNIQUE (`business_id`, `location_id`): one link per location; CHECK the UPI advance needs a UPI id.
+Added by: online-appointments.
+
+#### `business_booking_link_services`
+Purpose: whether a service shows on a link, where the owner chose, and its length online.
+Key columns: PK (`link_id`, `sku_id`), `shown`, `minutes` (5–480; a salon's come from `salon_services`), `updated_by`, `updated_at`.
+Rules: with no row, a salon's timed service shows and anyone else's does not (it needs its length here).
+Added by: online-appointments.
+
+#### `business_booking_link_people`
+Purpose: whether a person (a stylist, doctor, optometrist, bay, trainer) shows on a link, where the owner chose; with no row, they show.
+Key columns: PK (`link_id`, `resource_id`), `shown`, `updated_by`, `updated_at`.
+Added by: online-appointments.
+
+#### `business_online_bookings`
+Purpose: a guest's booking from a link. Its appointments (one, or a salon's one to three back to back) point at it with `online_booking_id`.
+Key columns: `link_id`, `location_id`, `guest_token` (UNIQUE: the guest's own page), `client_key` with `request_hash` (the submission; UNIQUE per link), `contact_id` (the customer found by the mobile's last ten digits, or made for it), `booker_name`, `mobile` (ten digits; empty once erased), `for_whom` (self, someone_else), `person_name`, `person_age`, `person_sex`, `visit_kind` (new, follow_up), `reason` (200), `note` (300), `vehicle_no`, `vehicle_make`, `vehicle_model`, `vehicle_id` -> `garage_vehicles`, `lead_id` -> `member_leads` (a free trial's enquiry), `adult_declared_at` (a salon's declaration), `consents` (the purposes ticked), `privacy_notice_id` (the notice shown), `request_reason` (confirm, no_shows, deposit, advance), `advance_amount` and `advance_utr` (12 digits), `advance_collection_id` -> `business_collections` (the deposit recorded as the desk accepted), `decline_reason`, `answered_by`, `answered_at`, `changes` (moves made online), `cancelled_by_guest_at`, `reminder_sent_at`.
+Rules: CHECK an advance has its UTR and a UTR its advance; indexes on (`business_id`, `mobile`) and (`business_id`, `created_at`). Trigger `business_online_bookings_live` ([Live updates](#live-updates), area `online_booking`). An erasure blanks the booker's name (to the erased name), the mobile, the person booked for, the reason, the note and the vehicle; the export leaves out `guest_token` and `client_key`.
+Added by: online-appointments.
+
 ## Business types
 
 The rows of `business_types`: the first twelve created by 1791280000000 multi-business-admin, the other eleven by 1791960000000 more-business-types.
@@ -5057,6 +5089,7 @@ Core modules are always on and never stored per business; every other module is 
 | `issues` | optional | tasks | every type; on for restaurant; recommended for pharmacy, supermarket | 1791620000000 |
 | `projects` | optional | tasks | every type; on for restaurant | 1791620000000 |
 | `hardware_tinting` | optional | catalog, sales, inventory | hardware; off; recommended for hardware (item attribute `paintBase`) | 1791979050000 |
+| `online_appointments` | optional | appointments | electronics, garage, healthcare, memberships, optical, salon; off; recommended for healthcare (sold as an application: [Paid plans](#paid-plans)) | online-appointments |
 
 These modules have no permission codes: `restaurant`, `batches`, `serials`, `variants`, `weight` and `books`. Access to them comes from the capability check alone. The restaurant features have none either: the restaurant's own permissions (`roles`, `permissions`) decide who may do what, and the feature decides whether anyone may (see [Restaurant features](#restaurant-features)).
 
@@ -5113,6 +5146,7 @@ Each code is a `<module>.<action>` row of `business_permissions`, listed here by
 | lodging | `lodging.view` (rooms and their status, the desk, the calendar, reservations, stays and their folios; money with `sales.view`, the occupants' ID details with `lodging.create` or `lodging.print`), `lodging.create` (take and change reservations and group bookings, check guests in with every occupant and out with the bill, post charges, open folios and route charges, record occupants joining and leaving, keep guest profiles, run the night audit, mark Form-III reports; an advance or a deposit with `sales.edit`), `lodging.edit` (mark rooms clean or dirty, out of order and back), `lodging.approve` (change a guest in the house's rate or plan, waive a policy's charge, void a charge, check a guest out with the bill left to pay), `lodging.cancel` (cancel reservations and mark no-shows, with a charge), `lodging.refund` (hand back advances and deposits held), `lodging.print` (registration cards and the guest register) | 1791970000000 |
 | privacy | `privacy.view` (the privacy notice and its versions, the requests and the breach register), `privacy.manage` (publish the notice, log and answer requests, erase a person's data, keep the breach register), `privacy.export` (see or export everything held about one person). Granted to the Manager template and every Manager role | 1791977000000 |
 | hardware_tinting | `hardware_tinting.view` (shades and the tinting board), `hardware_tinting.create` (tinted paint on bills and quotations; tinted and handed over on the board; taking a tinted line back, with the PIN of someone with `sales.refund`), `hardware_tinting.edit` (add, import and change shades; the tinting charge). Granted to Manager (all), Cashier and Stock keeper (view, create), Accountant and Viewer (view) | 1791979050000 |
+| online_appointments | `online_appointments.view` (online bookings, the requests waiting and the booking link), `online_appointments.approve` (accept or decline a guest's request), `online_appointments.manage` (the booking link, its rules and what shows online); granted to the Manager (all), Cashier / sales and Optometrist (view, approve), and Accountant, Viewer, Doctor, Trainer and Mechanic (view) | online-appointments |
 
 ## Restaurant permission codes
 

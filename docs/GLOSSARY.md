@@ -8,13 +8,13 @@ For everyone who uses or builds the platform: the words on its screens and in th
 |---|---|
 | **Business Management Platform** | The product, everywhere a user reads it ("Business Platform" only where space is tight). |
 | **Business Admin** | The staff application: one place to run every business you belong to, with a switcher at the top. The technical documents call it the **staff app** (`apps/business-web`). |
-| **Guests' site** | What a restaurant's guests open without signing in (`apps/customer-web`): the menu behind a table's QR code, online ordering and table booking, each status page following its order or booking live. It also shows a business's privacy notice to its guests, and holds the pieces a business's own guest pages are built from. |
+| **Guests' site** | What a restaurant's guests open without signing in (`apps/customer-web`): the menu behind a table's QR code, online ordering and table booking, each status page following its order or booking live; and a salon's, clinic's, optical shop's, garage's or gym's online booking. It also shows a business's privacy notice to its guests, and holds the pieces a business's own guest pages are built from. |
 | **POS and kitchen display** | Restaurant screens inside Business Admin: the POS (`/pos`), where captains also take orders, and the kitchen display (`/kitchen`). |
 | **Captain app** | The waiters' phone screen inside Business Admin (`/captain`): their own tables at a glance, orders taken at the table on the POS's own screen, guests' calls and the food at the pass, live, and alerts on a closed phone. It is part of the staff app, with a layout of its own, and installs as an app of its own. |
 | **Clinic workspace** | The front desk's and the doctors' screen inside Business Admin (`/clinic`): the patient at the desk, tokens and each doctor's queue with waiting times, and the doctor's consultation beside their queue with the patient's history, live. Part of the staff app, with a layout of its own. |
 | **Lab workspace** | The lab's screen inside Business Admin (`/lab`): samples to collect and receive, worklists by department and test, reports to approve and those released today, live. Part of the staff app, with a layout of its own. |
 | **Platform console** | The *Platform* screens inside Business Admin, for the platform's Super Admin: *Overview* (`/platform`, its home), *Businesses* (with a business's page), *Restaurants*, *Leads & trials*, *Payments*, *Invoices*, *Reports* and *Settings*. The Super Admin keeps the prices, the trial and the company's details there, creates restaurants and businesses with their owners' logins and gives them time, confirms the payments owners make, keeps the company's GST invoices, follows sales, the free-trial funnel and the renewals due, switches businesses off and on, and sets a new password for a locked-out owner. It shows no business's bills, customers or patients: only counts and dates. |
-| **Planned page** | The address of a screen that is not built yet. It opens a page that says what is coming and what to use meanwhile, never "Page not found". The guests' site has them for ordering from a shop (`/shop`), booking a salon or clinic appointment (`/appointments`) and a guest's own account (`/account`); Business Admin has none (every one of its screens is built, the public site, *Your plan* and the platform console included), and its next planned screen gets one. |
+| **Planned page** | The address of a screen that is not built yet. It opens a page that says what is coming and what to use meanwhile, never "Page not found". The guests' site has them for ordering from a shop (`/shop`) and a guest's own account (`/account`); Business Admin has none (every one of its screens is built, the public site, *Your plan* and the platform console included), and its next planned screen gets one. |
 
 Inside Business Admin a restaurant is simply the restaurant business's own admin (its menu, tables, kitchen, POS and reports), not a separate product. A café, a bakery and a cloud kitchen are restaurants too, each in its own *format*.
 
@@ -730,3 +730,17 @@ Most arguments about numbers are really arguments about words. Settle these firs
 | **Allergy group** | A family of medicines an allergy to one of them covers (Penicillins, Sulfonamides, NSAIDs): a patient allergic to one is warned of every medicine of the group. |
 | **Prescription warning** | What the prescription's check finds on a line: a known allergy, the same medicine or allergy group twice, a day's dose over the most. The doctor goes on with a reason, kept with the line. |
 | **Not on the list** | A prescription line written by hand rather than picked from the drug list. |
+
+### Online booking
+
+| Word | Meaning |
+|---|---|
+| **Online booking** | A salon's, clinic's, optical shop's, garage's, gym's or repair shop's own page where its customers book a time themselves, with no app and no sign-in, and follow the booking on a page of their own. Business Admin's *Online booking* is the desk's side. |
+| **Booking link** | A location's address for online booking (`/appointments/<link>`), shared on WhatsApp or Instagram or printed as a QR poster. *Make a new link* stops the old one and every QR printed with it. |
+| **Request (online booking)** | A booking that waits for the desk to accept or decline it, holding its time meanwhile: every booking when the link confirms each one, and otherwise one with a salon's deposit or advance to take, or from a mobile that missed bookings before. |
+| **Not answered in time (expired)** | A request nobody accepted or declined within the link's hours to answer: its time is free again and the guest is told. |
+| **Holds its time** | What a booking does, and a request until it is answered or expires: no one else is booked into that time, at the desk or online. |
+| **Cut-off** | The hours before a booking until which the guest may cancel or change it online; after it they call. |
+| **Any stylist** | The guest's choice of whoever is free: the free one with the fewest bookings that day. |
+| **UTR** | The 12-digit reference of a UPI payment, shown in the payer's UPI app and the payee's bank statement. A guest types it after paying a salon's advance, and the desk finds it before accepting. |
+| **Online share** | The part of a doctor's OPD session that guests may book online (half to start with); the rest is kept for walk-ins. |

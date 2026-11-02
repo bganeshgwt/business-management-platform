@@ -27,6 +27,8 @@ export { SITE_SIGNUP } from "./test-data.mjs";
 export { PLATFORM_CONSOLE } from "./test-data.mjs";
 // The owner's own plan: paid for, ended, and on paid time (your-plan.spec.js).
 export { YOUR_PLAN } from "./test-data.mjs";
+// Online booking: the salon's and the clinic's booking links, the clinic's paediatrician and the guests (online-appointments.spec.js, online-booking.spec.js).
+export { ONLINE_BOOKING } from "./test-data.mjs";
 
 let data = null;
 

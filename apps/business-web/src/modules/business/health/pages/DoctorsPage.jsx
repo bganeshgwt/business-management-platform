@@ -15,6 +15,7 @@ import FormDialog from "../../core/pages/FormDialog";
 import { BusinessHeader, Field } from "../../core/pages/ui";
 import { businessToday, useOpenBusiness, useOptions } from "../../core/pages/hooks";
 import "../styles/health.css";
+import "../../online-booking/styles/online-booking.css";
 
 // Doctors: each doctor's consultation fee and follow-up rule (free or reduced
 // within N days), OPD timings by weekday (mornings and evenings), the length
@@ -70,7 +71,8 @@ function DoctorList() {
   const columns = useMemo(() => [
     { key: "name", header: "Doctor", value: (d) => d.name, mobile: "title", render: (d) => (
       <span className="bz-two-line"><strong>{d.signed_name || d.name}</strong>
-        <small className="muted">{[d.speciality || d.qualification, d.registration_no && `Reg. ${d.registration_no}`, d.location_name].filter(Boolean).join(" · ") || (d.is_doctor ? "" : "Room / other")}</small></span>) },
+        <small className="muted">{[d.speciality || d.qualification, d.registration_no && `Reg. ${d.registration_no}${d.council ? `, ${d.council}` : ""}`, d.location_name].filter(Boolean).join(" · ") || (d.is_doctor ? "" : "Room / other")}</small>
+        {d.is_doctor && !d.registration_no && <small className="ob-missing">Registration number not given</small>}</span>) },
     { key: "fee", header: "Consultation", value: (d) => Number(d.consultation_price || 0), mobile: "subtitle", render: (d) => (d.consultation_label
       ? <span className="bz-two-line"><span>{biz.amount(d.consultation_price)}</span><small className="muted">{d.consultation_label}</small></span> : <span className="muted">Not set</span>) },
     { key: "follow", header: "Follow-up", value: (d) => d.follow_up_days, render: (d) => (!d.consultation_label || !Number(d.follow_up_days) ? <span className="muted">Full fee</span>
@@ -115,7 +117,10 @@ function DoctorDialog({ doctor, onClose, onSaved }) {
   const { options } = useOptions(["catalog?kind=service&active=true"]);
   const services = options?.["catalog?kind=service&active=true"] || [];
   const [form, setForm] = useState({ speciality: doctor.speciality || "", consultationSkuId: doctor.consultation_sku_id || "", followUpSkuId: doctor.follow_up_sku_id || "",
-    followUpDays: doctor.follow_up_days ?? 0, slotMinutes: doctor.slot_minutes ?? 10, sharePercent: Number(doctor.share_percent || 0) });
+    followUpDays: doctor.follow_up_days ?? 0, slotMinutes: doctor.slot_minutes ?? 10, sharePercent: Number(doctor.share_percent || 0),
+    // Shown to patients booking online (IMC Regulations 2002, 1.4.1 and 1.8); a signing doctor's own are used while these are empty.
+    qualifications: doctor.profile_qualifications || doctor.qualification || "", registrationNo: doctor.profile_registration_no || doctor.registration_no || "",
+    council: doctor.profile_council || doctor.council || "" });
   const [sessions, setSessions] = useState(doctor.sessions.map((s) => ({ dow: String(s.dow), starts: s.starts, ends: s.ends, maxPatients: s.max_patients ?? "" })));
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const setSession = (i, k) => (e) => setSessions((list) => list.map((s, n) => (n === i ? { ...s, [k]: e.target.value } : s)));
@@ -126,6 +131,9 @@ function DoctorDialog({ doctor, onClose, onSaved }) {
     <FormDialog title={`${doctor.signed_name || doctor.name}: fees & OPD`} icon="users" width={760} onClose={onClose} onSaved={onSaved} submitLabel="Save"
       onSubmit={() => businessWrite(biz.id, `clinic/doctors/${doctor.id}`, { ...form, sessions: sessions.map((s) => ({ ...s, dow: Number(s.dow) })) }, "put")}>
       <Field label="Speciality"><input maxLength={80} value={form.speciality} placeholder="e.g. General physician, Paediatrics" onChange={set("speciality")} /></Field>
+      <Field label="Qualifications" hint="As on the board, e.g. MBBS, MD (General Medicine)"><input maxLength={120} value={form.qualifications} onChange={set("qualifications")} /></Field>
+      <Field label="Registration number" hint="Patients see it before they book online"><input maxLength={60} value={form.registrationNo} placeholder="e.g. TSMC/45127" onChange={set("registrationNo")} /></Field>
+      <Field label="Medical council"><input maxLength={150} value={form.council} placeholder="e.g. Telangana State Medical Council" onChange={set("council")} /></Field>
       <Field label="Consultation fee (service on the bill)"><select value={form.consultationSkuId} onChange={set("consultationSkuId")}>
         <option value="">The booked service</option>{services.map((s) => <option key={s.id} value={s.id}>{s.label} · {biz.amount(s.price)}</option>)}</select></Field>
       <Field label="Follow-up within (days)" hint="0: every visit pays the full fee."><input type="number" min="0" max="90" value={form.followUpDays} onChange={set("followUpDays")} /></Field>

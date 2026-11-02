@@ -119,6 +119,7 @@ on record.
 - [Rentals & hire](#rentals--hire)
 - [Fuel stations](#fuel-stations)
 - [Hotels, lodges & guest houses](#hotels-lodges--guest-houses)
+- [Online booking for appointments](#online-booking-for-appointments)
 
 **[Part 4 — Tasks, issues & projects](#part-4--tasks-issues--projects)**
 
@@ -4228,8 +4229,8 @@ what is still to refund.
   category, with a red line at now; the day opens on now. A booking made,
   moved or finished on another device shows by itself, and so does the walk-in
   list. A ₹ mark shows a
-  deposit and ★ a member; *Late — not here yet* shows in amber and *Here since
-  …* in green, and a stylist's leave, weekly day off and hours outside their
+  deposit and ★ a member; *Late — not here yet* shows in amber 15 minutes after
+  the start and *Here since …* in green, and a stylist's leave, weekly day off and hours outside their
   shift are hatched. The **Week** view shows each stylist's bookings and busy
   hours per day, with a day off or leave named; click a day to open it.
   - Click a free time to book: the client by name or phone (or a new client
@@ -4246,6 +4247,11 @@ what is still to refund.
     the stylist asked for; *Seat* books them from now.
   - More › **Tomorrow's reminders**: tomorrow's bookings, each with *Send* on
     WhatsApp, marked once sent.
+  - A booking made from the salon's booking link carries **Online**; a
+    request waiting for an answer carries **Request** (a dashed block that
+    holds its time), the day's line counts *online to answer*, and the
+    booking opens on *Answer it in Online booking* ([Online booking for
+    appointments](#online-booking-for-appointments)).
 - **Deposits, no-shows and cancellations** — a deposit is the client's advance
   and comes off their next bill; a deposit for a future booking stays with that
   booking. Cancelling in good time costs nothing; a late cancellation or a
@@ -4434,7 +4440,7 @@ For a business of type Pharmacy, with the business tool **Pharmacy rules** on (S
 
 ## Clinic & lab
 
-For a business of type Clinics & diagnostic labs, with the business tools **Patient records** (on by default) and **Laboratory** (a new clinic switches it on in Settings › Business tools, where it is marked *Recommended*). In the menu, **Clinic workspace** and **Lab workspace** (Daily work) open the clinic's two screens of their own, for the front desk and the doctors and for the lab ([Clinic workspace](#clinic-workspace), [Lab workspace](#lab-workspace)); **Today's patients** (Daily work) holds the clinic's day in Business Admin — its tabs are Token queue, Visits & follow-ups, Appointments, Doctors, fees & OPD and Drug list — **Patients** sits beside it, and **Lab orders** (Business) holds Tests & panels and Quality control.
+For a business of type Clinics & diagnostic labs, with the business tools **Patient records** (on by default) and **Laboratory** (a new clinic switches it on in Settings › Business tools, where it is marked *Recommended*). In the menu, **Clinic workspace** and **Lab workspace** (Daily work) open the clinic's two screens of their own, for the front desk and the doctors and for the lab ([Clinic workspace](#clinic-workspace), [Lab workspace](#lab-workspace)); **Today's patients** (Daily work) holds the clinic's day in Business Admin — its tabs are Token queue, Visits & follow-ups, Appointments, Doctors, fees & OPD and Drug list, and Online booking once it is switched on — **Patients** sits beside it, and **Lab orders** (Business) holds Tests & panels and Quality control.
 
 **Who sees what.** The **Doctor** role reads and writes clinical notes (vitals, diagnoses, prescriptions, referrals, results). The front desk (**Cashier**) registers patients, records consent, books and starts visits, bills and orders tests, and sees whether a report is ready — never the notes, nor how many of a report's values are out of range or why a signed report is being amended. The **Lab technician** collects and receives samples and enters results; the **Pathologist** approves reports with their PIN. Every look at clinical data is in the activity log (`patient.clinical_viewed`).
 
@@ -4456,6 +4462,9 @@ For a business of type Clinics & diagnostic labs, with the business tools **Pati
 - **OPD timings**: by weekday, with morning and evening sessions and an optional cap on patients per session.
 
 *Add leave* blocks appointments and tokens on those days and says how many patients are already booked. A doctor with timings can only be booked inside them. *Book appointment* then shows the free slots, and the doctor's fee is filled in. *Bill this visit* shows whether it is a consultation, a paid follow-up or a free follow-up. A free follow-up is recorded without a bill. The **Earnings** tab shows each doctor's patients, fees and share for a period.
+- **Qualifications, registration number and medical council**: what patients see before they book online (a doctor who signs prescriptions has theirs used while these are empty). The list says *Registration number not given* until one is.
+
+**Booked online** ([Online booking for appointments](#online-booking-for-appointments)). Patients book an OPD slot from the clinic's booking link; the front desk accepts or declines each request in *Online booking*. On *Today's patients* such a booking carries *Online*, for whom, new or visited before, and the reason; a request still waiting says *Online request*. On the day, *Arrived: token* on such a booking first shows the clinic's patients who share the mobile it was booked with (a family books on one phone, and the child or parent who came may be a patient already): each with their patient number, age and sex, beside the name, age and sex the guest typed. *Give <patient> the token* puts the booking on that patient's own record and gives their token. *Register as a new patient*, the last choice, registers them with their consent (the form filled from what they gave online) and gives the token at once. With no patient on that mobile, it goes straight to registering, or to the token for a patient the booking is already on. A booking for a day still to come says *Token on arrival*.
 
 **Token queue** (*Today's patients › Token queue*). *Give a token* when a patient arrives: each doctor counts from 1 each day, and *Priority* is for the elderly or unwell. On *Today's patients*, *Arrived: token* does the same for a booked patient. The queue, and its *Display board* for the waiting room, change by themselves within a second or two of a token given or called on any screen. Each doctor has a card:
 - **Next patient** marks the previous patient done, skips a called patient who did not come in, and calls the next (priority first).
@@ -7336,6 +7345,181 @@ those who keep the settings; the night audit marks no-shows only for those
 who may cancel; *Occupancy & revenue* is for those who see reports; a guest
 is moved to another property by those who check guests out.
 
+## Online booking for appointments
+
+A salon, a clinic, an optical shop, a garage, a gym, studio or coaching
+centre, or a repair shop lets its customers book a time themselves from a
+**booking link** of its own: a page on the guests' site
+(`/appointments/<link>`) that opens on any phone, with no app and no
+sign-in. Switch on **Online booking** in *Settings › Business tools* (it
+needs *Appointments*; it is an application added to the plan, ₹299 a month or
+₹2,999 a year before GST: [Your plan](#your-plan-the-free-trial-and-paying)),
+then open **Online booking**, beside *Appointments* (a clinic: beside
+*Today's patients*; a repair shop: beside *Repairs*). The rules behind it are
+in [BUSINESS_RULES › Online booking](BUSINESS_RULES.md#online-booking).
+
+**Setting it up** (*Online booking › Booking link*, the owner or a manager):
+
+1. *Make the booking link* for the location (each location has its own). It
+   starts on its trade's usual rules (the table below).
+2. **What shows online.** A salon's services show with their times from
+   *Stylists & services › Service times* (a service with no time set does not
+   show), and every stylist shows unless unticked. A clinic's doctor shows
+   once they have OPD timings and a consultation fee (*Doctors, fees & OPD*),
+   with their qualifications and registration number. An optical shop, a
+   garage, a gym or a repair shop ticks the services guests may book, gives
+   each its length in minutes, and ticks who may be booked. *Save what
+   shows*. The notes above it say what still stands in the way: no service
+   with a time, a doctor not ready, a location with no opening hours (*Settings
+   › Locations*), a privacy notice not published.
+3. **Share it.** *Copy* the link, *Share on WhatsApp* the message ready to
+   send, put the link on Instagram, Google or the business's website, and
+   *Print the A5 poster* with the QR code for the counter (*Download QR* for
+   anything else). *Open my booking page* shows it as a guest sees it.
+4. **Booking rules.** *Book it at once* or *I confirm each one*; the days
+   guests can book ahead; the notice before a booking; times every 10, 15,
+   20, 30 or 60 minutes; the hours the desk has to answer a request; until
+   how many hours before guests may cancel or change online, and how many
+   changes; how many bookings one mobile may hold; the no-shows in 90 days
+   after which that mobile's bookings need your OK (0: never); whether
+   prices show; whether guests may choose *Any stylist*; a clinic's share of
+   each OPD session booked online; a salon's UPI advance; and a note guests
+   read (*Please arrive 10 minutes early*). *Save the rules*.
+
+*Stop taking bookings online* switches the link off: the page tells guests
+to call, with the business's phone number. *Make a new link* stops the old
+link, and every QR printed with it, at once: share and print the new one.
+
+| A new link starts with | Salon | Clinic | Optical shop, garage, gym, repair shop |
+| --- | --- | --- | --- |
+| Bookings | Booked at once | Requests the desk confirms | Booked at once |
+| Days ahead | 30 | 7 | 30 |
+| Notice before a booking | 2 hours | None (booking for a session closes as it starts) | 2 hours |
+| Times every | 15 minutes | The doctor's slot length | 30 minutes |
+
+Every link also starts with: cancel or change online until 3 hours before, 2
+changes, 3 bookings a mobile may hold, a request answered within 12 hours, a
+mobile's bookings needing your OK after 2 no-shows in 90 days, prices shown,
+*Any stylist* offered, and half of each OPD session online.
+
+**The guest's side.** On the link, the guest chooses, one step a screen:
+
+- **the service** (a salon: up to three for one visit, done one after another
+  by the same stylist), with its time and its price including GST;
+- **who**: a stylist who does every service chosen, or *Any stylist* (the
+  free one with the fewest bookings that day); a doctor, with the fee, the
+  qualifications, the registration number and the council, and the
+  follow-up rule; an optometrist, a bay or mechanic, a trainer or a
+  technician;
+- **the day and the time**: only free times show. The hours, weekly days
+  off, leave, holidays, rooms, clean-up time and every booking (the desk's
+  and online, and requests waiting for an answer) are counted;
+- **their details**: name and mobile, for themselves or for someone else (a
+  child, a parent); a clinic asks the patient's age and sex, whether they
+  have visited before, and the reason (optional); a garage asks the
+  vehicle's number, make and model; a salon asks the declaration *I am 18 or
+  over, or I am booking for my child as their parent or guardian*; and,
+  once the privacy notice is published, the reminders and offers they agree
+  to.
+
+The guest then has a page of their own for the booking (they keep its link,
+and the phone lists it at `/appointments`): *Booked*, or *Requested* until
+the business answers, changing by itself the moment it does; *Add to
+calendar*, *Directions* and *Call*; and *Change the time* and *Cancel* until
+the cut-off, after which they call. A time someone else took a moment before
+offers the next free ones. With the module switched off, the link switched
+off, or the plan ended, the page says *Not taking online bookings now*, with
+the phone number.
+
+**The desk's side** (*Online booking*; everything changes by itself within a
+second of a booking, a change or an answer on another screen):
+
+- **Requests** — the bookings waiting for an answer, soonest first, each with
+  why it waits (*Confirms each booking*, *Missed visits before*, *Deposit to
+  take*, *Advance to check*), the mobile's no-shows, what the guest wrote, and
+  how long is left to answer. **Accept** books it; tick *We agreed another
+  time or stylist on the phone* to book it at another time or with another
+  person, on the same rules. **Decline** with a reason the guest reads on
+  their page (*Fully booked at that time*, *Please call us to book this* …).
+  A request nobody answers in time expires and frees its time, and the
+  guest's page says so; *Not answered in time* lists these for two days, to
+  call the guests.
+- **Bookings** — every online booking by the time it is for, with its status
+  (*Waiting for you*, *Booked*, *Done*, *No-show*, *Declined*, *Not answered in
+  time*, *Cancelled*), a period, a search and a status filter.
+- **Tomorrow** — tomorrow's online bookings. *Send on WhatsApp* opens the
+  reminder ready to send from the desk's WhatsApp (a guest who did not agree
+  to reminders is asked first) and marks it *Sent*.
+- **Booking link** — as above.
+
+The bell says when requests are waiting (the first one, and by when to answer
+it), how many bookings came online today, and which requests were not
+answered in time. On the calendars a booking made online carries **Online**,
+and a request still waiting carries **Request**, holding its time until it is
+answered: on a salon's calendar it is a dashed block, the day's line counts
+*online to answer*, and the booking opens on *Answer it in Online booking*.
+On *Appointments* (an optical shop, a garage, a gym, a repair shop) the
+status says *Online request*, *Declined* or *Not answered*, the status filter
+finds them, and a booking 15 minutes past its start with nobody marked shows
+*Late*.
+
+**By trade:**
+
+- **Salon & spa** — a service's time and clean-up, the rooms (never chosen by
+  the guest: a free room is taken), the stylists' skills, each stylist's week
+  and leave, and the salon's holidays all apply. A salon that takes a deposit
+  (*Stylists & services › Booking rules*) gets its online bookings as
+  requests: call the guest, take the deposit, and record it as you accept
+  (*Deposit taken*, *Paid by*), or accept without one. With *Ask for the …%
+  advance by UPI when guests book* on (with the salon's UPI id and the name
+  on it), the guest pays the deposit % of the services' prices (in whole
+  rupees) from their own UPI app and types the payment's 12-digit UTR: find
+  it in your UPI or bank app,
+  then *Accept* with *It reached our account*. It is kept as the booking's
+  deposit (a receipt by UPI, with the UTR), and the booking cannot then be
+  cancelled or moved online. Declined, or not answered in time: return the
+  advance from your UPI app; the guest's page says you will.
+- **Clinic** — bookings come as requests the front desk confirms (or at once,
+  if the rules say so). Booking online for a session closes as the session
+  starts, and only its online share is booked online: the rest is for
+  walk-ins and the phone. On the day, *Today's patients* shows the booking
+  with *Online*, for whom (or the name it was booked as), new or visited
+  before, and the reason. A family books on one phone, so on arrival
+  *Arrived: token* first lists the clinic's patients who share the booking's
+  mobile, each with their patient number, age and sex beside what the guest
+  typed: *Give <patient> the token* puts the booking on that patient's own
+  record, and *Register as a new patient* (last) registers them with their
+  consent, the form filled from what they gave online, and gives the token at
+  once. No patient on that mobile: it goes straight to registering. In
+  *Doctors, fees & OPD*,
+  give each doctor their **qualifications, registration number and medical
+  council** (a doctor who signs prescriptions has theirs used while these
+  are empty): patients see them before booking, and the list says
+  *Registration number not given* until one is.
+- **Optical shop** — eye tests with an optometrist, each test its length;
+  *Done* on the booking opens its prescription, as for any eye test.
+- **Garage** — service bookings by bay or mechanic; the vehicle's number is
+  matched to the vehicle when the garage has it, and shows on the booking,
+  which becomes a job card as usual.
+- **Gym, studio or coaching centre** — the link books a **free trial**:
+  it makes an enquiry (*Members › Enquiries*, from the website, to follow up
+  on the trial's day). A mobile that has had a trial or a membership is asked
+  to call. Members book their classes with the desk.
+- **Repair shop** — a time to bring a phone or an appliance in.
+
+**Personal data.** The guest's name and mobile, who the booking is for and
+what they wrote are kept with the booking. A booking still to come stops an
+erasure until it is done or cancelled; an erasure then clears them from the
+booking ([Personal data](#personal-data)).
+
+**Who does what.** Answering requests needs `online_appointments.approve`
+(the Cashier / sales and Optometrist roles, a manager and the owner).
+Setting up the link and its rules needs `online_appointments.manage` (a
+manager and the owner). Seeing the online bookings needs
+`online_appointments.view` (also the accountant, the viewer, a doctor, a
+trainer and a mechanic). Recording a salon's deposit as a request is
+accepted needs `sales.edit`, as on the calendar.
+
 ---
 
 # Part 4 — Tasks, issues & projects
@@ -7576,7 +7760,7 @@ never the admin application.
 | --- | --- |
 | Owner | Everything, including staff access (and every future permission) |
 | Manager | Everything except staff access and, in a clinic, the clinical notes and printed prescriptions and the lab's results, approval and printed reports (those belong to the doctors, the lab technicians and the pathologist); the personal data registers and a person's whole data included |
-| Cashier / sales | Sales, collections, printing; add customers; book and complete appointments; see products, stock and price lists |
+| Cashier / sales | Sales, collections, printing; add customers; book and complete appointments, and answer online booking requests; see products, stock and price lists |
 | Stock keeper | Products, receiving purchases, stock corrections, counts (not approving them), transfers |
 | Accountant | See everything but the personal data registers, record payments and collections, export and print; no stock changes |
 | Viewer | See and export everything but the personal data registers; change nothing |
@@ -7584,7 +7768,7 @@ never the admin application.
 | Doctor (clinic only) | Patients with their clinical records (see and write), appointments, lab orders; see bills; their own queue and the consultation in the clinic workspace |
 | Lab technician (clinic only) | Samples and results, in the lab workspace or Business Admin; see patients |
 | Pathologist (clinic only) | As the lab technician, plus approving reports and exporting |
-| Optometrist (optical shops only) | Record and correct prescriptions; pass or fail spectacles at the quality check; book and complete eye tests; see customers, products and spectacle orders without their money; no money |
+| Optometrist (optical shops only) | Record and correct prescriptions; pass or fail spectacles at the quality check; book and complete eye tests, and answer online requests for them; see customers, products and spectacle orders without their money; no money |
 | Mechanic (garages only) | See the job cards assigned to them, on a screen made for a phone; record the work done, the parts used, notes, photos and road tests, and move the job along; print its copies; see products, stock and service bookings; no prices and no money |
 | Trainer (gyms, studios & coaching only) | See members, their plans and check-ins; check members in; see personal-training sessions and mark them done or missed; no prices and no money |
 | Karigar / goldsmith (jewellery shops only) | See the pieces with their weights, stones and HUIDs; tag pieces already in stock, record their weights, stones and HUIDs, and send them on approval or to the karigar and take them back; see products and stock; no prices and no money |
@@ -7632,11 +7816,10 @@ last night's takings land on today's sheet.
 
 ## Not built yet: what to do meanwhile
 
-**Guest pages still to come.** Three pages of the guests' site answer with
+**Guest pages still to come.** Two pages of the guests' site answer with
 *Coming soon* and what to do until then: `/shop` (ordering from a shop: call
-or message the shop), `/appointments` (salon and clinic bookings: call to
-book) and `/account` (a guest's orders, bookings and points in one place: open
-the link you were sent).
+or message the shop) and `/account` (a guest's orders, bookings and points in
+one place: open the link you were sent).
 
 **Other things not built yet, and what to do meanwhile:**
 
@@ -7653,6 +7836,15 @@ the link you were sent).
   waitlist, reminders); guests follow their own status pages. A *WhatsApp*
   button opens WhatsApp on the device with the message ready, and a person
   sends it.
+- **Online booking takes no card and signs no one in.** A salon's advance is
+  a UPI payment the guest makes from their own UPI app, checked by its UTR
+  before the desk accepts; a card deposit, or money confirmed by itself,
+  waits for the payment gateway. Reminders of a booking go from the desk's
+  WhatsApp (*Online booking › Tomorrow*). A gym's members book their classes
+  with the desk: the booking link books a free trial only, until members can
+  sign in on the guests' site. A clinic's patients book from its link or
+  take a token at the desk: there is no ABHA Scan & Share, which needs
+  software certified for the Ayushman Bharat Digital Mission.
 - **Swiggy and Zomato** orders are typed in, and their payouts are not
   reconciled here.
 - **There is no map.** A delivery address is typed in, with a landmark, and

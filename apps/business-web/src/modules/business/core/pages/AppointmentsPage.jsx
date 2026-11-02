@@ -14,8 +14,13 @@ import { useOpenBusiness, useOptions, useServerList } from "./hooks";
 import PrescriptionDialog from "../../optical/pages/PrescriptionDialog";
 import { usesOptical } from "../../optical/pages/optical";
 import "../../health/styles/health.css";
+import "../../online-booking/styles/online-booking.css";
 
 const clock = (value) => new Date(value).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+// A guest's online request and its answer, and a booking 15 minutes past its start with nobody marked (Online booking).
+const ONLINE_STATUS = { requested: { tone: "warning", label: "Online request" }, declined: { tone: "danger", label: "Declined" }, expired: { tone: "danger", label: "Not answered" } };
+const lateNow = (a) => a.status === "booked" && new Date(a.starts_at).getTime() < Date.now() - 15 * 60000;
+const statusOf = (a) => (a.status === "requested" && a.request_expires_at && new Date(a.request_expires_at).getTime() <= Date.now() ? "expired" : a.status);
 
 // Bookings against staff and rooms. Two bookings for the same person never
 // overlap; back-to-back is fine.
@@ -53,21 +58,27 @@ export default function AppointmentsPage() {
   const columns = [
     { key: "starts_at", header: "When", type: "datetime", value: (a) => a.starts_at, mobile: "subtitle",
       render: (a) => `${new Date(a.starts_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}, ${clock(a.starts_at)}–${clock(a.ends_at)}` },
-    { key: "contact_name", header: word(biz.type, "customers", "Customers").replace(/s$/, ""), value: (a) => a.contact_name, mobile: "title", pin: true },
+    { key: "contact_name", header: word(biz.type, "customers", "Customers").replace(/s$/, ""), value: (a) => a.contact_name, mobile: "title", pin: true, render: (a) => (
+      <span className="bz-two-line"><span>{a.contact_name} {a.source === "guests_site" && <span className="ob-online-tag">Online</span>}</span>
+        {(a.online_person || a.online_vehicle || a.online_note) && <small className="muted">{[a.online_person && `For ${a.online_person}`, a.online_vehicle, a.online_note].filter(Boolean).join(" · ")}</small>}</span>
+    ) },
     { key: "service_name", header: "Service", value: (a) => a.service_name, mobile: "show" },
     { key: "resource_name", header: "With", value: (a) => a.resource_name, mobile: "show" },
-    { key: "status", header: "Status", type: "status", value: (a) => a.status, render: (a) => <Badge status={a.status} /> },
+    { key: "status", header: "Status", type: "status", value: (a) => statusOf(a), render: (a) => (ONLINE_STATUS[statusOf(a)] ? <Badge status={statusOf(a)} tone={ONLINE_STATUS[statusOf(a)].tone} label={ONLINE_STATUS[statusOf(a)].label} />
+      : lateNow(a) ? <Badge status="overdue" tone="warning" label="Late" /> : <Badge status={a.status} />) },
     salon && { key: "actions", header: "", label: "Actions", type: "actions", render: (a) => (
       <Link className="chip-button" to={`${businessPath(biz.id, "salon-calendar")}?date=${new Intl.DateTimeFormat("en-CA", { timeZone: biz.business.timezone }).format(new Date(a.starts_at))}`}>Open in calendar</Link>
     ) },
-    !salon && (biz.can("appointments.edit") || biz.can("appointments.cancel")) && { key: "actions", header: "", label: "Actions", type: "actions", render: (a) => a.status === "booked" && (
+    !salon && (biz.can("appointments.edit") || biz.can("appointments.cancel")) && { key: "actions", header: "", label: "Actions", type: "actions", render: (a) => (statusOf(a) === "requested" ? (
+      <Link className="chip-button" to={businessPath(biz.id, "online-booking")}>Answer in Online booking</Link>
+    ) : a.status === "booked" && (
       <div className="row-actions">
         {/* Done on the day or later; no-show only once the start time has passed (the server checks both). */}
         {biz.can("appointments.edit") && onOrBefore(a.starts_at, biz.business.timezone) && <button type="button" className="chip-button" onClick={() => update(a, "completed")}>Done</button>}
         {biz.can("appointments.edit") && new Date(a.starts_at).getTime() <= Date.now() && <button type="button" className="chip-button" onClick={() => update(a, "no_show")}>No-show</button>}
         {biz.can("appointments.cancel") && <button type="button" className="chip-button" onClick={() => update(a, "cancelled")}>Cancel</button>}
       </div>
-    ) },
+    )) },
   ];
 
   return (
@@ -94,11 +105,14 @@ export default function AppointmentsPage() {
                   <option value="completed">Completed</option>
                   <option value="no_show">No-show</option>
                   <option value="cancelled">Cancelled</option>
+                  <option value="requested">Online requests</option>
+                  <option value="declined">Declined online</option>
+                  <option value="expired">Not answered online</option>
                 </select>
               </label>
             </>
           )}
-          rowClassName={(a) => (a.status === "cancelled" ? "dg-tone-muted" : a.status === "no_show" ? "dg-tone-warning" : "")}
+          rowClassName={(a) => (["cancelled", "declined", "expired"].includes(statusOf(a)) ? "dg-tone-muted" : a.status === "no_show" || statusOf(a) === "requested" || lateNow(a) ? "dg-tone-warning" : "")}
           empty="No appointments in these dates" emptyIcon="calendar" />
       </SectionCard>
       {booking && <BookDialog onClose={() => setBooking(false)} onSaved={() => { setBooking(false); setNotice("Appointment booked."); list.reload(); }} />}

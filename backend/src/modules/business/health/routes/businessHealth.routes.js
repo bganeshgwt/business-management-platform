@@ -123,6 +123,9 @@ module.exports = function healthRoutes(router, { context, send, b }) {
   router.get(b('/clinic/doctor-earnings'), context('reports.view'), async (req, res) => send(res, await desk.doctorEarnings(req.business, req.query)));
   router.get(b('/clinic/queue'), context('patients.view'), async (req, res) => send(res, await desk.queue(req.business, req.query)));
   router.post(b('/clinic/tokens'), context('patients.create'), async (req, res) => send(res, await desk.issueToken(req.business, req.user, req.body), 201));
+  // The clinic's patients who share an online booking's mobile (a family's phone), before the desk registers anyone.
+  router.get(b('/clinic/appointments/:appointmentId/same-mobile'), context('patients.view'), async (req, res) =>
+    send(res, await desk.sameMobile(req.business, req.params.appointmentId)));
   router.post(b('/clinic/tokens/next'), context(['patients.create', 'patients.edit_clinical']), async (req, res) => send(res, await desk.callNext(req.business, req.user, req.body)));
   router.post(b('/clinic/tokens/:id'), context(['patients.create', 'patients.edit_clinical']), async (req, res) => send(res, await desk.tokenAction(req.business, req.user, req.params.id, req.body)));
 

@@ -121,6 +121,9 @@ const READERS = {
   // A lodging's rate plans show their meal item's slab; a group's folio is billed at its charges' own stored rates.
   "modules/business/lodging/services/lodgingRates.service.js": "gate",
   "modules/business/lodging/services/lodgingGroups.service.js": "stored",
+  // Online booking's prices with GST: a staff request through the gate, a guest's page behind its
+  // booking link, which applies due changes first as the gate does (onlineBookingCommon resolveLink).
+  "modules/business/online-booking/services/onlineBookingEngine.js": "gate",
 };
 
 function* sourceFiles(dir) {

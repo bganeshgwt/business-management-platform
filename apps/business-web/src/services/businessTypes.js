@@ -39,3 +39,5 @@ export const RENTALS = ["rentals"];
 export const FUEL = ["fuel_station"];
 // Hotels, lodges & guest houses: the front desk, rooms and housekeeping, reservations and stays, Form-III, the guest register, room types & rates.
 export const LODGING = ["lodging"];
+// Businesses that take bookings from a booking link of their own (Online booking).
+export const BOOKS_ONLINE = ["salon", "healthcare", "optical", "garage", "memberships", "electronics"];

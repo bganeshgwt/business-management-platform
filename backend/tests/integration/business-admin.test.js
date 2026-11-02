@@ -177,10 +177,12 @@ test('multi-business admin: isolation, weighted stock, idempotency and appointme
     const contact = await request('POST', root(salon, 'contacts'), { kind: 'customer', name: 'Test guest' }, 201);
     const item = await request('POST', root(salon, 'catalog'), newSku('CUT', { kind: 'service', unit: 'service', tracking: 'none' }), 201);
     const staff = await request('POST', root(salon, 'resources'), { name: 'Stylist', locationId: loc.id }, 201);
-    const body = { contactId: contact.id, skuId: item.id, resourceId: staff.id, startsAt: '2026-11-01T10:00:00Z', endsAt: '2026-11-01T11:00:00Z' };
+    // Tomorrow, in the salon's hours: a day written into the test would one day be past, and refused.
+    const day = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const body = { contactId: contact.id, skuId: item.id, resourceId: staff.id, startsAt: `${day}T10:00:00Z`, endsAt: `${day}T11:00:00Z` };
     const booking = await request('POST', root(salon, 'appointments'), body, 201);
     await request('POST', root(salon, 'appointments'), body, 409);
-    await request('POST', root(salon, 'appointments'), { ...body, startsAt: body.endsAt, endsAt: '2026-11-01T12:00:00Z' }, 201);
+    await request('POST', root(salon, 'appointments'), { ...body, startsAt: body.endsAt, endsAt: `${day}T12:00:00Z` }, 201);
     await request('PATCH', root(salon, `appointments/${booking.id}`), { status: 'cancelled' });
     await request('PATCH', root(salon, `appointments/${booking.id}`), { status: 'completed' }, 409);
     await request('POST', root(salon, 'appointments'), { ...body, contactId: customer.id }, 404);

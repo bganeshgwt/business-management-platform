@@ -120,6 +120,8 @@ const TABLES = {
   laundry_price_overrides: { label: 'Laundry prices agreed', keep: 'A price agreed holds no personal details.' },
   laundry_packages: { label: 'Laundry packages', keep: 'Packages are part of the bills that sold them, and of the garment orders they paid for.' },
   laundry_files: { label: 'Garment photos and signatures', keep: 'The photos of garments at intake and at their quality check, and the signature on the order, are the record of what was taken in and of any claim on it; they stay with the order.' },
+  business_online_bookings: { label: 'Online bookings', erase: { booker_name: ERASED_NAME, mobile: null, person_name: null, person_age: null, person_sex: null, reason: null, note: null,
+    vehicle_no: null, vehicle_make: null, vehicle_model: null } },
 };
 
 // Children of the rows above that the export also shows: the lines of each bill.
@@ -129,7 +131,7 @@ const CHILDREN = {
 
 // Columns never put in an export: keys that only the program reads.
 const HIDDEN = new Set(['request_key', 'request_hash', 'checkout_key', 'checkout_hash', 'checkin_key', 'checkin_hash', 'cancel_key', 'cancel_hash',
-  'close_key', 'close_hash', 'credit_key', 'delivery_key', 'bill_key', 'passcode']);
+  'close_key', 'close_hash', 'credit_key', 'delivery_key', 'bill_key', 'passcode', 'guest_token', 'client_key']);
 
 // What is kept whatever the tables hold, for the record of an erasure.
 const ALWAYS_KEPT = [

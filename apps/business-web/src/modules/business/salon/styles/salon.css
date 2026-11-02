@@ -127,6 +127,13 @@
   box-shadow: inset 3px 0 0 var(--warning);
 }
 
+/* A guest's online request: it holds its time until the desk answers it. */
+.sw-appt.is-requested {
+  border-style: dashed;
+  border-color: var(--warning-border);
+  background: color-mix(in srgb, var(--warning-bg) 60%, var(--surface));
+}
+
 .sw-appt[draggable="true"] {
   cursor: grab;
 }

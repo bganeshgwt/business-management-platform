@@ -111,11 +111,11 @@ async function move(business, user, appointmentId, body) {
     const away = await salon.staffAvailable(db, business, staff, starts, ends, override);
     broken = [broken, away].filter(Boolean).join(' ') || null;
     const busy = await repo.one(db, `SELECT a.id FROM business_appointments a WHERE a.business_id=$1 AND a.resource_id=$2 AND a.id<>$5
-      AND a.status='booked' AND a.starts_at<$4 AND a.ends_at>$3 LIMIT 1`, [business.id, staff.id, starts, ends, appointment.id]);
+      AND business_appointment_holds(a.status,a.request_expires_at) AND a.starts_at<$4 AND a.ends_at>$3 LIMIT 1`, [business.id, staff.id, starts, ends, appointment.id]);
     if (busy) fail(`${staff.name} already has an appointment at that time`, 409);
     if (room) {
       const taken = await repo.one(db, `SELECT a.id FROM business_appointments a JOIN salon_appointment_details d ON d.business_id=a.business_id AND d.appointment_id=a.id AND d.room_id=$2
-        WHERE a.business_id=$1 AND a.id<>$5 AND a.status='booked' AND a.starts_at<$4 AND a.ends_at>$3 LIMIT 1`, [business.id, room.id, starts, ends, appointment.id]);
+        WHERE a.business_id=$1 AND a.id<>$5 AND business_appointment_holds(a.status,a.request_expires_at) AND a.starts_at<$4 AND a.ends_at>$3 LIMIT 1`, [business.id, room.id, starts, ends, appointment.id]);
       if (taken) fail(`${room.name} is already booked at that time`, 409);
     }
     const updated = await repo.one(db, 'UPDATE business_appointments SET resource_id=$3,starts_at=$4,ends_at=$5 WHERE business_id=$1 AND id=$2 RETURNING *',
@@ -308,7 +308,7 @@ async function addLeave(business, user, resourceId, body) {
   return repo.transaction(async (db) => {
     const staff = await salon.lockResource(db, business, id(resourceId, 'Stylist'), 'staff', 'Stylist');
     const booked = await repo.one(db, `SELECT count(*)::int AS n FROM business_appointments a JOIN businesses b ON b.id=a.business_id
-      WHERE a.business_id=$1 AND a.resource_id=$2 AND a.status='booked' AND (a.starts_at AT TIME ZONE b.timezone)::date BETWEEN $3::date AND $4::date`, [business.id, staff.id, from, to]);
+      WHERE a.business_id=$1 AND a.resource_id=$2 AND business_appointment_holds(a.status,a.request_expires_at) AND (a.starts_at AT TIME ZONE b.timezone)::date BETWEEN $3::date AND $4::date`, [business.id, staff.id, from, to]);
     if (booked.n) fail(`${staff.name} has ${booked.n} booking${booked.n === 1 ? '' : 's'} in those dates. Move ${booked.n === 1 ? 'it' : 'them'} to another stylist first.`, 409);
     const overlap = await repo.one(db, `SELECT id FROM salon_staff_leave WHERE business_id=$1 AND resource_id=$2 AND cancelled_at IS NULL AND from_date <= $4::date AND to_date >= $3::date`,
       [business.id, staff.id, from, to]);

@@ -23,8 +23,10 @@ import ClientPanel from "./ClientPanel";
 import { ClientPicker } from "./salonParts";
 import {
   STATUS_WORDS, WEEKDAYS, addDays, awayOn, bookingMessage, hoursOn, categoryTone, clockMinutes, clockText, hourLabel, longDay, methodWord, minutesOfDay,
-  minutesText, sendMessage, timeOfDay, whatsappLink, zonedInstant,
+  minutesText, onCalendar, sendMessage, timeOfDay, whatsappLink, zonedInstant,
 } from "./salon";
+// The online booking tag on a calendar block.
+import "../../online-booking/styles/online-booking.css";
 import ManagerApproval from "./ManagerApproval";
 import { approvalFor, emptyApproval } from "./approval";
 import useAuth from "../../../../hooks/useAuth";
@@ -155,7 +157,7 @@ export default function SalonCalendarPage() {
         ]} />
       <ErrorMessage message={error} />
       <div className="sw-summary" aria-label="The day in numbers">
-        <span><strong>{fresh ? count("booked") : "—"}</strong> to come{late ? <em className="is-late"> · {late} late</em> : null}</span>
+        <span><strong>{fresh ? count("booked") : "—"}</strong> to come{late ? <em className="is-late"> · {late} late</em> : null}{fresh && dayRows.some((a) => a.status === "requested" && a.holds) ? <em className="is-late"> · {dayRows.filter((a) => a.status === "requested" && a.holds).length} online to answer</em> : null}</span>
         <span><strong>{fresh ? arrived : "—"}</strong> here now</span>
         <span><strong>{fresh ? count("completed") : "—"}</strong> done</span>
         <span><strong>{fresh ? count("no_show") + count("cancelled") : "—"}</strong> no-show / cancelled</span>
@@ -242,7 +244,7 @@ function DayGrid({ data, day, today, canMove, onSlot, onOpen, onDrop }) {
   useLayoutEffect(() => {
     const node = scroller.current;
     if (!node) return;
-    const first = data.appointments.filter((a) => a.day === day && a.status !== "cancelled").map((a) => minutesOfDay(a.starts_at, tz))[0];
+    const first = data.appointments.filter((a) => a.day === day && onCalendar(a)).map((a) => minutesOfDay(a.starts_at, tz))[0];
     const target = showNow ? nowMinutes - 60 : first !== undefined ? first - 30 : open;
     node.scrollTop = Math.max(0, (target - open) * PX);
     // Only when the day changes.
@@ -253,7 +255,7 @@ function DayGrid({ data, day, today, canMove, onSlot, onOpen, onDrop }) {
   }
   const hours = [];
   for (let m = Math.ceil(open / 60) * 60; m < close; m += 60) hours.push(m);
-  const blocks = (resource) => data.appointments.filter((a) => a.day === day && a.status !== "cancelled"
+  const blocks = (resource) => data.appointments.filter((a) => a.day === day && onCalendar(a)
     && (resource.kind === "room" ? Number(a.room_id) === Number(resource.id) : Number(a.resource_id) === Number(resource.id)));
   const minutesAt = (event, column) => {
     const rect = column.getBoundingClientRect();
@@ -310,6 +312,7 @@ function DayGrid({ data, day, today, canMove, onSlot, onOpen, onDrop }) {
                     onDragEnd={() => setDragging(null)} aria-label={label} title={short ? label : undefined}>
                     <strong>
                       {a.member && <Icon name="star" size={11} />}{Number(a.deposit_amount) > 0 && <span className="sw-appt-mark" aria-hidden="true">₹</span>}
+                      {a.source === "guests_site" && <span className="ob-online-tag" title={a.status === "requested" ? "Online request: answer it in Online booking" : "Booked online"}>{a.status === "requested" ? "Request" : "Online"}</span>}
                       {short ? `${timeOfDay(a.starts_at, tz)} ${a.contact_name} · ${a.service_name}` : a.contact_name}
                     </strong>
                     {!short && <span>{timeOfDay(a.starts_at, tz)} · {a.service_name}</span>}
@@ -334,7 +337,7 @@ function WeekGrid({ data, from, today, onDay }) {
   const daysList = Array.from({ length: 7 }, (_, i) => addDays(from, i));
   const staff = data.resources.filter((r) => r.kind === "staff");
   const cell = (r, d) => {
-    const rows = data.appointments.filter((a) => a.day === d && Number(a.resource_id) === Number(r.id) && a.status !== "cancelled");
+    const rows = data.appointments.filter((a) => a.day === d && Number(a.resource_id) === Number(r.id) && onCalendar(a));
     const minutes = rows.reduce((s, a) => s + (new Date(a.ends_at) - new Date(a.starts_at)) / 60000, 0);
     return { rows, minutes };
   };
@@ -729,6 +732,7 @@ function AppointmentDialog({ appointment: a, timezone, onClose, onChanged, onOpe
             <div><dt>Client</dt><dd>{[a.member && "Member", a.first_visit && "First visit", a.client_no_shows > 0 && `${a.client_no_shows} no-show${a.client_no_shows === 1 ? "" : "s"} before`].filter(Boolean).join(" · ")}</dd></div>
           )}
           <div><dt>Messages</dt><dd>{[a.confirmation_sent_at && "Confirmed", a.reminder_sent_at && "Reminded"].filter(Boolean).join(" · ") || "None sent"}</dd></div>
+          {a.source === "guests_site" && <div><dt>Booked online</dt><dd>{[a.online_booker && `by ${a.online_booker}`, a.online_person && `for ${a.online_person}`].filter(Boolean).join(" ") || "Yes"}</dd></div>}
           {a.notes && <div><dt>Notes</dt><dd>{a.notes}</dd></div>}
         </dl>
         <div className="sw-row">
@@ -770,6 +774,7 @@ function AppointmentDialog({ appointment: a, timezone, onClose, onChanged, onOpe
             {!booked && biz.can("appointments.create") && <button type="button" className="button button-secondary" onClick={onBookNext}><Icon name="calendar" size={15} /> Book next visit</button>}
           </div>
         )}
+        {a.status === "requested" && <p className="sw-note">A guest's online request: it holds this time until you answer it. <Link to={businessPath(biz.id, "online-booking")}>Answer it in Online booking</Link></p>}
         {!booked && <p className="sw-note"><Link to={`${businessPath(biz.id, "appointments")}?contact=${a.contact_id}`}>All of {a.contact_name}'s visits</Link></p>}
       </div>
     </Modal>
