@@ -235,7 +235,11 @@ function readRedeem(body) {
 // lines: the sale's prepared lines, each with `sku` and `amount` (paise, in
 // the document's price terms) and `quantity`. Returns how much comes off each
 // line and why; the caller works out tax on what is left.
-async function priceSale(db, business, { contact, lines, body, taxMode }) {
+// `given`: a bill already made and handed over (an offline till's,
+// modules/business/till): no offer or coupon runs now (the till sold at the
+// shelf price), and its counter discount is the one the till allowed then
+// (the till service flags one over today's limit, never refuses it).
+async function priceSale(db, business, { contact, lines, body, taxMode, given = false }) {
   const perLine = lines.map(() => 0);
   const rows = [];
   // Lines with fixed prices (a dispatched order) take no offers or points.
@@ -243,10 +247,10 @@ async function priceSale(db, business, { contact, lines, body, taxMode }) {
   const grossBill = sum(lines.filter(open).map((l) => l.amount));
   const caps = business.capabilities;
 
-  const couponCode = readCoupon(body);
+  const couponCode = given ? null : readCoupon(body);
   if (couponCode && !caps.includes('offers')) fail('Offers and coupons are not switched on for this business');
   let coupon = null;
-  if (caps.includes('offers')) {
+  if (caps.includes('offers') && !given) {
     const running = await runningOffers(db, business.id);
     if (couponCode) coupon = { code: couponCode, offer: await couponOffer(db, business, couponCode, contact, grossBill, running), applied: false };
     // A coupon's offer counts only on the bill it was given for.
@@ -311,7 +315,7 @@ async function priceSale(db, business, { contact, lines, body, taxMode }) {
   // A small discount given at the counter, after offers and before points.
   const manual = readManualDiscount(body);
   if (manual) {
-    await access.require(business, 'sales.discount');
+    if (!given) await access.require(business, 'sales.discount');
     const payable = lines.map((line, i) => {
       if (!open(line)) return 0;
       const left = line.amount - perLine[i];
@@ -322,7 +326,7 @@ async function priceSale(db, business, { contact, lines, body, taxMode }) {
     if (value > bill) fail(`The discount is more than the bill (${money(bill)})`, 409);
     const limit = await repo.one(db, 'SELECT max_bill_discount_percent FROM business_settings WHERE business_id=$1', [business.id]);
     const cap = Math.floor((bill * paise(limit?.max_bill_discount_percent ?? 10)) / 10000);
-    if (!business.full_access && value > cap) {
+    if (!business.full_access && value > cap && !given) {
       fail(`At most ${Number(limit?.max_bill_discount_percent ?? 10)}% of a bill (${money(cap)} on this one) can be taken off at the counter. The owner can change this in Business settings.`, 409);
     }
     split(value, payable).forEach((part, index) => {

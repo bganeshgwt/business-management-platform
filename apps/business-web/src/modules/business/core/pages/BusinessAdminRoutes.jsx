@@ -229,6 +229,9 @@ const OnlineShopSettingsPage = lazy(() => import("../../shop/pages/OnlineShopSet
 // The salesperson app (wholesale): the office's day of its salespeople, and the app's own page here.
 const FieldSalesPage = lazy(() => import("../../wholesale/pages/FieldSalesPage"));
 const SalespersonAppPage = lazy(() => import("../../wholesale/pages/SalespersonAppPage"));
+// The offline till (modules/business/till): the review of offline bills, and the tills.
+const OfflineBillsPage = lazy(() => import("../../till/OfflineBillsPage"));
+const TillsPage = lazy(() => import("../../till/TillsPage"));
 
 function Notice({ title, children }) {
   return (
@@ -448,6 +451,8 @@ function screens(type) {
     "online-shop": <OnlineShopSettingsPage />,
     "field-sales": <FieldSalesPage />,
     "salesperson-app": <SalespersonAppPage />,
+    "offline-bills": <OfflineBillsPage />,
+    "tills": <TillsPage />,
   };
 }
 

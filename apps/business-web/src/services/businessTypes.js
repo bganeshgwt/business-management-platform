@@ -43,3 +43,5 @@ export const LODGING = ["lodging"];
 export const BOOKS_ONLINE = ["salon", "healthcare", "optical", "garage", "memberships", "electronics"];
 // Shops that can sell from their own shop link (the online shop, modules/business/shop): its orders board and its settings.
 export const ONLINE_SHOP = ["grocery", "supermarket", "fashion", "electronics", "pharmacy", "books", "meat", "weight_retail", "general_retail", "hardware", "agri_inputs", "optical"];
+// Shops whose counter may bill offline (the Offline till application).
+export const OFFLINE_TILL = ["grocery", "supermarket", "fashion", "electronics", "books", "meat", "weight_retail", "general_retail", "hardware"];

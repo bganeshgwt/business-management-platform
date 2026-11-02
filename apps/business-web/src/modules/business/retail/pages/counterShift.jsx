@@ -86,10 +86,18 @@ function CloseShift({ biz, shift, onClose, onDone }) {
     } finally { setBusy(false); }
   };
   const diff = gap ? Number(gap.difference) : 0;
+  // Bills made offline on this counter's tills and not sent yet: their cash is in the drawer, not in what it should hold.
+  const waiting = shift.tills_waiting?.bills || 0;
   return (
     <Modal title="Close your shift" icon="wallet" width={480} onClose={onClose}
       description={`Opened at ${new Date(shift.opened_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} with ${biz.exact(shift.opening_cash)}. Count the notes and coins in your drawer.`}>
       <form className="form-grid" onSubmit={submit} noValidate>
+        {waiting > 0 && (
+          <div className="field-wide alert alert-notice" role="status">
+            <strong>{waiting} {waiting === 1 ? "bill made offline waits" : "bills made offline wait"} on {shift.tills_waiting.tills === 1 ? "a till" : `${shift.tills_waiting.tills} tills`} here.</strong>{" "}
+            Their cash is in the drawer but not yet in what it should hold. Send them first (Send now, in the till's panel); closing now, the manager sees their cash against this shift under Daily money › Offline bills when they arrive.
+          </div>
+        )}
         <Field label={`Cash counted (${biz.symbol})`} wide>
           <input type="number" min="0" step="0.01" inputMode="decimal" autoFocus value={counted} onChange={(e) => { setCounted(e.target.value); setGap(null); }} />
         </Field>

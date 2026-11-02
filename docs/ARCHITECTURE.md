@@ -133,7 +133,7 @@ written down.
 | **Staff app** (`apps/business-web`, port 5173 in development) | Built, and installable on a phone, tablet or computer, each workspace as an app of its own (§3.6). A switcher in the header opens any business you belong to. For a restaurant (run as a restaurant, café, bakery or cloud kitchen) it is the full restaurant admin, with the POS screen, the kitchen display and the captain app. For the other types it is Business Admin, whose menu is built from that business's modules. It also holds the platform's public site, each owner's *Your plan* and the platform console. |
 | **Guests' site** (`apps/customer-web`, port 5174) | Built: QR table ordering, online ordering, table booking and a business's online booking of appointments, with no sign-in; each status page follows its order or booking live (§3.5). A business's privacy notice for its guests, and the shared pieces a business's guest pages are built from (§8.10). Its planned pages answer already, with what is coming. |
 | **API** (`backend`, port 5010 as `.env.example` sets it) | Built: one Express API and one PostgreSQL database for both apps. |
-| POS app (an offline-capable till) | Planned. The POS *screen* is in the staff app (`/pos`). The offline base it builds on is in place: the service worker, the outbox, this device's copies and offline boot (§3.6). |
+| POS app (an offline-capable till) | Built for the shops, as part of the staff app: a shop's Quick bill on a computer set up as an *offline till* bills with no network from what the till keeps, numbers its bills in the till's own GST series and sends them when the network is back, where they are posted as made and what the till could not know is flagged for the manager (§3.6, *The offline till* and *How an offline bill is posted*); it installs as the *Counter* app. The restaurant's POS *screen* (`/pos`) works online: its offline till waits for plan E (§9.3). |
 | Captain / waiter app | Built, as part of the staff app (`/captain`), and installable as an app of its own (the *Captain app*): a route group with a layout of its own (`src/workspaces/captain`), phone first, on the POS's own order screen and the order, KOT, table-request and captain-section APIs, with live updates. Alerts reach the phone while the app is closed too (Web Push, §3.6), and with no network it keeps its screen with the floor as last read; it takes no orders offline. |
 | Kitchen display app | Built, as part of the staff app (`/kitchen`), and installable as an app of its own (the *Kitchen display*) on the kitchen's screen. |
 | Clinic and lab workspaces | Built, as part of the staff app (`/clinic`, `/lab`): route groups with layouts of their own (`src/workspaces/clinic`, `src/workspaces/lab`, both in `src/layouts/BusinessWorkspace.jsx`), for the front desk's computer, a doctor's tablet and the lab bench, on the health module's own pages and APIs, with live updates. |
@@ -599,11 +599,11 @@ API's address; a new build is therefore a new worker with a cache of its own.
 
 #### The offline base
 
-`src/services/offline/`, for the screens that work offline (the captain app
-and the salesperson app now; the offline till next):
+`src/services/offline/`, for the screens that work offline (the captain app,
+the salesperson app and the offline till):
 
 - **`idb.js`:** one IndexedDB database, `bmp-offline`, with a store per kind
-  of thing kept (`outbox`, `copies`, `snapshots`), opened by name. Every read
+  of thing kept (`outbox`, `copies`, `snapshots`, `tills`), opened by name. Every read
   and write is wrapped, so a private window, blocked storage or a full disk
   fails softly and the app carries on online. Once the device keeps offline
   data the browser is asked, once, not to clear it (`navigator.storage.persist`).
@@ -622,8 +622,12 @@ and the salesperson app now; the offline till next):
   every 30 seconds. Discarding takes the screen's confirmation of what is
   lost; what waited for a discarded item then needs attention. Only the
   signed-in person's items are sent (a shared device lists the others',
-  waiting for their person); one tab sends at a time (Web Locks) and every tab
-  shows the same list (BroadcastChannel). `outboxStore.js` is the app's one
+  waiting for their person), but for an item marked *shared*, the device's
+  own (an offline till's bills): it goes with whoever is signed in, and
+  signing out keeps it. An item may carry headers of its own (a till's
+  secret), and one still waiting may be changed in place (`amend`: a bill
+  voided on the till before it was sent). One tab sends at a time (Web Locks)
+  and every tab shows the same list (BroadcastChannel). `outboxStore.js` is the app's one
   outbox; `outbox.js` itself knows no browser and is tested on its own. A
   screen that keeps what each write answered hears it as it is sent
   (`onSent`): the salesperson app's journal of the day.
@@ -651,9 +655,9 @@ a server that does not answer; the app's start waits at most 15 seconds for
 it), and an opened business's context the same way (`BusinessProvider`'s
 `offline`, the time the copy was read). Only the screens marked
 offline-capable open (`offlineScreens.js`: the captain app, the counter's
-Quick bill and the salesperson app's `/sales`, which opens the business its
-person used last on this device; Quick bill is marked for the till built on
-this base); every other screen says *You're offline —
+Quick bill on a device set up as an offline till, which opens straight onto
+that counter, and the salesperson app's `/sales`, which opens the business its
+person used last on this device); every other screen says *You're offline —
 this screen needs the network* (`components/NeedsNetwork.jsx`,
 `routes/ProtectedRoute.jsx`), with the screens that do open. As soon as the
 server answers, the profile is read afresh and everything opens as usual. A
@@ -661,7 +665,89 @@ session that ended while a screen that works offline was open asks for the
 password again over the screen (`components/SessionPrompt.jsx`), keeping the
 screen and the outbox; elsewhere the sign-in page brings the same person back.
 Signing out names whatever has not been sent and, once confirmed, clears the
-person's copies, snapshots and outbox items.
+person's copies, snapshots and outbox items; it is refused while an offline
+till's bills wait on the device.
+
+#### The offline till
+
+A shop's Quick bill on a computer set up as a till keeps billing with no
+network (`src/modules/business/till/`, on the offline base above; the rules:
+[BUSINESS_RULES.md › Offline till](BUSINESS_RULES.md#offline-till)):
+
+- **This computer as a till** (`tillStore.js`): set up while online by a
+  manager (`POST …/till/devices`), the till is the device's record, not a
+  person's, in its own store (`tills`): its code, location and secret, the
+  last number it took in each financial year's series, when it last reached
+  the server, and how far its clock is from the server's. Signing out keeps
+  it. A copy without the secret (`localStorage`) tells the offline boot which
+  counter opens on this device (`offlineScreens.js`).
+- **What it keeps** (`tillSnapshot.js`; `GET …/till/snapshot`, every five
+  minutes while online, and on demand): the items it may sell there with
+  their prices, packs, scale and book codes and GST rate changes still to
+  come; those it may not, with why; customers with their balances; the
+  payment methods and the settings the server prices by. Items and customers
+  come with a stamp: a till that holds the same is told so, and gets only the
+  balances that moved since.
+- **Pricing** (`tillPricing.js`): a bill is priced on the till with the
+  server's arithmetic, step for step (integer paise, BigInt where quantities
+  multiply, the same rounding: `postDocument`, `businessPricing.js`, the
+  counter discount's split, a clothes shop's GST by price), at the rates in
+  force on the business's date at the till's time, set by the server's. The
+  integration test prices many carts both ways and finds every line and total
+  equal; the unit tests run the till's rules (`tillRules.js`) against the
+  server's copy.
+- **A bill** (`useTill.js`, `tillQueue.js`): takes the next number of the
+  till's series (once across every tab: a Web Lock), and is kept in the
+  outbox before its receipt prints, as a shared item with the till's secret
+  in its headers, in one queue per business, so the bills go in the order
+  they were made. A bill not yet sent may be voided: its item becomes a void
+  with the same number. A copy of what waits can be downloaded as a file.
+- **Reports** (`POST …/till/heartbeat`, every minute while online): what
+  waits, the oldest, since when it was offline, the last number it took and
+  the numbers it holds; the answer sets the till's clock and its limits (warn,
+  stop, the most bills waiting: `tillRules.limitState`).
+- **On screen** (`TillCounter.jsx`, `TillPanel.jsx`): Quick bill becomes the
+  till when the server does not answer, and stays the till while a bill is on
+  it; the panel (*Offline billing*) sets the till up, lists what waits, sends
+  now, downloads the copy and installs the counter app. *Settings › Tills*
+  (`TillsPage.jsx`) and *Daily money › Offline bills* (`OfflineBillsPage.jsx`)
+  are the manager's.
+
+#### How an offline bill is posted
+
+`POST …/till/bills` (`backend/src/modules/business/till/services/tillBills.service.js`)
+posts a bill as it was made, through the core's posting and never around it:
+
+1. Under the business's lock: the till from its secret (unknown or retired:
+   a fault for the till to show); the request key (a repeat is answered with
+   the first answer); the number (the till's own code, the financial year of
+   the day it was made, not used before); the till's series for that year,
+   made with its first bill (`businessNumbering.tillSeries`).
+2. What the till could not know is gathered as flags: whether its maker still
+   bills here, its time against the window (`tillRules.timeProblem`), the PIN
+   rule, and each line's price and GST rate against the ones in force when it
+   was made (`business_price_history`, the GST rate changes, a clothes shop's
+   GST by price on that day).
+3. `postDocument(…, { offline })` posts the sale with the till's number,
+   time, maker and prices: each line at the price the till sold it at
+   (`businessPricing.givenPrice`) and its GST rate; no offer, coupon or
+   points (`priceSale`'s `given`); no GST rate change applied first (the
+   bill's rates are its own); an MRP lowered since, the credit limit, a
+   walk-in's unpaid part and a sum within ₹1 of the receipt's noted, not
+   refused; stock taken as far as it goes, earliest expiry first
+   (`takeStock`'s `partial`), the rest noted. The sale, its payments and its
+   audit row carry the time it was made and its maker. The one refusal it
+   adds is a sum more than ₹1 from the receipt's.
+4. The till bill (maker, sender, times), its flags and its shortfalls are
+   written; the series moves past the number (`useTillNumber`), the numbers it
+   skipped are recorded as not arrived and a late one is marked arrived; the
+   discount against today's limit, the customer's cash that day (the
+   database's cash limit leaves a till series' customer day to this step) and
+   e-invoicing are checked after posting and flagged.
+5. A void is recorded with its number and lines, and posts nothing.
+
+Every other path through `postDocument` runs as before: their `offline` is
+null.
 
 #### Alerts on a closed phone
 
@@ -1234,7 +1320,8 @@ workspaces; the backend has its own install.
 │   │   │   │                 business's guest pages: a guest's customer record and consents, the business
 │   │   │   │                 card, taking orders, rate limits, the privacy notice's public link);
 │   │   │   │                 online-booking (a business's booking link: the desk's /online-booking
-│   │   │   │                 and the guests' /api/public/appointments)
+│   │   │   │                 and the guests' /api/public/appointments); till (the offline till:
+│   │   │   │                 tills, the bills they send later, the review)
 │   │   │   ├── tax-changes/  GST rates by date for every business: a shop's items and a restaurant's dishes
 │   │   │   ├── live/         live updates for every business: the LISTEN connection, the screens' streams, and
 │   │   │   │                 guests' streams with their guest live keys (/api/public/live)
@@ -1281,7 +1368,8 @@ workspaces; the backend has its own install.
 │   │   │   │   │             folder per type: retail, wholesale, receivables, fashion, electronics, salon,
 │   │   │   │   │             weight, health, hardware, agri, optical, garage, memberships, laundry,
 │   │   │   │   │             jewellery, rentals, fuel, lodging; and
-│   │   │   │   │             quotations and licences (every type but the restaurant)
+│   │   │   │   │             quotations and licences (every type but the restaurant); till (the
+│   │   │   │   │             offline till on Quick bill, Settings › Tills, Offline bills)
 │   │   │   │   ├── tax-changes/  the GST rate change screens, shared by the restaurant (/menu/tax-changes)
 │   │   │   │   │             and Business Admin (…/tax-changes)
 │   │   │   │   ├── personal-data/  the personal data screens, shared by the restaurant (/privacy) and Business
@@ -1446,8 +1534,8 @@ person's permissions. The backend checks both again. The captain app
 its order screen is the POS page itself in its phone layout (`PosPage`'s
 `captain` mode), its tables the POS's `TableGrid`, its calls Table requests'
 own cards, its bill the POS's `BillModal`, and its table actions the
-dashboard floor's `useFloorActions`. The planned offline POS app will reuse
-them the same way. The clinic and lab workspaces (`workspaces/clinic`,
+dashboard floor's `useFloorActions`. The restaurant's offline till, after
+plan E (§9.3), will reuse them the same way. The clinic and lab workspaces (`workspaces/clinic`,
 `workspaces/lab`) are built from `modules/business/health` alike: their other
 screens are the health module's own pages, opened for the clinic in the
 address (`BusinessProvider`'s `businessId`, with the workspace's addresses in
@@ -1579,6 +1667,7 @@ file behind an index file with the module's name, which callers import:
 | Fuel stations | `business/fuel`: `businessFuel.routes` (mounted from `business.routes.js`), `fuelCommon` (the type and module guard, reading litres, readings, money, densities, plates and nozzle numbers, instants and days on the business's clock, the settings, the outlet a board shows, request keys), `fuelMoney` (thousandths of a litre and paise: a nozzle's sale, a shift's money and the attendant's difference, the stock register's variation against the tolerance, a load's density and dips), `fuelSetup.service` (fuels as goods items on the nil slab, tanks with their opening stock, units, nozzles, meter changes, measures, prices, the tolerances, the PESO standing, and the checks that keep a fuel off other bills and petrol and diesel off other purchases), `fuelShifts.service` (opening a shift, its nozzles, the close with its preview posting the fuel bills through `postDocument` at `fixed` prices, a manager's reopening crediting them, the board and lists), `fuelTanks.service` (the dips, tanker loads posted as purchases and cancelled, the stock register and the density register), `fuelFleet.service` (vehicles, the month's fills, a customer's statement), `fuelBell.service` | `fuel/` (Shift & readings with `ShiftPage` for the close and the settlement, Tanks & dips, Tanker receipts, the stock and density registers, Fleet statements with `FleetStatementPage`, Pumps & nozzles; helpers in `fuel.js`, `FuelParts.jsx` and `fuelPrint.js`) | `fuel_*` |
 | Hotels, lodges & guest houses | `business/lodging`: `businessLodging.routes` (mounted from `business.routes.js`), `lodgingCommon` (the type and module guard, reading dates, rates and photo IDs (an Aadhaar's last four digits only), the business's date, the settings and the two slabs, request keys, the receipts' free money and a bill's due, the database's room-taken sentence), `lodgingMoney` (paise: a night's value and its slab, GST to the paisa, a stay's nights, the extras and the bill's figures and lines; each night's rates from the calendar and its restrictions, a discount, a policy's charges), `lodgingSetup.service` (the settings, room types as service items counted in nights, rooms, the housekeeping board and status, and the check that bills a room type's nights only from a stay), `lodgingStays.service` (reservations priced night by night with a preview and checked against the rooms and the room type, changes and room moves, advances and deposits as collection receipts, cancelling and no-shows with a charge billed through `postDocument`, the money held handed back through `businessAdvanceRefunds`, a stay's page and the list, the approvers), `lodgingFolio.service` (the check-in with every occupant, the night audit, extras and voids, the check-out with its preview posting the folio through `postDocument` at `fixed` prices with `lodging: true`), `lodgingDesk.service` (the desk, the calendar, the rooms free), `lodgingGuests.service` (Form-III, an occupant corrected, the guest register, the bell), `lodgingRates.service` (rate plans with their meal plans, seasons, the rate calendar, day-use prices and policies, and a stay's nights priced from them), `lodgingFolios.service` (a stay's folios beyond the main one and the routing of its charges), `lodgingOccupants.service` (occupants joining and leaving partway, guest profiles), `lodgingGroups.service` (group bookings: the block, the rooming list, checking in and out together, the group's folio billed), `lodgingHousekeeping.service` (the board, cleaning steps, do not disturb and out of service, out-of-order periods, linen and minibar checklists and checks), `lodgingMaintenance.service` (maintenance tickets), `lodgingAudit.service` (the night audit: the nights posted, the no-shows past the cut-off, the day close kept; the business date is the business's own date, never a date kept apart), `lodgingReports.service` (occupancy, ADR and RevPAR), `lodgingMoves.service` (a guest moved to another property) | `lodging/` (Front desk, Rooms & housekeeping, Reservations (the calendar), Stays with `StayFormPage` and `StayPage`, `LodgingDialogs` for the check-in, charges, voids, receipts, check-out, changes, cancelling, money handed back, out of order and Form-III, `LodgingApproval`, Foreign guests (Form-III), Guest register, Room types & rates with `LodgingRates` (rate plans, seasons, the rate calendar, day use, policies), `StayParts` (a stay's policy, folios and routing, occupants joining and leaving, guest profile), `GroupFormPage` and `GroupPage` (group bookings), `HouseDialogs` (out of order, out of service, room checks, tickets, a move to another property), Maintenance, Occupancy & revenue (`LodgingReportsPage`); helpers in `lodging.js` and `lodgingPrint.js`) | `lodging_*` |
 | Online shop (the goods shops) | `business/shop`: `businessShop.routes` (mounted from `business.routes.js`), `shopUploads.routes` (an item's photo, mounted in `routes/index.js` before `/businesses`), `shopPublic.routes` (the guests', at `/api/public/shop`), `shopRules` (what never shows online: one SQL expression every list, search, item page, cart check and order is built on), `shopMoney` (paise: the shelf price, the cart, the 10% for weighed items, the delivery charge shared by GST rate), `shopStatus` (statuses, the guest's steps, the board's lanes), `shopSlots` (delivery slots), `shopSettings.service` (a link per location, the *Delivery charge* item), `shopCatalog.service` (the guests' items and prices; the staff's list, an item's online details, categories kept off), `shopOrders.service` (placing, the guest's page, the board, accepting, declining and cancelling, the shop's own clock that declines), `shopPacking.service` (packing, the customer's OK, billing through `postDocument` with `fixed` prices, handing over, refused at the door through the returns), `shopComplaints.service` (complaints, blocked mobiles), `shopReports.service` (the report and the bell), `shopPhotos.service` | `shop/` (`OnlineOrdersPage`: the board, complaints and the report; `OnlineOrderPage`: packing, billing and handing over; `OnlineShopSettingsPage`; `OnlineItemFields` in the item and category editors; helpers in `onlineShop.js`); the guests' site's `modules/shop` (`ShopHome`, `ShopCart`, `ShopCheckout`, `ShopStatus`, `shopCart.js`) | `shop_*` |
+| Offline till (grocery, supermarket, fashion, electronics, books, meat and weight shops, the general store, hardware) | `business/till`: `businessTill.routes` (mounted from `business.routes.js`), `tillRules` (numbers, financial years, dates, the time window, the rate on a day; no database), `tillDevices.service` (tills, their secrets, limits, the heartbeat), `tillSnapshot.service` (what a till keeps), `tillBills.service` (a bill or void received: `postDocument`'s `offline` option, flags, stock short, numbers not arrived), `tillReview.service` (the review, Table 13, the bell) | `business/till/`: `TillCounter` and `TillPanel` (on Quick bill), `useTill`, `tillPricing`, `tillQueue`, `tillSnapshot`, `tillStore`, `tillRules`, `tillWords`; `TillsPage` (Settings › Tills), `OfflineBillsPage` (Daily money › Offline bills) | `business_devices`, `business_till_settings`, `business_till_bills`, `business_till_flags`, `business_till_shortfalls`, `business_till_gaps`; `business_number_series.device_id` |
 
 **Modules for every business, the restaurant included:**
 
@@ -2148,7 +2237,9 @@ keeping the old tables until the reports agree.
    notes → `business_returns`; numbering → `business_number_series`. This is
    the largest step: dual-write for a full trading period, compare every
    report (day end, GST, sales, P&L) to the paisa, then switch the reads
-   report by report.
+   report by report. The restaurant's offline till follows: its bills are
+   then core sales, posted as the shops' offline till posts them (§3.6), with
+   the KOT its own part.
 8. **Retire** the old tables a release after the last read moves (a new
    migration, after a backup).
 

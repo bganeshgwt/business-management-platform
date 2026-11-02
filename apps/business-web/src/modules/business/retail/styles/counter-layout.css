@@ -9,6 +9,13 @@
   grid-auto-columns: minmax(0, 1fr);
 }
 
+/* The header is a layer of its own (isolation): a dialog opened from its
+   buttons (who is billing, the shift) is lifted with it, above the scan box,
+   the customer search and the top bar, as every dialog is. */
+.rt-counter-page > .page-header:has(.modal-backdrop) {
+  z-index: 50;
+}
+
 @media (min-width: 1200px) {
   .content:has(.rt-counter-page) {
     height: 100%;

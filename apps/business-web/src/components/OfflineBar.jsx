@@ -62,6 +62,7 @@ function OutboxPanel({ open, onClose, online, since, box }) {
       message: (
         <>
           <p>It has not reached the server, and discarding it loses it for good.</p>
+          {item.shared && <p>It is a bill a customer was given: its number will be missing, and the manager is asked to say why. Send it again instead, once what it needs is put right.</p>}
           {others.length > 0 && (
             <p>
               {plural(others.length, "item waits", "items wait")} for it and will need attention:{" "}
@@ -127,7 +128,8 @@ function OutboxPanel({ open, onClose, online, since, box }) {
       ) : (
         <ul className="outbox-list">
           {box.items.map((item) => {
-            const theirs = user && String(item.userId) !== String(user.id);
+            // The device's own items (an offline till's bills) go with whoever is signed in.
+            const theirs = user && !item.shared && String(item.userId) !== String(user.id);
             return (
               <li key={item.id} className="outbox-item" data-state={item.state}>
                 <div className="outbox-item-head">

@@ -60,6 +60,8 @@ export const LOGINS = [
   { role: "PLAN_CASHIER", name: "Anil Kumar", email: "cashier@plans.e2e.invalid", yourPlan: true },
   // The wholesaler's field salesperson, on the salesperson app (salesperson-app.spec.js), made with SALES_APP below.
   { role: "SALESPERSON", name: "Sunil Jadhav", email: "salesperson@wholesale.e2e.invalid", businesses: ["wholesale"], businessRole: "salesperson" },
+  // The supermarket's cashier, who bills on its offline till (offline-till.spec.js).
+  { role: "TILL_BILLER", name: "Rekha Pillai", email: "biller@supermarket.e2e.invalid", businesses: ["supermarket"], businessRole: "cashier" },
 ];
 
 // The staff login a spec makes in the grocery's Staff & access, as the owner
@@ -863,4 +865,21 @@ export const SALES_APP = {
   scheme: { name: "Noodles 10 + 1", buy: 10, free: 1 },
   utr: "412345678901",
   newShop: { name: "Laxmi Kirana & General", phone: "9730045678", address: "Lane 3, Hadapsar gaon, near the Hanuman temple" },
+};
+
+// The offline till (offline-till.spec.js): the supermarket's counter, its
+// Offline till switched on, set up as a till by its owner in the spec. Atta
+// in packets and loose toor dal by weight (5%), a dish bar (18%), each in
+// stock; a regular with a credit limit, who takes udhaar within it. The
+// TILL_BILLER bills there with no internet.
+export const OFFLINE_TILL = {
+  type: "supermarket",
+  supplier: "Metro Cash & Carry",
+  items: [
+    { key: "atta", name: "Aashirvaad atta 5 kg", code: "ATTA5", barcode: "8901725181222", unit: "each", price: 285, taxRate: 5, mrp: 299, hsn: "1101", stock: 40, cost: 250 },
+    { key: "dal", name: "Toor dal loose", code: "TOOR", unit: "kg", price: 168, taxRate: 5, hsn: "0713", stock: 50, cost: 140 },
+    { key: "vim", name: "Vim bar 300 g", code: "VIM300", unit: "each", price: 30, taxRate: 18, mrp: 35, hsn: "3402", stock: 60, cost: 24 },
+  ],
+  customer: { name: "Lakshmi Narayan", phone: "9845011122", creditLimit: "3000" },
+  till: "Counter 1",
 };

@@ -18,7 +18,7 @@ export const WORKSPACES = {
   patients: ['patients', 'customers'],
   laboratory: ['lab-orders', 'lab-tests', 'lab-qc'],
   reports: ['reports', 'retail-reports', 'wholesale-reports', 'variant-reports', 'weight-reports', 'salon-reports', 'commissions', 'fitter-reports', 'cash-report', 'fuel-outlets', 'activity', 'referrals', 'mechanic-commission', 'member-pay', 'lodging-reports'],
-  settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'privacy', 'agri-settings', 'garage-settings', 'member-plans', 'jewellery-settings', 'scheme-plans', 'fuel-pumps', 'lodging-rates', 'plan', 'online-shop'],
+  settings: ['settings', 'tax-rates', 'payment-methods', 'number-series', 'locations', 'units', 'resources', 'health-settings', 'licences', 'privacy', 'agri-settings', 'garage-settings', 'member-plans', 'jewellery-settings', 'scheme-plans', 'fuel-pumps', 'lodging-rates', 'plan', 'online-shop', 'tills'],
   // A seeds, fertilisers & pesticides shop's own area.
   farm: ['farmers', 'agri-subsidy', 'agri-registers', 'molecules', 'agri-seasons', 'agri-crops'],
   // An optical shop's spectacle orders, in its daily menu.
@@ -46,7 +46,7 @@ export const WORKSPACES = {
   lodgingDesk: ['lodging-desk', 'lodging-rooms', 'lodging-reservations', 'lodging-stays', 'lodging-maintenance'],
   lodgingGuests: ['lodging-form-iii', 'lodging-register'],
   staff: ['staff', 'roles'],
-  money: ['day-close', 'expenses', 'emi-finance'],
+  money: ['day-close', 'expenses', 'emi-finance', 'offline-bills'],
   repairs: ['repairs', 'appointments', 'online-booking'],
   packages: ['packages'],
   bookOrders: ['book-orders'],

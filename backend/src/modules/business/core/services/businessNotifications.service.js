@@ -32,6 +32,8 @@ const access = require('./businessAccess.service');
 //   GST thresholds     the turnover of the owner's businesses under this business's PAN nearing or
 //                      past a figure (e-invoicing and 6-digit HSN / SAC codes, the IRP's 30 days),
 //                      for whoever may see the business's money (reports.view)
+//   offline till       offline bills to review, a till whose bills have waited over an hour, numbers
+//                      of a till's series that never arrived (offline_till.review)
 //   wholesale overdue  (same overdue query, worded as invoices)
 //   online orders      new online orders waiting for an answer (warning when one is about to be declined by
 //                      itself); complaints a day unacknowledged, past their 48 hours, or near or past their month
@@ -217,6 +219,10 @@ async function feed(business) {
   // The salesperson app (wholesale): orders refused on arrival, and shops from the field waiting for approval.
   if (has('salesperson_app') && can('salesperson_app.view') && business.business_type === 'wholesale') {
     items.push(...await require('../../wholesale/services/salespersonAppOffice.service').bell(business, base, LIMIT));
+  }
+  // The offline till (modules/business/till): offline bills to review, a till's bills waiting over an hour, numbers not arrived.
+  if (has('offline_till') && can('offline_till.review')) {
+    items.push(...await require('../../till/services/tillReview.service').bell(business, base));
   }
   const counts = { critical: 0, warning: 0, info: 0 };
   for (const item of items) counts[item.severity] += 1;

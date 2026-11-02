@@ -56,4 +56,22 @@ async function salePrice(db, business, sku, contactId, quantity, entered, where 
   return { rule, net, stockPrice: price, enteredPrice, priceKind };
 }
 
-module.exports = { salePrice };
+// A price already charged: an offline till's bill, posted as it was made
+// (modules/business/till). The line's amount is worked out exactly as
+// salePrice works it out for that price: a pack's own price times the packs
+// (`packPrice`, paise per entered unit), else the stock unit's price times the
+// stock units. given: { unitPrice (rupees per stock unit), packPrice?, priceKind? }.
+function givenPrice(given, quantity, entered) {
+  if (given.packPrice !== undefined && given.packPrice !== null && entered) {
+    const enteredPrice = Number(given.packPrice);
+    const net = roundedDivide(BigInt(enteredPrice) * BigInt(milli(entered.quantity)), 1000n);
+    const stockPrice = Number(((enteredPrice / 100) / (entered.factorMicro / 1e6)).toFixed(4));
+    return { net, stockPrice, enteredPrice, priceKind: given.priceKind || 'rule' };
+  }
+  const price = Number(given.unitPrice);
+  const net = roundedDivide(BigInt(paise(price)) * BigInt(milli(quantity)), 1000n);
+  const enteredPrice = entered ? roundedDivide(BigInt(paise(price)) * BigInt(entered.factorMicro), 1000000n) : null;
+  return { net, stockPrice: price, enteredPrice, priceKind: given.priceKind || 'list' };
+}
+
+module.exports = { salePrice, givenPrice };

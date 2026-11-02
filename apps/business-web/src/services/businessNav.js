@@ -2,7 +2,7 @@
 // has switched on and what this person's role allows. The server checks the
 // same two things on every request; the menu only hides what would be refused.
 
-import { AGRI, BOOKS_ONLINE, CLINIC, FUEL, GARAGE, GOODS, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEMBERSHIPS, ONLINE_SHOP, OPTICAL, PHARMACY, RENTALS, RETAIL, SALON, WEIGHED } from './businessTypes.js';
+import { AGRI, BOOKS_ONLINE, CLINIC, FUEL, GARAGE, GOODS, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEMBERSHIPS, OFFLINE_TILL, ONLINE_SHOP, OPTICAL, PHARMACY, RENTALS, RETAIL, SALON, WEIGHED } from './businessTypes.js';
 import { dailyWorkspaces, WORKSPACES, workspaceLabel, workspaceSections } from './businessWorkspace.js';
 
 export { GOODS };
@@ -155,6 +155,8 @@ export function businessSections(type) {
         // office's day of its salespeople, with shops to approve and orders refused.
         { section: "salesperson-app", label: "Salesperson app", icon: "captain", need: "salesperson_app.create", types: ["wholesale"], href: (id) => `/sales/${id}` },
         { section: "field-sales", label: "Field sales", icon: "employees", need: "salesperson_app.view", types: ["wholesale"] },
+        // What the offline tills billed with no internet, for the manager to review (Daily money's area).
+        { section: "offline-bills", label: "Offline bills", icon: "bills", need: "offline_till.view", types: OFFLINE_TILL },
       ],
     },
     {
@@ -463,6 +465,8 @@ export function businessSections(type) {
         { section: "plan", label: "Your plan", icon: "package", owner: true, except: ['restaurant'] },
         // The online shop: each location's shop link and QR poster, delivery and payments, the seller's details, what shows online.
         { section: "online-shop", label: "Online shop", icon: "outlets", need: "online_shop.view", types: ONLINE_SHOP },
+        // The computers set up as offline tills, and how long they may bill offline.
+        { section: "tills", label: "Tills", icon: "pos", need: "offline_till.view", types: OFFLINE_TILL },
       ],
     },
     {

@@ -244,7 +244,8 @@ Install each from where it is used:
 
 - **Chrome, Edge or Samsung Internet** (Android phones and tablets, Windows
   and Mac computers): the captain app's **⋯ → Install the captain app**, Quick
-  bill's **More → Install the counter app**, the clinic's or the lab's menu
+  bill's **More → Install the counter app** (in its till panel, **Offline
+  billing**, where the shop has the Offline till), the clinic's or the lab's menu
   (**Install the clinic app**, **Install the lab app**), or your name at the
   top right (**Install the staff app**; on the kitchen display, **Install the
   kitchen display**). The browser asks once more, and the app's icon then sits
@@ -287,7 +288,9 @@ and why it waits.
 **Opening the app with no network.** An installed app, or a tab opened
 before, opens even with no connection, from this device's copy of the app.
 The screens that work offline open from what the device kept: the captain
-app shows the floor as last read and says from when. Every other screen says
+app shows the floor as last read and says from when; a shop's Quick bill on a
+computer set up as an offline till bills from what the till keeps
+([Offline till](#offline-till)). Every other screen says
 **You're offline — this screen needs the network**, with **Try again** and
 the screens that do open. Nobody is signed out because the network is down:
 only the server ending the session signs anyone out.
@@ -302,7 +305,9 @@ were on.
 **Signing out with changes waiting.** **Sign out** first names every change
 that has not reached the server, because signing out deletes them from the
 device: **Stay signed in** and let them go when the connection is back, or
-**Sign out and delete**. Signing out also removes your offline copies from the
+**Sign out and delete**. An offline till's bills are the computer's, not one
+person's: signing out is refused while any wait (**Send now**), and they go
+with whoever signs in next. Signing out also removes your offline copies from the
 device, and stops its alerts on a closed phone.
 
 ## The platform's public site and signing up
@@ -4171,7 +4176,8 @@ pass and confirms no bill until then: *Your PIN for this bill* shows them
 (Settings › Locations › *Sells at the counter*). The till is remembered on the
 device, and changing it with a bill on screen asks first. **Open shift** and
 **Close shift** are the cashier's own drawer count ([Daily money, expenses and
-cashier shifts](#daily-money-expenses-and-cashier-shifts)).
+cashier shifts](#daily-money-expenses-and-cashier-shifts)). With the Offline
+till, the computer may bill when the internet drops ([Offline till](#offline-till)).
 
 **The receipt and the invoice.** The till receipt (80 mm, or 58 mm under
 Business settings › Rules) shows what each line saved, GST by rate and the
@@ -4188,6 +4194,135 @@ a GST tax invoice.
 **The Sales list** (*Sales history*) opens on today, with *Billed by* and
 *Paid by* (cash, UPI, card, bank, mixed or not paid) columns, and filters by
 payment, by who billed it (for roles that see staff) and by location.
+
+### Offline till
+
+With the **Offline till** application (*Your plan*, then *Settings › Business
+tools*; for grocery, supermarket, fashion, electronics, books, meat and other
+weight shops, the general store and hardware), Quick bill keeps billing when
+the shop's internet drops, and sends the bills to the server by itself when it
+comes back. Without it the counter works as before, online only, and its
+**Offline billing** button says the Offline till is not switched on, with
+*Business tools* and *Your plan* for the owner.
+
+**Setting up a till.** On the shop's computer (or tablet), while it is online,
+a manager opens Quick bill, presses **Offline billing** at the top, names the
+till (*Counter 1*, *Billing desk*) and presses **Set up offline billing on this
+computer**. The till gets the next code (T1, T2 …; a code is never given again)
+for the counter's location, and a secret that stays on that computer only. Do
+this on every computer that bills, in the browser it bills in: the till is that
+browser's. Then press **Install the counter app** in the same panel, so the
+counter opens from its own icon, even with no internet. Needs *Set up, rename
+and retire tills* (`offline_till.manage`; Manager by default).
+
+**What a till keeps.** While online, a till reads what it needs every five
+minutes, and at once from **Read again** in its panel: the items it may sell
+here (codes, barcodes, ISBNs, scale codes, packs, this branch's price or the
+list price, the member price, the MRP, the GST rate with every change already
+dated), the customers with their balance and credit limit, the payment
+methods and the receipt's details. Its panel says *As of* when. Serial-numbered
+items (each unit is chosen by its number), kits (priced by their parts) and
+items kept for use in services are not on it: scanned offline, the till says
+why they need the network.
+
+**Billing offline.** When the internet drops, Quick bill turns into the till:
+an amber band says *Offline · billing on till T1*, with the time its prices
+are from and how many bills wait. Scan, type or tap items as usual (weights,
+gram buttons, packs, scale labels), pick a customer from those the till keeps,
+and take the payment:
+- **Cash**, with the change worked out; **UPI**, with a QR for the exact
+  amount when the shop's UPI ID is set (*Settings › Tills*), else on your own
+  QR stand: take the bill once the money shows on your phone or sound box;
+  **Card** on the card machine as usual, with its slip number if you like;
+  **Split**: a cash part and the rest by UPI or card;
+- **Udhaar** for a known customer, within their credit limit as the till
+  knows it (their balance when it last read it, plus this till's own bills
+  waiting); a walk-in pays in full, as online;
+- the **counter discount** within its limit, for those who may give one.
+
+Every figure is worked out on the till exactly as the server works out every
+bill. The bill takes the till's next number, **T1/2627/00042** (the till's
+code, the financial year, five digits): the till's own series, as GST rules
+allow a shop several. It is kept on the computer **before** the receipt
+prints, and the receipt prints exactly like an online one. A bill over
+₹2,00,000 asks for the buyer's PAN; no bill takes ₹2,00,000 or more in cash,
+nor a customer that much in cash in a day on this till.
+
+**What needs the network, and why.** Offers and coupons (the bill is at the
+shelf price: a running offer may have changed), loyalty points, credit
+vouchers and EMI; returns and exchanges (the bill to take back is on the
+server); new customers (a customer with credit is the shop's decision, made
+online); switching the cashier (a PIN is checked by the server, and the till
+keeps no PIN, so a manager's approval PIN is never on a shared computer);
+closing a shift; an item the till does not keep; a bill to a GSTIN holder when
+the business e-invoices (the invoice needs its IRP number at once); the
+pharmacy counter. Each says so where it would be. A business that asks the
+biller's PIN for every bill cannot have it checked offline: such bills are
+marked *Made offline, no PIN* for the manager.
+
+**Voiding.** A bill still waiting can be voided on the till, with a reason:
+from its confirmation (**Void…**) or the till panel's list. It keeps its
+number and goes to the server as a cancelled bill: no stock and no money move,
+and it is never deleted. Take back the customer's receipt. A bill already sent
+is taken back as a return, online.
+
+**The limits.** A till warns after 12 hours with no internet and stops making
+new offline bills after 72 hours, or with 2,000 bills waiting, until it is
+connected and they are sent (*Settings › Tills*: warn after 1 to 120 hours,
+stop after 1 to 120, 50 to 2,000 bills). Everything waiting stays safe either
+way.
+
+**Sending.** The bills go by themselves as soon as the internet is back, in
+the order they were made, each once (a bill sent twice is posted once), with
+whoever is signed in on the till: the bill keeps the cashier who made it, and
+the session that sent it is recorded too. The till panel lists what waits:
+each bill to see, reprint or void, **Send now**, when the till last reached
+the server, and **Download a copy of the waiting bills** (a file kept on the
+computer, for safety during a long outage). **Signing out is refused while a
+till's bills wait**: send them first. A bill the server refuses (a fault: an
+item switched off since, a sum that does not match its receipt) shows its
+reason in *Waiting to send*; put it right and **Send again**. Discarding one
+loses a bill a customer was given: its number is then listed as missing.
+
+**At the server, a bill counts as made.** Its date and time are when it was
+made: the cashier's shift, the day's figures, the cash limit and the GST month
+follow it. Its prices and GST rates are the ones on the receipt. What the till
+could not know is flagged for review, never refused: a price or GST rate not
+the one in force then, a customer over their limit, stock short, a time
+outside the till's limits, no PIN, a discount over today's limit, cash from one
+customer over ₹2,00,000 that day across tills, a bill to a GSTIN holder to
+report to the IRP. Stock short is taken from what there was (no stock goes
+below zero), and the rest waits to be settled.
+
+**The review** (*Daily money › Offline bills*; `offline_till.view`, settled
+with `offline_till.review`, Manager and Accountant by default). Tiles count what
+is open; the bell says *N offline bills to review*, and warns when a till has
+had bills waiting for more than an hour.
+- **To review**: each flag with its bill, maker, till and customer, by kind.
+  Put right what needs it (a shelf label, a limit, an e-invoice), then
+  **Looked at…** with a note. The billed price stands either way.
+- **Stock short**: what offline bills sold beyond the books. Once the missing
+  purchase is entered, **Take from stock** takes it from there; if it was on
+  the shelf all along, **The count was wrong…** says why and takes nothing.
+- **Numbers**: numbers of a till's series that have not arrived while a later
+  one has, *Still on the till* when the till says it holds them. One that
+  never will arrive is noted with why (**Note why…**). Below, *Documents issued
+  (GSTR-1 Table 13)* gives each till series' first and last number in a
+  period, how many, how many cancelled (voided) and how many not arrived.
+- **All offline bills**: every bill and void by till and time, its maker and
+  sender and what was flagged.
+- **Cash**: each shift today with cash on offline bills, and the cash of bills
+  that arrived after the shift was closed: what the drawer should have held.
+  **Close shift** at Quick bill warns when bills wait on a till there.
+
+**Settings › Tills** lists every till live: online now or when last seen, bills
+waiting, when its bills last arrived, how many arrived and how many are still
+to review. **Rename** it, or **Retire…** it when the computer is replaced.
+Retiring is refused while bills wait on it. **A lost, stolen or broken till**
+is retired as lost: what waits on it will never arrive, and the numbers it
+said it used are listed under *Daily money › Offline bills*, *Numbers*, to
+note why (GSTR-1 counts every number issued). A retired till bills online
+only, and its bills, if it turns up, are refused: keep its downloaded copy.
 
 ## Wholesale / FMCG
 

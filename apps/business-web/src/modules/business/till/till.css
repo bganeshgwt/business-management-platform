@@ -1,0 +1,428 @@
+/* The offline till: Quick bill with no network, its till panel, Settings ›
+   Tills and the review of offline bills. Colours from the tokens only, so
+   dark mode follows by itself; motion is transform and opacity only, and
+   still for anyone who asks their device for less. */
+
+/* --- The counter's till button ------------------------------------------------------ */
+
+.till-button {
+  gap: 8px;
+}
+
+.till-button.is-offline {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.till-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+
+.till-dot.is-on {
+  background: var(--success);
+}
+
+.till-dot.is-off {
+  background: var(--warning);
+}
+
+.till-count {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--warning);
+  color: var(--surface);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- The banner over offline billing -------------------------------------------------- */
+
+.till-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-lg);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  animation: till-in 240ms var(--ease) both;
+}
+
+.till-banner > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.till-banner strong {
+  font-size: var(--text-md);
+}
+
+.till-banner span {
+  font-size: var(--text-sm);
+}
+
+.till-banner.is-stop {
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.till-banner-warn {
+  font-weight: var(--weight-medium);
+}
+
+.till-online-only {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+}
+
+/* --- Items on the till ------------------------------------------------------------------ */
+
+.till-shelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.till-shelf-item {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-height: 64px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 140ms var(--ease), box-shadow 140ms var(--ease);
+}
+
+.till-shelf-item:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.till-shelf-item:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+}
+
+.till-shelf-item:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.till-shelf-item strong {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.till-shelf-none {
+  grid-column: 1 / -1;
+  padding: var(--space-2);
+}
+
+/* --- The bill's lines ------------------------------------------------------------------- */
+
+.till-lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.till-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  animation: till-in 180ms var(--ease) both;
+}
+
+.till-line:last-child {
+  border-bottom: 0;
+}
+
+.till-line-item {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.till-line-qty {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.till-line-qty select {
+  max-width: 88px;
+}
+
+.till-line-amount {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Customer and payment ------------------------------------------------------------- */
+
+.till-find {
+  position: relative;
+}
+
+.till-find-list {
+  position: absolute;
+  z-index: 5;
+  right: 0;
+  left: 0;
+  margin: 4px 0 0;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  list-style: none;
+}
+
+.till-find-list button {
+  display: grid;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.till-find-list button:hover,
+.till-find-list button:focus-visible {
+  outline: none;
+  background: var(--surface-hover);
+}
+
+.till-upi {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.till-upi > .field,
+.till-upi > label {
+  grid-column: 1 / -1;
+}
+
+.till-upi-qr {
+  display: block;
+  width: 132px;
+  height: 132px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.till-upi-qr svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.till-kept {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* --- The till panel --------------------------------------------------------------------- */
+
+.till-panel .till-facts {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.till-facts > div {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.till-facts dt {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.till-facts dd {
+  margin: 0;
+}
+
+.till-facts dd .link-button {
+  margin-left: var(--space-2);
+}
+
+.till-panel-heading {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-md);
+}
+
+.till-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.till-limit {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.till-limit.is-stop {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.till-setup {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.till-setup p {
+  margin: 4px 0 var(--space-2);
+}
+
+.till-setup-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.till-setup-points {
+  margin: 0;
+  padding-left: 1.2em;
+  color: var(--text-2);
+}
+
+.till-install {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+/* --- Settings › Tills and the review ------------------------------------------------------ */
+
+.till-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.till-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--space-3);
+}
+
+.till-flag-details {
+  display: grid;
+  gap: 2px;
+  font-size: var(--text-sm);
+}
+
+.till-limits-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+}
+
+.till-cash-row strong {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes till-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (max-width: 640px) {
+  .till-line {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .till-line-qty {
+    grid-column: 1 / -1;
+    justify-items: start;
+  }
+
+  .till-facts > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+
+  .till-upi {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+  }
+
+  .till-shelf {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .till-banner,
+  .till-line {
+    animation: none;
+  }
+
+  .till-shelf-item {
+    transition: none;
+  }
+
+  .till-shelf-item:hover:not(:disabled) {
+    transform: none;
+  }
+}

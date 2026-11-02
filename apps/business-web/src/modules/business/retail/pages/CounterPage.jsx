@@ -46,6 +46,10 @@ import AgriBillFields from "../../agri/pages/AgriBillFields";
 import { agriBillBody, agriNeedsOf, agriProblem, emptyAgriBill, stopOf, useCounterChecks, useMolecules, usesAgri } from "../../agri/pages/agri";
 // A garage's part out of stock: the parts that can be used instead.
 import { CounterSubstitutes } from "../../garage/pages/Substitutes";
+// The counter as an offline till: billing when the internet drops (modules/business/till).
+import useTill from "../../till/useTill";
+import TillCounter from "../../till/TillCounter";
+import TillPanel, { TillButton } from "../../till/TillPanel";
 
 // Quick bill: the counter of every goods shop (grocery, supermarket, books,
 // pharmacy, fashion, electronics, meat and other weight shops). Scan a
@@ -189,6 +193,11 @@ export default function CounterPage() {
   const weightTools = useRef(null);
   // A meat or weight shop's order for pickup on this bill (CounterWeightTools): the bill closes it, its advance paying first.
   const [pickupOrder, setPickupOrder] = useState(null);
+  // This computer as an offline till: with no network it bills from what it keeps (TillCounter).
+  const till = useTill(biz);
+  const [tillOpen, setTillOpen] = useState(false);
+  const [offlineBusy, setOfflineBusy] = useState(false);
+  const tillReady = biz.has("offline_till") && till.ready;
 
   const canPay = biz.can("sales.edit");
   const canEmi = canPay && biz.has("finance") && biz.can("finance.create");
@@ -649,12 +658,26 @@ export default function CounterPage() {
   }
 
   const lastId = readLast(biz.id);
+  // Offline (this computer an offline till, the server out of reach): the
+  // till bills, and keeps doing so until its bill in hand is done, even when
+  // the network comes back. A bill being built online goes with it.
+  const offlineView = tillReady && (!till.online || offlineBusy) && !posted;
+  const carriedOffline = offlineView && lines.length ? { lines, customer } : null;
+  // With offline billing, installing the counter as an app is in the till panel.
+  const installHere = install.item && !biz.has("offline_till");
   const moreActions = [
-    ...(biz.can("sales.refund") ? [{ label: "Return", icon: "undo", onClick: () => setReturning(true) }] : []),
-    ...(install.item ? [install.item] : []),
+    ...(biz.can("sales.refund") && !offlineView ? [{ label: "Return", icon: "undo", onClick: () => setReturning(true) }] : []),
+    ...(installHere ? [install.item] : []),
   ];
-  const headerActions = (
+  const tillButton = <TillButton biz={biz} till={till} onOpen={() => setTillOpen(true)} />;
+  const headerActions = offlineView ? (
     <>
+      {tillButton}
+      {moreActions.length > 0 && <ActionMenu text="More" label="More counter actions" items={moreActions} />}
+    </>
+  ) : (
+    <>
+      {tillButton}
       {biz.can("sales.create") && <BillerButton biz={biz} onSwitch={switched} />}
       {biz.can("sales.create") && <ShiftButton key={`${locationId}`} biz={biz} locationId={locationId} />}
       {lastId && <button type="button" className="button button-secondary" onClick={() => setLastOpen(lastId)}><Icon name="receipt" size={15} /> Last bill</button>}
@@ -690,6 +713,18 @@ export default function CounterPage() {
           </div>
     </Modal>
   );
+
+  const tillPanel = <TillPanel biz={biz} till={till} open={tillOpen} onClose={() => setTillOpen(false)} locationId={till.till?.locationId || locationId} install={install} />;
+  if (offlineView) {
+    return (
+      <div className="stack rt-counter-page">
+        <BusinessHeader icon="receipt" title="Quick bill" actions={headerActions} />
+        <TillCounter biz={biz} till={till} carried={carriedOffline} onCarried={() => { setLines([]); setCustomer(null); }} onBusy={setOfflineBusy} />
+        {tillPanel}
+        {install.dialog}
+      </div>
+    );
+  }
 
   return (
     <div className={`stack rt-counter-page ${narrow && lines.length ? "has-paybar" : ""}`}>
@@ -943,6 +978,7 @@ export default function CounterPage() {
       {calculating && <CalculatorDialog biz={biz} target="bill" onAdd={addCalculated} onClose={() => setCalculating(false)} />}
       {lastOpen && <DocumentDetail documentId={lastOpen} onClose={() => setLastOpen(null)} onChanged={() => {}} />}
       {install.dialog}
+      {tillPanel}
       {returning && <ReturnFinder biz={biz} onClose={() => setReturning(false)} onPick={(d) => { setReturning(false); setReturnId(d.id); }} />}
       {returnId && <DocumentDetail documentId={returnId} initialAction="returns" onClose={() => setReturnId(null)} onChanged={() => {}} />}
     </div>

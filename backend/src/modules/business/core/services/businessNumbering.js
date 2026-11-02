@@ -76,9 +76,10 @@ async function highestUsed(db, businessId, prefix) {
   return Number(row.high);
 }
 
+// The location's own series (a till's series, device_id set, numbers only its own bills).
 async function take(db, businessId, locationId, kind, year) {
   return repo.one(db, `UPDATE business_number_series SET next_number=next_number+1,updated_at=now()
-    WHERE business_id=$1 AND location_id=$2 AND document_kind=$3 AND fiscal_year=$4 RETURNING *`, [businessId, locationId, kind, year]);
+    WHERE business_id=$1 AND location_id=$2 AND document_kind=$3 AND fiscal_year=$4 AND device_id IS NULL RETURNING *`, [businessId, locationId, kind, year]);
 }
 
 async function nextNumber(db, businessId, locationId, kind, userId) {
@@ -107,4 +108,33 @@ async function nextNumber(db, businessId, locationId, kind, userId) {
   return { seriesId: series.id, number: text };
 }
 
-module.exports = { nextNumber, highestUsed, KINDS };
+// --- An offline till's own series (modules/business/till) ----------------------
+//
+// A till numbers the bills it makes offline itself, "T1/2627/00042": its code,
+// the financial year and five digits, the year worked out on the till from
+// the business's year start. Its series for that year is made here when the
+// first of that year's bills arrives, and moves past each number that
+// arrives; the numbers themselves come from the till.
+const TILL_PADDING = 5;
+const tillPrefix = (code, year) => `${code}/${fiscalLabel(year)}/`;
+
+// The till's series for that year, made when its first bill arrives. `device`: { id, code, location_id }.
+async function tillSeries(db, businessId, device, year, userId) {
+  const found = await repo.one(db, `SELECT * FROM business_number_series WHERE business_id=$1 AND device_id=$2 AND document_kind='sale' AND fiscal_year=$3`,
+    [businessId, device.id, year]);
+  if (found) return found;
+  const prefix = tillPrefix(device.code, year);
+  const used = await repo.one(db, 'SELECT id FROM business_number_series WHERE business_id=$1 AND prefix=$2', [businessId, prefix]);
+  if (used) throw new AppError(409, `The prefix ${prefix} is already used by another number series. Change that series' prefix in Settings › Number series, then send the bills again.`);
+  return repo.one(db, `INSERT INTO business_number_series(business_id,location_id,document_kind,fiscal_year,prefix,next_number,padding,device_id,created_by,updated_by)
+    VALUES($1,$2,'sale',$3,$4,1,$5,$6,$7,$7) RETURNING *`, [businessId, device.location_id, year, prefix, TILL_PADDING, device.id, userId]);
+}
+
+// A number of the till's series that has arrived: the series moves past it
+// (it never goes back; numbers that arrive late fill in below).
+async function useTillNumber(db, businessId, seriesId, seq) {
+  await db.query('UPDATE business_number_series SET next_number=GREATEST(next_number,$3),updated_at=now() WHERE business_id=$1 AND id=$2',
+    [businessId, seriesId, seq + 1]);
+}
+
+module.exports = { nextNumber, highestUsed, KINDS, fiscalLabel, tillPrefix, tillSeries, useTillNumber, TILL_PADDING };

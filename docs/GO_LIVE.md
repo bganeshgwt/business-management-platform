@@ -383,6 +383,7 @@ calls (`/api/public/…`) from any address, so such a domain needs no
      returns, refunds and delivery terms and its grievance officer, which
      every page of the shop shows.
 6. Personal data, below.
+7. A shop with the Offline till: its tills, below.
 
 ### Personal data
 
@@ -470,6 +471,39 @@ done):
    forms, each taken five times an hour from one address
    (`SITE_FORM_LIMIT`), count each visitor's own address and not the
    proxy's.
+
+### A shop's offline tills
+
+With the **Offline till** application, each computer or tablet that bills at
+a counter is set up as a till before real trading
+([ADMIN_GUIDE › Offline till](ADMIN_GUIDE.md#offline-till)):
+
+- **Set up every till at go-live, on the computer itself.** A manager opens
+  Quick bill on that computer, in the browser and the browser profile it will
+  bill in, presses **Offline billing** and sets it up (T1, T2 …), then
+  installs the counter app from the same panel. A till is that browser's:
+  another browser, another profile or a private window on the same computer
+  is not the till. Record each till's code, its computer and its counter.
+- **The browser's storage holds the bills.** A till keeps its secret, its
+  numbers and the bills it made offline in the browser's own storage
+  (IndexedDB) on that computer until they reach the server. Never clear the
+  browser's data for the app's address, never let a clean-up tool or a
+  browser setting clear site data on closing, and never bill in a private
+  window: what waits would be lost, and its numbers listed as not arrived.
+  The app asks the browser to keep its storage; keep the disk from filling
+  up. During a long outage, download a copy of the waiting bills now and then
+  (*Download a copy of the waiting bills* in the till panel).
+- **The computer's clock** on automatic time. A till sets its own clock by
+  the server's whenever it reaches it, and an offline bill is dated by it.
+- **The UPI ID** on a till's QR (*Settings › Tills*), checked by paying ₹1 to
+  it from a phone; and the limits (warn after 12 hours offline, stop after
+  72, at most 2,000 bills waiting) agreed with the owner.
+- **https** (§1): a till's storage, its numbers across tabs and installing
+  the counter app need the https address.
+- **A computer replaced:** send its bills, then retire its till in
+  *Settings › Tills* and set up the new computer as a new till. A lost,
+  stolen or broken one is retired as lost; its numbers that never arrived are
+  listed under *Daily money › Offline bills* to note for GSTR-1.
 
 ## 5. Backups and restore
 
@@ -647,6 +681,15 @@ training run does not count as a real-service sign-off. Take a verified backup
    and paid by scanning the slip's UPI QR. Place a second order and refuse it
    at the door: the bill comes back, and the stock with it. Report a problem
    from the first order's page, then acknowledge and resolve it.
+
+10. With the **Offline till**: take one till off the network (Wi-Fi off or
+    the cable out) in a busy hour. Bill cash with change, UPI, a split and
+    udhaar within a customer's limit, void one bill with a reason, reload the
+    page and bill again. Connect it again and check that the bills arrive in
+    the order made with their till numbers, that the cashier's shift counts
+    their cash, that *Daily money › Offline bills* shows what was flagged, and
+    that *Documents issued (GSTR-1 Table 13)* lists the till's series with the
+    void as cancelled.
 
 ### A clinic
 

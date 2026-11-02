@@ -12,7 +12,7 @@ import { CLINIC_LAB } from "./test-data.mjs";
 import { ACCESS_RULES } from "./test-data.mjs";
 import { DASHBOARDS } from "./test-data.mjs";
 import { YOUR_PLAN } from "./test-data.mjs";
-import { ONLINE_BOOKING, ONLINE_ORDERS, ONLINE_SHOP, SALES_APP } from "./test-data.mjs";
+import { OFFLINE_TILL, ONLINE_BOOKING, ONLINE_ORDERS, ONLINE_SHOP, SALES_APP } from "./test-data.mjs";
 
 // Every call names the status it expects, so a set-up that goes wrong stops
 // at the first wrong answer, with the API's own message, rather than leaving
@@ -1483,6 +1483,28 @@ export async function buildTestData({ api, logins, sql }) {
     }
     await stockUp(S, store.locationId, ONLINE_ORDERS.supplier, ONLINE_ORDERS.items, goods);
     onlineShop.staff = { businessId: store.id, locationId: store.locationId, items: goods };
+  }
+
+  // The offline till (offline-till.spec.js): the supermarket's Offline till
+  // switched on, as its owner does in Settings › Business tools; its items in
+  // stock and a regular with a credit limit.
+  {
+    const shop = businesses[OFFLINE_TILL.type];
+    const B = at(OFFLINE_TILL.type);
+    await owner("PUT", B("modules/offline_till"), { enabled: true });
+    const supplier = await owner("POST", B("contacts"), { kind: "supplier", name: OFFLINE_TILL.supplier }, 201);
+    const items = {};
+    for (const item of OFFLINE_TILL.items) {
+      const made = await owner("POST", B("catalog"), {
+        name: item.name, code: item.code, ...(item.barcode ? { barcode: item.barcode } : {}), kind: "goods", unit: item.unit, tracking: "quantity",
+        price: String(item.price), taxRate: String(item.taxRate), ...(item.mrp ? { mrp: String(item.mrp) } : {}), hsnCode: item.hsn,
+      }, 201);
+      items[item.key] = { id: made.id, name: made.label, code: item.code };
+    }
+    await owner("POST", B("documents"), { kind: "purchase", requestKey: requestKey(), locationId: shop.locationId, contactId: supplier.id,
+      lines: OFFLINE_TILL.items.map((item) => ({ skuId: items[item.key].id, quantity: String(item.stock), unitPrice: String(item.cost) })) }, 201);
+    const customer = await owner("POST", B("contacts"), { kind: "customer", ...OFFLINE_TILL.customer }, 201);
+    shop.offlineTill = { items, customer: { id: customer.id, name: customer.name } };
   }
 
   // The logins nothing above signed in as choose their own password now, so

@@ -222,7 +222,7 @@ All Business Admin routes live under `/api/businesses/:businessId/...`; only the
 - **Locations.** A person's access can be tied to one location (`workLocationId` on `POST …/members`; an owner never is). They then work there only: a location they name in the query (`location`, `locationId`) or the body (`locationId`, `fromLocationId`) must be theirs, a request that names none is answered for theirs (a write with no `locationId` gets theirs), and another location's records answer 403 "You work at <location> only. Ask a manager who works across every location." Anyone else may pick a branch in the top bar (`X-Business-Location`), which only fills in the location a request leaves out. The overview, reports and lists follow the location in effect, and so do the summary's sales, stock, appointment and today figures. The branch comparison (`reports/locations`) is narrowed only for a person tied to a location. Customers' and suppliers' balances stay business-wide.
 - **Departments.** A person can also be tied to one department (`workDepartmentId` on `POST …/members`). They then see and change that department's products and stock only (an item is in its category's department), and see only that department's people on the staff list (`GET …/members`: its rows, `total` and search); billing stays open to every item.
 - **Payment methods.** Where a body says how money moved with `method` (`cash`, `upi`, `card`, `bank`, `cheque`), it may name one of the business's own payment methods with `methodId` instead (`GET …/payment-methods`). A financier's payout (`POST …/finance/settlements`), a stylist's tip on a salon bill and a commission payout (`POST …/salon/commission-payouts`) take `method` only. The method's kind counts the money (day close, drawer, cheque register) and its name is recorded with the payment (`method_name`). With both, `method` must be the method's kind (400). A switched-off method answers 409, an unknown one 404, and a kind the step does not take 400 (a refund never goes out by cheque).
-- **GST rates by date.** A GST rate change entered ahead ([GST rate changes](#gst-rate-changes)) takes effect when the first request on or after its date opens the business (its own time zone), before anything is read, and again inside each posting under the business's lock. So every route reads an item's GST slab as it is on the business's date. A posting that a change overtakes around midnight (its fixed prices were worked out at the day before's rate, or it began before another request applied the change) answers **409** `{ reason: "gst_rates_changed" }`; sending it again, with the same request key, posts it at the rates in force.
+- **GST rates by date.** A GST rate change entered ahead ([GST rate changes](#gst-rate-changes)) takes effect when the first request on or after its date opens the business (its own time zone), before anything is read, and again inside each posting under the business's lock. So every route reads an item's GST slab as it is on the business's date. A posting that a change overtakes around midnight (its fixed prices were worked out at the day before's rate, or it began before another request applied the change) answers **409** `{ reason: "gst_rates_changed" }`; sending it again, with the same request key, posts it at the rates in force. An offline till's bill is the exception: it is posted at the rates on its receipt, and a rate not in force on the day it was made is flagged ([Offline till](#offline-till)).
 
 ---
 
@@ -4115,7 +4115,7 @@ Errors: 404 not found; 409 the type has been used N times (switch it off instead
 
 ## Business Admin (multi-business platform)
 
-All routes are mounted at `/api/businesses` (`backend/src/modules/business/core/routes/business.routes.js`, with the trade, retail, fashion and electronics, salon and weight, health, quotations, hardware, licences, agri, optical, garage, memberships, laundry, jewellery, rentals, fuel, lodging and counter route files added to the same router) and follow the [Business Admin conventions](#business-admin-conventions).
+All routes are mounted at `/api/businesses` (`backend/src/modules/business/core/routes/business.routes.js`, with the trade, retail, fashion and electronics, salon and weight, health, quotations, hardware, licences, agri, optical, garage, memberships, laundry, jewellery, rentals, fuel, lodging, counter and offline till route files added to the same router) and follow the [Business Admin conventions](#business-admin-conventions).
 
 ### Directory
 
@@ -5454,6 +5454,114 @@ Permission: `sales.view` (list), `sales.create` (POST; an advance also `receivab
 Query/Body: list: paged, `status` (ordered, arrived, collected, cancelled), `from`/`to` on the date taken, `q` searches number, customer, phone, title, author and ISBN. POST: `{ locationId, requestKey, title, author?, isbn?, quantity?, promisedOn?, notes?, phone?, contactId? | customerName, advance?, method? }`. Status: `{ status }`.
 Returns: the order row (`order_no` BO-0001…). An advance is posted as a numbered collection kept as the customer's advance (`allocations: []`) in the same transaction, so it comes off their next bill; the list adds `collection_no`, `location_name`, `created_by_name`, `stock`.
 Errors: 400 an advance without a customer on file, a bad ISBN; 409 collected before arrived, or a closed order moved. Repeating a request key returns the first order (and no second advance).
+
+### Offline till
+
+These routes are added to the Business Admin router by `backend/src/modules/business/till/routes/businessTill.routes.js`, with the same checks: Quick bill on a computer set up as an offline till, *Settings › Tills* and *Daily money › Offline bills* ([ADMIN_GUIDE.md › Offline till](ADMIN_GUIDE.md#offline-till), the rules in [BUSINESS_RULES.md › Offline till](BUSINESS_RULES.md#offline-till), how a bill is posted in [ARCHITECTURE.md › How an offline bill is posted](ARCHITECTURE.md#how-an-offline-bill-is-posted)). They need the Offline till application (`offline_till`): the `offline_till.*` routes through their permission, the till's own three routes after `sales.create`, with the same 403 "Offline till is not switched on for this business. An owner can turn it on in Settings › Business tools."
+
+**The till's secret.** The till's own routes (snapshot, heartbeat, bills) come from a cashier signed in on the till and carry the till's secret in the header `X-Till-Token` (43 base64url characters, given once when the till is set up; the server keeps only its SHA-256). A missing, unknown or another business's secret answers **409** `{ reason: "till_unknown" }` ("This computer is not set up as an offline till of this business. Set it up again from Quick bill."); a retired till's **409** `{ reason: "till_retired", lost }`, naming who retired it and why. A till at a location the caller does not work at answers 403.
+
+#### `GET /api/businesses/:businessId/till/snapshot`
+Permission: `sales.create`, the `offline_till` application, `X-Till-Token`
+Query/Body: `items`, `customers` (the stamps of what the till keeps), `since` (the `serverTime` of its last snapshot)
+Returns: `data = { serverTime, today, since, till, business, settings, seller, location, units[], methods[], rules[], slab, items, customers }`, read in one REPEATABLE READ transaction, so every part is as of `serverTime`:
+- `till`: `{ id, code, name, locationId, registeredAt }`; `business`: `{ id, name, type, timezone }`; `location`: `{ id, name, code, stateCode }`; `seller`: the receipt's business and branch details.
+- `settings`: `{ taxMode, rounding, walkInCredit, maxDiscountPercent, pinEveryBill, fiscalYearStartMonth, cashLimit ("200000.00"), panAbove ("200000.00"), memberPrices, einvoicing (whether a bill to a GSTIN holder needs the IRP now), weightButtons, receiptWidth, warnHours, stopHours, waitingCap, upiId, upiPayee }`.
+- `methods`: the payment methods switched on, `{ id, name, kind }`; `units`: `{ code, name, kind, decimals, base, factor }`; `rules`: a wholesale price list's prices `{ skuId, contactId, unit, minimum, price }` (empty without Wholesale price lists); `slab`: a clothes shop's GST by price `{ threshold, rateLow, rateHigh, changes[{ startsOn, threshold, rateLow, rateHigh }] }` or null.
+- `items`: `{ stamp, rows[], excluded[] }`, or `{ stamp, unchanged: true }` when the `items` stamp sent is the same. A row is an active goods item: `{ id, code, barcode, isbn, plu, label, productId, productName, unit, listPrice, branchPrice (this location's own price or null), memberPrice, mrp, taxRate (in force today), changes[{ startsOn, rate }] (GST rate changes still to come), hsn, tracking, packs[{ unit, quantity }], slab (GST by price covers it) }`. `excluded` lists what the till may not sell offline, `{ id, code, barcode, isbn, label, reason }`: `serial` (each unit is chosen online), `kit` (priced by its parts), `internal` (for use in services).
+- `customers`: `{ stamp, rows[{ id, name, phone, gstin, pan, address, creditLimit, creditDays }], balances[{ id, balance }] }` for every active customer, or `{ stamp, unchanged: true, balances }` when the `customers` stamp sent is the same and `since` is given: only the balances that moved since then (bills, payments, returns, refunds, receipts and their refunds, bounced cheques, a changed customer, offline bills received since).
+Errors: the till's secret; 403 the application off, the till's location not the caller's.
+
+#### `POST /api/businesses/:businessId/till/heartbeat`
+Permission: `sales.create`, the `offline_till` application, `X-Till-Token`
+Query/Body: `pending`, `attention` (bills waiting, and bills the server refused), `oldestMadeAt`, `offlineSince` (when the till last reached the server before this, or null), `lastNumber: { year, seq }` (the last number the till took: its series' financial year and sequence), `holding[]` (this year's sequence numbers still on the till, up to 2,000), `version`
+Returns: `data = { serverTime, device: { id, code, name, locationId, locationName, registeredAt, lastSyncAt, retired }, settings: { warnHours, stopHours, waitingCap, upiId, upiPayee }, received: { <year>: highest sequence received } }`. The till sends it about every minute while online; *Settings › Tills*, the bell, closing a shift and a lost till's numbers read what it reported. The till sets its clock by `serverTime`, and a till whose own count is behind `received` (its data restored from an old copy) moves past it.
+Errors: the till's secret; 400 a count or a time that is not one; 402 `plan_ended`.
+
+#### `POST /api/businesses/:businessId/till/bills`
+Permission: `sales.create`, the `offline_till` application, `X-Till-Token`
+Query/Body:
+- `requestKey` (the bill's own, kept on the till), `kind` (`bill` or `void`), `number` (of the till's own series, `T2/2627/00042`), `madeAt` (a time), `madeBy` (the cashier signed in on the till when it was made), `offlineSince?`, `pinRule` (the business asked the PIN for every bill), `locationId?` (the till's), `contactId?`, `total` (the receipt's).
+- `lines[1..100]` of `{ skuId, quantity, unit? (a pack or related unit), unitPrice, packPrice? (the price of one `unit`), priceKind (list, branch, member, rule), taxRate, label? }`: as the till priced them.
+- `discount?` and `buyer?` as on a sale ([POST …/documents](#post-apibusinessesbusinessiddocuments)); `payments[]` as there, each with its own amount (`"full"` is refused); none for a bill on udhaar.
+- A void: `void: { reason }` (required) and the bill's lines; no payments.
+- Offers, coupons, points, vouchers, EMI and a pickup order are refused (400): they are taken online only.
+
+Returns: 201, `data = { id, kind, billNo, documentId, documentNo, total, flags[], shortfalls, receivedAt }`. A bill is posted as a sale through the core's posting (`postDocument`'s `offline` option) as it was made: its number, its time (the sale's `created_at` and its payments'; its due date from the day it was made), its maker (the session that sent it is recorded as `sent_by`), the till's prices and GST rates, its counter discount and its payments. `documentNo` is the bill's own number. `flags` names what was flagged for review: `price`, `rate`, `credit`, `stock` (`shortfalls` counts its lines sold short), `time`, `no_pin`, `discount`, `cash_limit`, `einvoice`, `maker`, `total`. A void moves no stock or money (`documentId` null). Numbers of the series skipped by this one are recorded as not arrived, and one that arrives late is marked so. The same request key with the same body returns the first answer. Audited `till_bill.received` or `till_bill.voided`.
+Errors:
+- 400: the body (a number that is not an offline till's, a time, a line, an amount; `An offline bill names each payment's amount`); a bill over ₹2,00,000 with no PAN or declaration.
+- 402 `plan_ended`: the bill waits on the till.
+- 409, with `reason`: `till_unknown`, `till_retired`, `till_location` (another location than the till's), `number_not_till` (another till's number), `number_year` (numbered for another financial year than the one it was made in), `number_used` (by another bill or void), `maker_unknown` (never a member of the business), `customer_unknown`, `item_unknown`, `item_off` (switched off, or set for use in services only, after the bill was made: switch it on and send the bill again), `item_online_only` (a serial-numbered item, a kit or a service), `customer_off`, `method_unknown`, `offline_total` (the server's sum is more than ₹1 from the receipt's).
+- 409: the request key already used for a different body; ₹2,00,000 or more in cash on the bill (`business_cash_limit_payment`).
+- Never `gst_rates_changed`, and never for a price, a GST rate, credit or stock: those are flagged.
+
+#### `GET /api/businesses/:businessId/till/devices`
+Permission: `offline_till.view`
+Query/Body: `location?` (a person tied to a location sees theirs)
+Returns: `data = { items[], settings, serverTime }`. Each till: `{ id, location_id, location_name, kind, name, code, registered_at, registered_by_name, last_seen_at, last_sync_at, pending_count, attention_count, oldest_pending_at, offline_since, last_year, last_seq, app_version, retired_at, retired_by_name, retire_reason, lost, received, to_review, missing, status (online, offline, retired), online }`: what it last reported, bills received, bills still to review and numbers not arrived. A till is online when it reported in the last 3 minutes. Retired tills come last.
+
+#### `POST /api/businesses/:businessId/till/devices`
+Permission: `offline_till.manage`
+Query/Body: `name` (1-60), `locationId` (a location that sells at the counter)
+Returns: 201, `data = { device, token, settings }`: the till with the next code (`T1`, `T2` …, never one given before, up to `T999`), and its secret, shown this once for the device to keep. Audited `till.registered`.
+Errors: 400 no name; 404 location not found or closed; 409 the location does not sell at the counter, every code used.
+
+#### `PATCH /api/businesses/:businessId/till/devices/:id`
+Permission: `offline_till.manage`
+Query/Body: `name` (1-60)
+Returns: the till, as listed. Audited `till.renamed`.
+Errors: 404 till not found; 409 the till is retired.
+
+#### `POST /api/businesses/:businessId/till/devices/:id/retire`
+Permission: `offline_till.manage`
+Query/Body: `reason` (1-300), `lost` (boolean: lost, stolen or broken)
+Returns: the till, as listed, with `numbersLost`: for a lost till, the numbers it reported using that never arrived, recorded as not arrived to note. Audited `till.retired`.
+Errors: 400 no reason; 404 till not found; 409 already retired; 409 `{ reason: "till_waiting", waiting }` bills wait on it and it is not lost ("Send them from the till first …, or retire it as lost or broken").
+
+#### `GET /api/businesses/:businessId/till/settings`, `PUT /till/settings`
+Permission: `offline_till.view` (GET), `offline_till.manage` (PUT)
+Query/Body: PUT: `warnHours` (1-120), `stopHours` (1-120, not fewer than `warnHours`), `waitingCap` (50-2,000), `upiId` (a UPI ID like `shopname@okaxis`, or empty), `upiPayee` (the name on the QR, up to 60); a field left out keeps its value
+Returns: `data = { warnHours, stopHours, waitingCap, upiId, upiPayee }` (12, 72, 2,000 by default). Audited `till.settings_changed`.
+Errors: 400 a value out of range, the warning after the stop, a UPI ID that is not one.
+
+#### `GET /api/businesses/:businessId/till/review`
+Permission: `offline_till.view`
+Query/Body: `from`, `to` (default today), `location?`
+Returns: `data = { from, to, location, to_review, shortfalls, missing, bills, sales, voids, byKind: { <flag kind>: open count }, cash[] }`: bills with flags not yet looked at, stock short not settled and numbers not arrived (now), and the period's offline bills, their sum and voids (by the day they were made). `cash` lists each cashier shift of the period with cash on offline bills: `{ id, location_name, cashier_name, opened_at, closed_at, expected_cash, counted_cash, difference, offline_cash, arrived_after_close, expected_now, difference_now }`, where `arrived_after_close` is the cash of offline bills made inside the shift that arrived after it closed, and `expected_now` / `difference_now` the close's figures with it.
+
+#### `GET /api/businesses/:businessId/till/review/:list`
+Permission: `offline_till.view`
+Query/Body: the paged-list contract (`from` / `to` on the day made; for `gaps` the day found); `:list` and its filters:
+- `bills`: every offline bill and void, `{ id, bill_no, kind, made_at, received_at, total, document_id, document_no, contact_name, void_reason, void_lines, till_code, till_name, location_name, made_by_name, sent_by_name, sent_by_other, pin_rule, flags[], open_flags, to_review }`; filters `kind`, `device`, `location`, `review`; `q` searches number, maker, sender, customer and till.
+- `flags`: `{ id, kind, details, created_at, open, acknowledged_at, acknowledged_by_name, note, till_bill_id, bill_no, made_at, total, till_code, location_name, made_by_name, document_id, document_no, contact_name, shortfalls_open }`, open first; filters `kind`, `open`, `device`, `location`.
+- `shortfalls`: `{ id, sku_id, label, unit, quantity, location_name, bill_no, made_at, document_id, document_no, stock_now (usable stock there now), open, resolved_at, resolution, note, resolved_by_name }`; filters `open`, `location`.
+- `gaps`: numbers not arrived, `{ id, bill_no, seq, state (missing, noted, arrived), found_at, reason, noted_at, noted_by_name, arrived_at, till_code, till_name, location_name, till_lost, till_retired, on_till (the till reports it still holds it) }`; filters `state`, `device`, `location`.
+
+Errors: 404 an unknown list.
+
+#### `GET /api/businesses/:businessId/till/numbers`
+Permission: `offline_till.view`
+Query/Body: `from`, `to` (required, `YYYY-MM-DD`)
+Returns: `data = { from, to, series[{ prefix, fiscalYear, tillCode, tillName, locationName, first, last, total, voided, missing, issued }] }`: GSTR-1 Table 13 for the tills' own series, from the bills and voids made in the period: the first and last number, how many numbers in between (`total`), how many cancelled (`voided`), how many not arrived (`missing`), and `issued` = `total` less `voided`.
+Errors: 400 a date missing or not one, the period ending before it starts.
+
+#### `POST /api/businesses/:businessId/till/flags/:id/acknowledge`
+Permission: `offline_till.review`
+Query/Body: `note?` (up to 300)
+Returns: the flag, looked at. A bill with every flag looked at is reviewed. Audited `till_flag.acknowledged`.
+Errors: 404 flag not found; 409 already looked at; 409 `{ reason: "shortfalls_open" }` a stock flag whose stock short is not all settled.
+
+#### `POST /api/businesses/:businessId/till/shortfalls/:id/resolve`
+Permission: `offline_till.review`
+Query/Body: `how` (`received`: take it now from the usable stock there, earliest expiry first, as the bill's own movements; `adjusted`: the count was wrong, nothing is taken), `note` (up to 300; required for `adjusted`)
+Returns: the shortfall, settled. Once a bill's shortfalls are all settled, its stock flag is looked at. Audited `till_shortfall.settled`; `received` also adds the event `sale.stock_taken`.
+Errors: 400 no reason for `adjusted`; 404 not found; 409 already settled; 409 not enough usable stock there yet.
+
+#### `POST /api/businesses/:businessId/till/gaps/:id/note`
+Permission: `offline_till.review`
+Query/Body: `reason` (1-300: why the number never arrived)
+Returns: the number, noted. Audited `till_number.noted`.
+Errors: 400 no reason; 404 not found; 409 the bill has arrived since, or the number was already noted.
 
 ## Fashion, electronics, salon and weight-based shops
 

@@ -66,7 +66,11 @@ async function current(business, user, query) {
   const locationId = v.requiredId(query.location || query.locationId, 'Counter location');
   access.requireLocation(business, locationId);
   const shift = await repo.one(repo.pool, `${SELECT} WHERE s.business_id=$1 AND s.location_id=$2 AND s.user_id=$3 AND s.closed_at IS NULL`, [business.id, locationId, user.id]);
-  return shift ? withFigures(repo.pool, business, shift) : null;
+  if (!shift) return null;
+  // Bills waiting on this location's offline tills, as they last reported: the
+  // close warns of them, as their cash is in the drawer but not yet in the figures.
+  const tills = business.modules.includes('offline_till') ? await require('../../till/services/tillDevices.service').waitingAt(repo.pool, business.id, locationId) : null;
+  return { ...(await withFigures(repo.pool, business, shift)), ...(tills ? { tills_waiting: tills } : {}) };
 }
 
 async function open(business, user, body) {

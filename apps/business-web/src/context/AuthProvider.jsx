@@ -286,6 +286,31 @@ export default function AuthProvider({ children }) {
   // alerts stop, and this person's offline copies go with the session.
   const logout = useCallback(async () => {
     const leaving = currentUserId.current;
+    // An offline till's bills are the device's, not this person's: signing out
+    // is refused while any wait, so nobody can lose them on the way out.
+    const held = leaving ? outbox.pendingShared() : [];
+
+    if (held.length > 0) {
+      const send = await confirmAction({
+        title: `${plural(held.length, "bill waits", "bills wait")} on this till`,
+        message: (
+          <>
+            <p>{held.length === 1 ? "A bill made here offline has" : "Bills made here offline have"} not reached the server yet. Signing out is not possible until {held.length === 1 ? "it is" : "they are"} sent: {held.length === 1 ? "it was" : "they were"} given to customers.</p>
+            <p>Connect this computer to the internet and press Send now; then sign out.</p>
+          </>
+        ),
+        confirmLabel: "Send now",
+        cancelLabel: "Stay signed in",
+        tone: "primary",
+      });
+
+      if (send) {
+        outbox.flush();
+      }
+
+      return false;
+    }
+
     const waiting = leaving ? outbox.pending(leaving) : [];
 
     if (waiting.length > 0) {

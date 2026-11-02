@@ -17,6 +17,19 @@ import { salesBusinessOnDevice } from "../../workspaces/sales/salesDevice.js";
 const can = (user, code) => Boolean(user?.permissions?.includes(code));
 const has = (user, code) => Array.isArray(user?.features) && user.features.includes(code);
 
+// The businesses this device is an offline till of, as the till keeps a
+// mirror of them (modules/business/till/tillStore.js): no secret, only where
+// the counter opens.
+export const TILLS_KEY = "bmp-offline-tills";
+export const tillsOnDevice = () => {
+  try {
+    const list = JSON.parse(localStorage.getItem(TILLS_KEY) || "[]");
+    return Array.isArray(list) ? list.filter((entry) => entry && /^\d+$/.test(String(entry.businessId))) : [];
+  } catch {
+    return [];
+  }
+};
+
 export const OFFLINE_SCREENS = [
   {
     id: "captain",
@@ -25,11 +38,15 @@ export const OFFLINE_SCREENS = [
     open: (user) => (user?.restaurantId && can(user, "orders.create") && has(user, "captain_app") ? "/captain" : null),
   },
   {
-    // Business Admin's Quick bill (the counter): the offline till builds on it.
+    // Business Admin's Quick bill (the counter), on a computer set up as an
+    // offline till: it bills from what the till keeps (modules/business/till).
     id: "counter",
     pattern: /^\/business-admin\/\d+\/counter(\/|$)/,
     label: "Quick bill",
-    open: () => null,
+    open: (user) => {
+      const [first] = user ? tillsOnDevice() : [];
+      return first ? `/business-admin/${first.businessId}/counter` : null;
+    },
   },
   {
     // The salesperson app: its beat, orders and collections offline, for a

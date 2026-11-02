@@ -13,7 +13,7 @@
 // leaves every other store as it is.
 
 const NAME = "bmp-offline";
-const VERSION = 1;
+const VERSION = 2;
 
 // Each store and the key its records carry.
 export const STORES = {
@@ -24,6 +24,9 @@ export const STORES = {
   copies: "key",
   // Data a screen keeps to work offline, with the time it was read (snapshots.js).
   snapshots: "key",
+  // This device as an offline till of a business: its code, its secret and its
+  // numbers (modules/business/till/tillStore.js). The device's, not a person's.
+  tills: "key",
 };
 
 let opening = null;

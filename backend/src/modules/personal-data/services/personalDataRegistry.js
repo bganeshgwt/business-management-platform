@@ -128,6 +128,7 @@ const TABLES = {
     also: 'A complaint\'s ticket, dates and outcome stay, as the record of how it was handled.' },
   wholesale_visits: { label: 'Visits by salespeople', erase: { note: null } },
   wholesale_field_refusals: { label: 'Orders refused on arrival', erase: { message: 'Erased at the customer\'s request' } },
+  business_till_bills: { label: 'Bills made on an offline till, and numbers voided there', keep: 'An offline bill or a voided number names its customer only through the erased record; its number is a tax record.' },
 };
 
 // Where a member of staff's own personal data is kept, table by table: the

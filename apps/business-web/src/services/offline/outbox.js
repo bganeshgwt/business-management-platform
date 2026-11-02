@@ -6,9 +6,13 @@
 //
 // An item: { id, queue, kind, label, method, url, body, requestKey,
 //   createdAt, attempts, state, lastError, after?, resultRef?, userId,
-//   userName, nextAt, status, result }
+//   userName, nextAt, status, result, shared?, headers?, meta? }
 //   queue      items of one queue go in the order they were made
 //   label      what it is, in words: shown in the waiting list
+//   shared     the device's, not one person's (an offline till's bills): sent
+//              by whoever is signed in, and kept when someone signs out
+//   headers    sent with it (a till's secret)
+//   meta       what the screen that made it keeps beside it (a bill's number)
 //   after      the id of an item it waits for (a new shop before its order)
 //   resultRef  what it takes from that item's answer once sent:
 //              { from: "data.id", into: "contactId" } sets body.contactId;
@@ -171,7 +175,7 @@ export function createOutbox({
     const me = person();
     const at = now();
     const next = items
-      .filter((item) => item.state === "waiting" && (!me || String(item.userId) === String(me.id)))
+      .filter((item) => item.state === "waiting" && (!me || item.shared || String(item.userId) === String(me.id)))
       .map((item) => item.nextAt || at)
       .reduce((soonest, when) => Math.min(soonest, when), at + WAKE_EVERY_MS);
 
@@ -254,7 +258,7 @@ export function createOutbox({
     const queues = new Map();
 
     for (const item of ordered()) {
-      if (item.state === "done" || String(item.userId) !== String(me.id)) {
+      if (item.state === "done" || (!item.shared && String(item.userId) !== String(me.id))) {
         continue;
       }
 
@@ -382,6 +386,9 @@ export function createOutbox({
       nextAt: null,
       userId: me.id,
       userName: me.name || null,
+      ...(entry.shared ? { shared: true } : {}),
+      ...(entry.headers ? { headers: entry.headers } : {}),
+      ...(entry.meta ? { meta: entry.meta } : {}),
     };
 
     items.push(item);
@@ -452,6 +459,31 @@ export function createOutbox({
     return item;
   };
 
+  // Changes an item not on its way yet (an offline bill voided on the till
+  // before it was sent): its body, label, request key or meta; it keeps its
+  // place. null when it is gone, done or being sent.
+  const amend = async (id, changes) => {
+    await ready();
+    const item = byId(id);
+
+    if (!item || item.state === "done" || item.state === "sending") {
+      return null;
+    }
+
+    for (const field of ["kind", "label", "body", "requestKey", "meta"]) {
+      if (changes[field] !== undefined) {
+        item[field] = changes[field];
+      }
+    }
+
+    Object.assign(item, { state: "waiting", nextAt: null, lastError: null, attempts: 0 });
+    await save(item);
+    announce();
+    emit();
+    flush();
+    return item;
+  };
+
   // Signed in again: what waited for the sign-in goes now.
   const resume = () => {
     paused = null;
@@ -459,20 +491,24 @@ export function createOutbox({
     return flush();
   };
 
-  // Everything one person's that is kept (signing out, after the screen has warned).
+  // Everything one person's that is kept (signing out, after the screen has
+  // warned); the device's own items (shared) stay for whoever signs in next.
   const clearFor = async (userId) => {
     await ready();
+    const theirs = (each) => !each.shared && String(each.userId) === String(userId);
 
-    for (const item of items.filter((each) => String(each.userId) === String(userId))) {
+    for (const item of items.filter(theirs)) {
       await storage.delete(item.id);
     }
 
-    items = items.filter((each) => String(each.userId) !== String(userId));
+    items = items.filter((each) => !theirs(each));
     announce();
     emit();
   };
 
   const pending = (userId) => snapshot().items.filter((item) => userId === undefined || String(item.userId) === String(userId));
+  // The device's own items not sent yet (a till's bills), whoever made them.
+  const pendingShared = () => snapshot().items.filter((item) => item.shared);
 
   const subscribe = (listener) => {
     listeners.add(listener);
@@ -499,5 +535,5 @@ export function createOutbox({
     }
   };
 
-  return { add, flush, retry, discard, describe, resume, clearFor, pending, subscribe, snapshot, refresh, ready, stop };
+  return { add, flush, retry, discard, describe, resume, clearFor, pending, pendingShared, amend, subscribe, snapshot, refresh, ready, stop };
 }

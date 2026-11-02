@@ -33,6 +33,7 @@ export { ONLINE_BOOKING } from "./test-data.mjs";
 export { ONLINE_ORDERS, ONLINE_SHOP } from "./test-data.mjs";
 // The wholesaler's salesperson on the salesperson app (salesperson-app.spec.js).
 export { SALES_APP } from "./test-data.mjs";
+export { OFFLINE_TILL } from "./test-data.mjs";
 
 let data = null;
 

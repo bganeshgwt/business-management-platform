@@ -27,6 +27,7 @@ const send = async (item) => {
       method: item.method,
       url: item.url,
       data: item.body ?? undefined,
+      ...(item.headers ? { headers: item.headers } : {}),
       // In the background: a refusal that asks for a manager's PIN is shown
       // in the waiting list, never as a prompt over whatever is on screen.
       background: true,

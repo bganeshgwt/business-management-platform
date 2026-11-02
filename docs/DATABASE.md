@@ -12,7 +12,7 @@ PostgreSQL 15 or newer (built and tested on 18). One database holds the whole pl
 | [Live updates](#live-updates) | no tables: the triggers that announce each committed change to the live screens, for both engines | the restaurant or business named in each notification |
 | [Catalogues](#business-types) | business types, platform module codes, business and restaurant permission codes | — |
 
-**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Laundry & dry cleaning](#laundry--dry-cleaning) · [Jewellery & gold](#jewellery--gold) · [Rentals & hire](#rentals--hire) · [Fuel stations](#fuel-stations) · [Hotels, lodges & guest houses](#hotels-lodges--guest-houses) · [Tasks, issues & projects](#tasks-issues--projects) · [GST rates by date](#gst-rates-by-date) · [Live updates](#live-updates) · [Personal data](#personal-data) · [Owner's GST thresholds](#owners-gst-thresholds) · [Paid plans](#paid-plans) · [Online booking](#online-booking). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
+**Business platform sections:** [Platform](#platform) · [Identity and access](#identity-and-access) · [Business core](#business-core) · [Shared core](#shared-core) · [Quotations](#quotations) · [Licences](#licences) · [Offline till](#offline-till) · [Retail](#retail) · [Wholesale](#wholesale) · [Fashion](#fashion) · [Electronics](#electronics) · [Salon](#salon) · [Weight](#weight) · [Pharmacy, clinic & lab](#pharmacy-clinic--lab) · [Hardware](#hardware) · [Seeds, fertilisers & pesticides](#seeds-fertilisers--pesticides) · [Optical shops](#optical-shops) · [Vehicle service & auto parts](#vehicle-service--auto-parts) · [Gyms, studios & coaching](#gyms-studios--coaching) · [Laundry & dry cleaning](#laundry--dry-cleaning) · [Jewellery & gold](#jewellery--gold) · [Rentals & hire](#rentals--hire) · [Fuel stations](#fuel-stations) · [Hotels, lodges & guest houses](#hotels-lodges--guest-houses) · [Tasks, issues & projects](#tasks-issues--projects) · [GST rates by date](#gst-rates-by-date) · [Live updates](#live-updates) · [Personal data](#personal-data) · [Owner's GST thresholds](#owners-gst-thresholds) · [Paid plans](#paid-plans) · [Online booking](#online-booking). **Catalogues:** [Business types](#business-types) · [Platform module codes](#platform-module-codes) · [Business permission codes](#business-permission-codes) · [Restaurant permission codes](#restaurant-permission-codes).
 
 The business platform's design (its five layers, the rules every table follows, and why) is explained in [BUSINESS_PLATFORM_DATA_MODEL.md](BUSINESS_PLATFORM_DATA_MODEL.md). This file gives the table-by-table reference and links there instead of repeating it. A restaurant also appears on the platform as one `businesses` row whose `legacy_restaurant_id` points at it; its own tables are unchanged.
 
@@ -1186,18 +1186,19 @@ Rules:
 Added by: 1791300000002; 1791973000000 (trigger `business_tax_rates_in_change`); gst-changes-quotations (its function also guards the room-night slabs' changes).
 
 #### `business_number_series`
-Purpose: document numbering, one series per business, location, document kind and fiscal year. A number is taken with `UPDATE … next_number + 1` inside the posting transaction.
-Key columns: `location_id`, `document_kind`, `fiscal_year` (the year the fiscal year starts in), `prefix`, `next_number`, `padding`.
+Purpose: document numbering, one series per business, location, document kind and fiscal year. A number is taken with `UPDATE … next_number + 1` inside the posting transaction. An offline till has a sale series of its own for each fiscal year beside its location's ([Offline till](#offline-till)): its numbers are taken on the till, and the series moves past each one that arrives.
+Key columns: `location_id`, `document_kind`, `fiscal_year` (the year the fiscal year starts in), `prefix`, `next_number`, `padding`, `device_id` (-> `business_devices`: the till whose series it is; NULL for a location's own).
 `document_kind`: sale, purchase, sales_return, purchase_return, stock_transfer, stock_count, sales_order, collection, repair_job, processing, supplier_payment, purchase_order (PO/…), delivery_challan (DC/…), quotation (QT/…; not a GST document), spectacle_order (SPO/…), job_card (JC/…; not a GST document), membership (MS/…; not a GST document), laundry_order (LO/…; not a GST document), old_gold (OG/…, a jeweller's old gold vouchers; not a GST document), gold_scheme (GS/…, a jeweller's gold schemes; not a GST document), karigar_issue (KI/…), karigar_receipt (KR/…), custom_order (CO/…), approval (AP/…), hallmark_consignment (HM/…), metal_voucher (MV/…) and refinery_challan (RF/…) (a jeweller's karigar challans and receipts, custom orders, approval challans, hallmarking consignments, metal vouchers and refinery challans; not GST documents), rental (RN/…, a rental business's bookings; not a GST document), fuel_shift (FS/…, a fuel station's shifts; not a GST document), stay (ST/…, a hotel's, lodge's or guest house's reservations and stays; not a GST document) and stay_group (GB/…, its group bookings; not a GST document).
 Rules:
-- UNIQUE (business, location, kind, year) and UNIQUE (business, prefix).
+- One location series per (business, location, kind, year) (partial unique index `business_number_series_location_year`, where `device_id` is NULL), one till series per (business, till, kind, year) (`business_number_series_device_year`), and UNIQUE (business, prefix).
 - A prefix may contain only letters, digits, `/` and `-`, and must not end in a digit.
 - Prefix length plus padding is at most 16.
 - Trigger `business_number_series_forward_only`:
   - `next_number` never decreases;
   - prefix and padding are fixed once a number has been used;
   - business, location, kind and year never change.
-Added by: 1791300000002; kinds from 1791410000000 (sales_order, collection), 1791420000001 (repair_job), 1791430000001 (processing), 1791540000000 (supplier_payment), 1791620003000 (purchase_order, delivery_challan), 1791961000000 (quotation), 1791963000000 (spectacle_order), 1791964000000 (job_card), 1791965000000 (membership), 1791966000000 (laundry_order), 1791968000000 (rental), 1791969000000 (fuel_shift), 1791970000000 (stay) and lodging-stays (stay_group).
+- Trigger `business_number_series_device_rules`: a series never moves between a till and a location; a location's series never takes a prefix shaped like a till's (`T1/2627/`); a till's series is a `sale` series at the till's location whose prefix is its code and the year (`T1/2627/`), and keeps its prefix and padding.
+Added by: 1791300000002; kinds from 1791410000000 (sales_order, collection), 1791420000001 (repair_job), 1791430000001 (processing), 1791540000000 (supplier_payment), 1791620003000 (purchase_order, delivery_challan), 1791961000000 (quotation), 1791963000000 (spectacle_order), 1791964000000 (job_card), 1791965000000 (membership), 1791966000000 (laundry_order), 1791968000000 (rental), 1791969000000 (fuel_shift), 1791970000000 (stay) and lodging-stays (stay_group); offline-till (`device_id`, the two partial unique indexes in place of the UNIQUE on business, location, kind and year, and `business_number_series_device_rules`).
 
 #### `business_capabilities`
 Purpose: the optional modules switched on for a business ([§1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform)).
@@ -1392,9 +1393,9 @@ Rules:
 - Constraint trigger `business_payments_supplier_rules`: a supplier payment settles only that supplier's purchases, and never more than was paid.
 - Trigger `business_payments_jewellery_scheme` (function `jewellery_scheme_payment_check`, for a payment drawn from a collection): a jeweller's gold scheme instalment's receipt pays only the jewellery bill that redeems the scheme.
 - Trigger `business_payments_jewellery_order` (function `jewellery_order_payment_check`, for a payment drawn from a collection): an open custom order's advance receipt pays only the order's own jewellery bill.
-- Trigger `business_payments_cash_limit` (function `business_cash_limit_payment()`): a cash payment on a sale is refused (23514, a sentence citing section 186 of the Income-tax Act 2025) when the bill's cash would reach ₹2,00,000, or, for a payment not drawn from a collection, when the customer's cash that business day would (function `business_cash_from_customer()`: cash on their sales outside collections plus their cash collection receipts, by the business's time zone). A fuel station's walk-in fuel bill (no customer, and its request key a close's `walk_in_key` in `fuel_shift_closes`) is left alone: it sums the fills of a shift's many walk-in buyers.
+- Trigger `business_payments_cash_limit` (function `business_cash_limit_payment()`): a cash payment on a sale is refused (23514, a sentence citing section 186 of the Income-tax Act 2025) when the bill's cash would reach ₹2,00,000, or, for a payment not drawn from a collection, when the customer's cash that business day would (function `business_cash_from_customer()`: cash on their sales outside collections plus their cash collection receipts, by the business's time zone). A fuel station's walk-in fuel bill (no customer, and its request key a close's `walk_in_key` in `fuel_shift_closes`) is left alone: it sums the fills of a shift's many walk-in buyers. An offline till's bill (numbered in a series with a `device_id`) is checked for its own cash only: its customer's day is checked by the server when it arrives, and flagged ([Offline till](#offline-till)).
 - UNIQUE (`business_id`, `id`) for composite keys.
-Added by: 1791280000000; 1791410000000 (`collection_id`, the collection trigger, `cheque`); 1791420000000 (`credit_note`); 1791540000000 (`supplier_payment_id`, the supplier rules); 1791620002000 (`finance`, `tendered`); 1791640000000 (`method_name`); 1791960001000 (the cash limit); 1791969000000 (the walk-in fuel bill left out of the cash limit); jewellery-work (the custom order trigger).
+Added by: 1791280000000; 1791410000000 (`collection_id`, the collection trigger, `cheque`); 1791420000000 (`credit_note`); 1791540000000 (`supplier_payment_id`, the supplier rules); 1791620002000 (`finance`, `tendered`); 1791640000000 (`method_name`); 1791960001000 (the cash limit); 1791969000000 (the walk-in fuel bill left out of the cash limit); jewellery-work (the custom order trigger); offline-till (an offline till's bill left out of the customer's day: `business_cash_limit_payment()` replaced, its Down half putting 1791969000000's body back).
 
 #### `business_returns`
 Purpose: a credit note (on a sale) or a debit note (on a purchase).
@@ -1701,6 +1702,71 @@ Key columns: `licence_id`, `name` (the source as the certificate names it), `con
 Relations: (`business_id`, `licence_id`) -> `business_licences`; (`business_id`, `contact_id`) -> `business_contacts`.
 Rules: unique index `business_licence_sources_number` (business, licence, lower(certificate number)); index `business_licence_sources_contact`; trigger `business_licence_sources_supplier` (function `business_contact_is_supplier`): the contact is a supplier; trigger `business_licence_sources_guard` (function `business_licence_records_guard`): never deleted; the licence and who added it never change.
 Added by: 1791979050000.
+
+### Offline till
+
+Linked sections: [BUSINESS_RULES.md › Offline till](BUSINESS_RULES.md#offline-till), [ARCHITECTURE.md › How an offline bill is posted](ARCHITECTURE.md#how-an-offline-bill-is-posted), [API.md › Offline till](API.md#offline-till). Migration offline-till; module code `backend/src/modules/business/till/`. The application `offline_till` ([Platform module codes](#platform-module-codes)). A bill a till makes offline is posted, when it arrives, as an ordinary sale (`business_documents`, its lines, payments and stock movements) numbered in the till's own series (`business_number_series.device_id`); these tables keep the tills, what each offline bill was and what the manager looks at.
+
+#### `business_devices`
+Purpose: a till: one computer or tablet at one location, set up from Quick bill, that may bill when the internet drops.
+Key columns: `location_id`, `kind` (`till`), `name` (1-60), `code` (`T1` … `T999`, UNIQUE per business, never given again), `token_hash` (SHA-256 of the secret the device keeps; UNIQUE), `registered_by`, `registered_at`; what it last reported: `last_seen_at`, `last_sync_at` (its last bill received), `pending_count`, `attention_count`, `oldest_pending_at`, `offline_since`, `last_year` and `last_seq` (the last number it took), `holding` (this year's numbers still on it, at most 2,000), `app_version`; `retired_by`, `retired_at`, `retire_reason`, `lost` (lost, stolen or broken).
+Relations: (`business_id`, `location_id`) -> `business_locations`; `registered_by`, `retired_by` -> `users`.
+Rules:
+- CHECK `business_devices_retired`: retired at, by and why are set together; CHECK `business_devices_lost_retired`: only a retired till is lost; CHECK `business_devices_holding_size`.
+- Trigger `business_devices_rules`: never deleted (retired instead); its location, code, kind, secret and who set it up are fixed; a retired till stays retired, with its name.
+- Index `business_devices_location` (business, location, the tills not retired).
+- Trigger `business_devices_live`: announced live (`till`, the till).
+Added by: offline-till.
+
+#### `business_till_settings`
+Purpose: a business's limits for its tills, one row per business (the defaults while there is none).
+Key columns: PK `business_id`, `warn_hours` (12; 1-120: a till warns after this long offline), `stop_hours` (72; 1-120: it makes no new offline bill after this long), `waiting_cap` (2,000; 50-2,000: nor with this many bills waiting), `upi_id` (the UPI ID a till's QR asks the exact amount to), `upi_payee`, `updated_by`, `updated_at`.
+Rules: CHECK `business_till_settings_warn_first` (the warning is no later than the stop); CHECK the UPI ID's shape.
+Added by: offline-till.
+
+#### `business_till_bills`
+Purpose: every number of a till's series that reached the server: a bill (posted as an ordinary sale, `document_id`) or a void (a bill cancelled on the till before it was sent: no stock, no money, kept for GSTR-1 Table 13).
+Key columns: `device_id`, `location_id`, `series_id`, `seq`, `bill_no` (up to 16), `kind` (bill or void), `document_id`, `contact_id`, `made_at` (when it was made, on the till's clock set by the server's), `made_by` (the cashier signed in when it was made), `sent_by` (the session that sent it), `received_at`, `total` (as its receipt printed), `void_reason`, `void_lines` (a void's lines: item, label, quantity, unit, price), `pin_rule` (the business asked the PIN for every bill), `offline_since`, `request_key`, `request_hash`, `reviewed_by`, `reviewed_at` (every flag looked at).
+Relations: (`business_id`, ...) -> `business_devices`, `business_locations`, `business_number_series` (`series_id`), `business_documents` and `business_contacts`; `made_by`, `sent_by`, `reviewed_by` -> `users`.
+Rules:
+- UNIQUE per business: (series, seq), `bill_no`, `request_key` and `document_id`.
+- CHECK `business_till_bills_kind`: a bill has its document; a void has its reason and lines and no document. CHECKs: a reason is not blank; reviewed at and by together.
+- Trigger `business_till_bills_kept`: never deleted (its number is a tax record); only the review mark is written, once.
+- Indexes `business_till_bills_device` (business, till, newest first) and `business_till_bills_made` (business, newest first).
+Personal data: kept (`personalDataRegistry.js`): it names its customer only through the erased record.
+Added by: offline-till.
+
+#### `business_till_flags`
+Purpose: what the manager looks at on an offline bill, one row per kind: `price` (a line's price not the one in force when it was made, or above an MRP lowered since), `rate` (a GST rate not the one in force on its day), `credit` (over the customer's limit, or a walk-in's bill left part unpaid), `stock` (stock short: `business_till_shortfalls`), `time` (made outside the allowed window), `no_pin` (made offline where every bill asks the PIN), `discount` (over today's limit, or by someone who may no longer give one), `cash_limit` (the customer's cash that day reached ₹2,00,000 with cash taken elsewhere), `einvoice` (a bill to a GSTIN holder once e-invoicing applies), `maker` (made by someone no longer billing here), `total` (the server's sum within ₹1 of the receipt's).
+Key columns: `till_bill_id`, `kind`, `details` (a JSON object: what differed, for the screen), `created_at`, `acknowledged_by`, `acknowledged_at`, `note`.
+Relations: (`business_id`, `till_bill_id`) -> `business_till_bills`.
+Rules:
+- UNIQUE (business, till bill, kind); CHECK acknowledged at and by together; CHECK a note is not blank.
+- Trigger `business_till_flags_kept`: never deleted; acknowledged once, with its note.
+- Index `business_till_flags_open` (business, kind, newest; the open ones).
+- Trigger `business_till_flags_live`: announced live (`till`, the till bill).
+Added by: offline-till.
+
+#### `business_till_shortfalls`
+Purpose: stock an offline bill sold that the books did not hold at its location: the bill took what there was (no stock goes below zero) and this is the rest, settled once.
+Key columns: `location_id`, `sku_id`, `document_id`, `line_id` (UNIQUE per business), `till_bill_id`, `quantity` (> 0, stock units), `created_at`, `resolved_by`, `resolved_at`, `resolution` (`received`: taken from stock received since, as the bill's own movements; `adjusted`: the count was wrong, nothing taken), `note` (required for `adjusted`).
+Relations: (`business_id`, ...) -> `business_locations`, `catalog_skus`, `business_documents`, `business_document_lines` (`line_id`) and `business_till_bills`.
+Rules:
+- CHECK `business_till_shortfalls_resolved`: resolved at, by and how together; CHECK `business_till_shortfalls_adjusted_note`.
+- Trigger `business_till_shortfalls_kept`: never deleted; settled once.
+- Index `business_till_shortfalls_open` (business, location, item; the open ones).
+- Trigger `business_till_shortfalls_live`: announced live (`till`, the till bill).
+Added by: offline-till.
+
+#### `business_till_gaps`
+Purpose: a number of a till's series that has not reached the server while a later one has, or that a till retired as lost reported using: `missing`; noted by the manager with why (`noted`); or it arrived later (`arrived`). GSTR-1 counts every number issued.
+Key columns: `device_id`, `series_id`, `seq`, `bill_no`, `found_at`, `state` (missing, noted, arrived), `reason`, `noted_by`, `noted_at`, `arrived_at`.
+Relations: (`business_id`, ...) -> `business_devices` and `business_number_series`; `noted_by` -> `users`.
+Rules:
+- UNIQUE (business, series, seq). CHECKs: noted at, by and why together; a reason is not blank; `arrived_at` exactly when arrived.
+- Trigger `business_till_gaps_kept`: never deleted; its number is fixed; noted once; an arrived number stays arrived.
+- Index `business_till_gaps_open` (business, till; the missing ones).
+Added by: offline-till.
 
 ## Retail
 
@@ -4766,6 +4832,8 @@ Triggers (all `AFTER … FOR EACH ROW`):
 | `jewellery_rate_sheets_live` | `jewellery_rate_sheets` | insert | `jewellery_rates` |
 | `business_online_bookings_live` | `business_online_bookings` | insert, update, delete | `online_booking` |
 | `wholesale_salesperson_days_live`, `wholesale_visits_live`, `wholesale_field_refusals_live` | `wholesale_salesperson_days`, `wholesale_visits`, `wholesale_field_refusals` | insert, update, delete | `field_sales`: a salesperson's day, a visit, an order refused on arrival |
+| `business_devices_live` | `business_devices` | insert, update, delete | `till`, the till |
+| `business_till_flags_live`, `business_till_shortfalls_live` | `business_till_flags`, `business_till_shortfalls` | insert, update | `till`, the till bill |
 | `trg_users_live_session` | `users` | update of `token_version`, `status`, `restaurant_id`, `outlet_id` or `password_must_change` (when one changes) | `live_session` `{user}` |
 | `trg_restaurants_live_session` | `restaurants` | update of `status` (when it changes) | `live_session` `{restaurant}` |
 | `businesses_live_session` | `businesses` | update of `status` (when it changes) | `live_session` `{business}` |
@@ -4912,7 +4980,7 @@ Added by: paid-plans: each Basic plan holds its type's modules that start on, wi
 Purpose: each optional module's price and how it is sold.
 Key columns: `module_code` (PK -> `platform_modules`), `sold_as` (`module`, or `application`: its own screen or device for its own people), `monthly_price`, `yearly_price` (NULL is not set yet; 0 or more: 0 is free), `available` (owners may add it), `created_by`, `created_at`, `updated_by`, `updated_at`.
 Rules: trigger `platform_module_prices_check`: optional modules only, never `restaurant`.
-Added by: paid-plans: every optional module but `restaurant`, available; modules at ₹199 / ₹1,999; the applications `captain_app`, `kitchen_display` and `qr_ordering` at ₹299 / ₹2,999, `online_ordering` at ₹399 / ₹3,999 and `lab` at ₹499 / ₹4,999. 1791979980000 salesperson-app: the application `salesperson_app` at ₹499 / ₹4,999.
+Added by: paid-plans: every optional module but `restaurant`, available; modules at ₹199 / ₹1,999; the applications `captain_app`, `kitchen_display` and `qr_ordering` at ₹299 / ₹2,999, `online_ordering` at ₹399 / ₹3,999 and `lab` at ₹499 / ₹4,999. 1791979980000 salesperson-app: the application `salesperson_app` at ₹499 / ₹4,999. 1791979990000 offline-till: the application `offline_till` at ₹199 / ₹1,999.
 
 #### `business_subscriptions`
 Purpose: a business's selection for its next order: its plan and month or year. It never changes what the business may use today.
@@ -5199,6 +5267,7 @@ Core modules are always on and never stored per business; every other module is 
 | `online_appointments` | optional | appointments | electronics, garage, healthcare, memberships, optical, salon; off; recommended for healthcare (sold as an application: [Paid plans](#paid-plans)) | 1791979950000 |
 | `online_shop` | optional (an application) | sales, contacts | grocery, supermarket, fashion, electronics, pharmacy, books, meat, weight_retail, general_retail, hardware, agri_inputs, optical; off | 1791979960000 |
 | `salesperson_app` | optional | sales_orders | wholesale; off (sold as an application: [Paid plans](#paid-plans)) | 1791979980000 |
+| `offline_till` | optional | sales | books, electronics, fashion, general_retail, grocery, hardware, meat, supermarket, weight_retail; off (sold as an application: [Paid plans](#paid-plans)) | 1791979990000 |
 
 These modules have no permission codes: `restaurant`, `batches`, `serials`, `variants`, `weight` and `books`. Access to them comes from the capability check alone. The restaurant features have none either: the restaurant's own permissions (`roles`, `permissions`) decide who may do what, and the feature decides whether anyone may (see [Restaurant features](#restaurant-features)).
 
@@ -5258,6 +5327,7 @@ Each code is a `<module>.<action>` row of `business_permissions`, listed here by
 | online_appointments | `online_appointments.view` (online bookings, the requests waiting and the booking link), `online_appointments.approve` (accept or decline a guest's request), `online_appointments.manage` (the booking link, its rules and what shows online); granted to the Manager (all), Cashier / sales and Optometrist (view, approve), and Accountant, Viewer, Doctor, Trainer and Mechanic (view) | online-appointments |
 | online_shop | `online_shop.view` (online orders, their customers and complaints, the shop link's settings and the report), `online_shop.approve` (accept or decline), `online_shop.edit` (pack, ask the customer, send out and hand over; with `sales.create` to bill, `sales.edit` to record the payment), `online_shop.cancel` (cancel an accepted order; refused at the door, with `sales.refund`), `online_shop.review` (acknowledge and resolve complaints), `online_shop.manage` (the link and settings, what shows online, blocked mobiles), `online_shop.export` (the report). Granted to Manager (all), Cashier and Pharmacist (view, approve, edit, cancel, review), Stock keeper (view, edit), Accountant and Viewer (view, export) | online-shop |
 | salesperson_app | `salesperson_app.view` (every salesperson's day: visits and check-in places, orders, collections and new shops; Field sales), `salesperson_app.create` (work their own day on the salesperson app: check in at shops, take orders, collect, add new shops), `salesperson_app.edit` (the check-in distance, whether places are recorded, a shop's saved place cleared), `salesperson_app.approve` (shops added in the field approved, with their credit) | 1791979980000 |
+| offline_till | `offline_till.view` (the tills, their bills waiting, the offline bills and their review, the numbers for GSTR-1), `offline_till.manage` (set up, rename and retire tills; how long they may bill offline; the UPI ID on their QR), `offline_till.review` (look at what was flagged, settle stock sold short, note numbers that never arrived). A cashier bills on a till with `sales.create`. Granted to Manager (all), Accountant (view, review) and Viewer (view) | offline-till |
 
 ## Restaurant permission codes
 

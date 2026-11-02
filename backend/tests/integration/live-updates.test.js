@@ -68,14 +68,15 @@ test('live updates', { timeout: 900000 }, async (t) => {
     // Its own 34 triggers, the lab's three of migration 1791976000000, the
     // lab's ordered tests of the clinic-lab-more migration, the online
     // bookings of the online-appointments migration, the online shop's
-    // orders and complaints (migration 1791979960000), and the salesperson
-    // app's days, visits and refused orders.
-    assert.deepEqual(await left(), { functions: 7, triggers: 44 });
+    // orders and complaints (migration 1791979960000), the salesperson
+    // app's days, visits and refused orders, and the offline till's three
+    // (tills, flags, stock sold short).
+    assert.deepEqual(await left(), { functions: 7, triggers: 47 });
     // This migration's Down half, after those of every newer one.
     await migrate({ direction: 'down', count: 1791974000000, timestamp: true });
     assert.deepEqual(await left(), { functions: 0, triggers: 0 });
     await migrate({ direction: 'up', count: Infinity });
-    assert.deepEqual(await left(), { functions: 7, triggers: 44 });
+    assert.deepEqual(await left(), { functions: 7, triggers: 47 });
   });
 
   pool = require('../../src/config/database');

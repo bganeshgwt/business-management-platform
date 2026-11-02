@@ -21,6 +21,7 @@ The everyday numbers, such as expiring-soon days, voucher validity, credit age g
 - [Paid plans](#paid-plans)
 - [Shops and the shared core](#shops-and-the-shared-core)
 - [Money and the day](#money-and-the-day)
+- [Offline till](#offline-till)
 - [Wholesale](#wholesale)
 - [Electronics](#electronics)
 - [Salon & spa](#salon--spa)
@@ -104,13 +105,13 @@ These are not settings. Changing one means changing the code; the PIN lockout is
 
 ### Nothing made offline is lost, or pretends to be sent
 
-- **Rule:** a change a screen that works offline makes with no network waits on the device and is sent by itself, in order and with its request key, as soon as the server answers. Every change not yet sent is listed and counted (*Offline · 3 waiting to send*). One the server refuses *needs attention*, keeps the server's own reason, and stays until someone sends it again or discards it; it holds back only what waits for it. Discarding first says what is lost. Signing out names every change not yet sent and asks first, since signing out deletes them from the device.
+- **Rule:** a change a screen that works offline makes with no network waits on the device and is sent by itself, in order and with its request key, as soon as the server answers. Every change not yet sent is listed and counted (*Offline · 3 waiting to send*). One the server refuses *needs attention*, keeps the server's own reason, and stays until someone sends it again or discards it; it holds back only what waits for it. Discarding first says what is lost. Signing out names every change not yet sent and asks first, since signing out deletes them from the device; an offline till's bills are the computer's, not the person's, and signing out is refused while any wait ([Offline till](#offline-till)).
 - **Why:** a shop or a waiter must be able to trust the screen: a bill or an order that looks sent and is not, or vanishes, costs money and trust; one sent twice would be counted twice, which the request key prevents.
 - **Change it:** nothing to set ([ADMIN_GUIDE.md › Installing the app and working offline](ADMIN_GUIDE.md#installing-the-app-and-working-offline)).
 
 ### Only the server ends a session
 
-- **Rule:** no network, or a server that does not answer, never signs anyone out. A device signed in before opens with no network from its own copy of the person's profile and business: the screens that work offline open (the captain app now), and every other says it needs the network. Only the server saying the session is over (it ran out, signed out everywhere, a new password, the login switched off) ends it; on a screen that works offline the person then signs in again over it, keeping the screen and what waits to be sent.
+- **Rule:** no network, or a server that does not answer, never signs anyone out. A device signed in before opens with no network from its own copy of the person's profile and business: the screens that work offline open (the captain app, and Quick bill on a computer set up as an offline till), and every other says it needs the network. Only the server saying the session is over (it ran out, signed out everywhere, a new password, the login switched off) ends it; on a screen that works offline the person then signs in again over it, keeping the screen and what waits to be sent.
 - **Why:** a till or a waiter's phone loses the network often, for a minute; being sent to the sign-in page each time would lose the work on the screen.
 - **Change it:** nothing to set.
 
@@ -645,6 +646,88 @@ These rules apply to every business type but the restaurant. The goods rules app
 - **Rule:** a cash check records, for one date and location, the opening cash, the cash counted, the amount the server works out the drawer should hold, and the difference. A difference needs a reason. A check is a permanent snapshot: trading can carry on after it, and a later change to that day's money is called out. Recording needs `reports.edit`, and also `expenses.view` when expenses are on. The server works out every movement in one consistent read.
 - **Why:** a drawer cannot be reconciled by someone who cannot see the money that left it.
 - **Change it:** who holds `reports.edit` (Manager, Accountant and Cashier by default) in *Roles & permissions*.
+
+## Offline till
+
+A shop's Quick bill on a computer set up as an offline till keeps billing when the internet drops, and sends the bills when it is back ([ADMIN_GUIDE.md › Offline till](ADMIN_GUIDE.md#offline-till)). The application is *Offline till* (`offline_till`), for grocery, supermarket, fashion, electronics, books, meat and other weight shops, the general store and hardware.
+
+### A till's own number series
+
+- **Rule:** a bill a till makes offline takes the next number of the till's own series, `T2/2627/00001`: the till's code, the financial year (by the business's year start, on the till's clock) and five digits, at most 16 characters. Each till has one series a year; a new financial year starts it at 1, made on the server with that year's first bill. A till's code is never given again, even after it is retired, and no location's own series may take a prefix shaped like a till's. Bills a till makes online keep the location's series, numbered by the server as before. A number is taken and kept on the computer before the receipt prints, and once across every tab of the browser.
+- **Why:** with no network the server cannot hand out numbers, and two tills must never print the same one. CGST rule 46(b) allows a supplier several series, each unique for the financial year; GSTR-1 Table 13 reports each series' first and last number and how many were cancelled.
+- **Change it:** nothing to set.
+
+### A bill made offline is posted as it was made
+
+- **Rule:** an offline bill was handed to a customer, so the server posts it as made, through the same posting as every bill: its number, its date and time (the bill, its payments and its due date; so the cashier's shift, the day's figures, the cash limit and the GST month follow it), its prices and GST rates (worked out on the till with the server's own arithmetic), its counter discount, its customer and its payments. No offer or coupon runs on it (the till sold at the shelf price) and no points are redeemed; points are earned as on any bill. A sum more than ₹1 from the receipt's is refused as a fault; within ₹1 it is posted at the server's sum and flagged. Bills go in the till's order, each with its request key, so a bill sent twice is posted once.
+- **Why:** the receipt the customer holds is the invoice: rewriting its price or rate afterwards would make the books disagree with it, and refusing it would leave a sale out of the books.
+- **Change it:** nothing to set.
+
+### What the till could not know is flagged, never refused
+
+- **Rule:** an offline bill is posted and flagged for the manager (*Daily money › Offline bills*) when: a line's price was not the one in force when it was made (the branch's or the list price then, from the price history; the member or customer price now), or it is above an MRP lowered since; a line's GST rate was not the one in force on its own day; the customer went over their credit limit, or a walk-in left part unpaid where walk-ins pay in full; stock was short; its time is outside the window (later than it arrived, before the till was set up, or later into the till's offline spell than the stop limit); the business asks the PIN for every bill; the discount is over today's limit, or its maker may no longer give one; cash from that customer that day reached ₹2,00,000 with cash taken elsewhere; the buyer has a GSTIN and the business e-invoices; its maker no longer bills here. A flag is looked at once, with an optional note, and never removed. The billed price stands.
+- **Why:** each of these is what the till could not see from its copy, and the sale really happened. The flag puts it in front of the manager, who puts right what needs it: a shelf label, a limit, a credit note, an e-invoice.
+- **Change it:** nothing to set.
+
+### Faults are refused, with what to do
+
+- **Rule:** the server refuses (409, *needs attention* on the till) only what cannot be a real sale or cannot be posted as it stands: an unknown or retired till, a till of another location, a number not of the till's own series or of another year than the one it was made in, a number already used by another bill or void, a sum more than ₹1 from the receipt's, a maker who never worked at the business, ₹2,00,000 or more in cash on one bill, a bill over ₹2,00,000 with no PAN or declaration. An item or a customer switched off after the bill was made, or an item set for use in services only, is refused with what to do: switch it on again and send the bill again. A payment method switched off since is no fault: the payment is recorded by its kind and name.
+- **Why:** a fault means the till or its data went wrong; posting it would put a wrong record in the books. The last kind is the manager's to put right, and the bill then goes as it was.
+- **Change it:** nothing to set.
+
+### Stock sold short
+
+- **Rule:** an offline bill takes the usable stock there is at its location, earliest expiry first (a batch item names no batch offline; its line names the first batch taken), never an expired batch and never below zero. What the books did not hold is a shortfall, flagged *Stock short*. The manager settles each once: **taken from stock** received since (the bill's own movements), or **the count was wrong** (the goods were on the shelf; nothing is taken, with why). The bill's stock flag is looked at when all its shortfalls are settled.
+- **Why:** the database refuses stock below zero, as it must; the goods were sold all the same, most often from a purchase not yet entered.
+- **Change it:** nothing to set.
+
+### A void keeps its number
+
+- **Rule:** a bill still on the till can be voided there, with a reason. It goes to the server as a void: it keeps its number, moves no stock and no money, and is never deleted; it counts as cancelled in Table 13. A bill already on the server is taken back as a return.
+- **Why:** CGST rule 56(8): no entry in the accounts is erased; a number issued and cancelled is still reported.
+- **Change it:** nothing to set.
+
+### Numbers that never arrive
+
+- **Rule:** when a number of a till's series arrives and earlier ones have not, each missing number is recorded. The till reports the numbers it still holds (*Still on the till*); a number that later arrives is marked so. One that never will (the till's data cleared, the till lost) is noted by the manager with why, once.
+- **Why:** GSTR-1 counts every number issued; a gap with no reason is a question from the GST officer.
+- **Change it:** nothing to set.
+
+### How long a till bills offline
+
+- **Rule:** offline for 12 hours a till warns; at 72 hours, or with 2,000 bills waiting, it stops making new offline bills until it is connected and they are sent. Bills waiting stay safe either way. Hours offline count from when the till last reached the server, by the till's own clock set by the server's.
+- **Why:** the longer a till is offline, the further its prices, stock and customers' balances drift from the truth, and the more there is to review; a cap keeps one computer from holding a month of sales.
+- **Change it:** *Settings › Tills* › *How long a till may bill offline*: warn after 1 to 120 hours, stop after 1 to 120 (the warning first), 50 to 2,000 bills waiting (`offline_till.manage`).
+
+### Who made a bill, and who sent it
+
+- **Rule:** a bill records as its maker the cashier signed in on the till when it was made: its creator, its payments' and its audit row's. When it is sent later under another cashier's session on the same till, it keeps its maker, and the sender is recorded beside it (the offline bill and its own audit row). The maker must be a member of the business; one no longer active or billing there is flagged. A till's bills are the computer's: whoever signs in sends them, signing out keeps them, and signing out is refused while any wait.
+- **Why:** the shift's cash and *Billed by* must be the person who took the money; a bill must never wait for one person to come back to be sent.
+- **Change it:** nothing to set.
+
+### No PIN offline, and no cashier switch
+
+- **Rule:** offline a till cannot check a PIN: switching the cashier needs the network, and a business that asks the biller's PIN for every bill gets each offline bill marked *Made offline, no PIN* for review.
+- **Why:** PINs are checked by the server; keeping PIN hashes on a shared computer would expose them, managers' approval PINs among them.
+- **Change it:** nothing to set (the PIN rule itself: *Business settings › Shared till*).
+
+### Cash and PAN offline
+
+- **Rule:** a till takes no bill with ₹2,00,000 or more in cash, nor a customer's cash reaching that in a day on this till, and asks the buyer's PAN on a bill over ₹2,00,000, as online. Cash from one customer in a day across tills or the office is checked when the bills arrive, on the day they were made: over the limit, the bill is posted and flagged (the database still refuses ₹2,00,000 or more on one bill).
+- **Why:** Income-tax Act 2025, section 186: the till enforces what it can see; cash already taken on another till cannot be undone by refusing the record, which would only keep it out of the books.
+- **Change it:** nothing to set.
+
+### B2B bills and e-invoicing
+
+- **Rule:** a till refuses offline a bill to a customer with a GSTIN when the business must e-invoice (its PAN's turnover, [An owner's GST thresholds](#an-owners-gst-thresholds)); otherwise a B2B bill is allowed offline. One that arrives once e-invoicing applies is posted and flagged, to report to the IRP.
+- **Why:** an e-invoice needs its IRP number when it is made, which needs the network.
+- **Change it:** nothing to set.
+
+### Setting up and retiring a till
+
+- **Rule:** a manager sets up a till on the computer itself, while it is online (`offline_till.manage`); it is for that computer's browser only, and its secret never leaves it (the server keeps its SHA-256). A till is retired, never deleted: never while bills wait on it, unless it is lost, stolen or broken, when the numbers it said it used that never arrived are recorded to note. A retired till's bills are refused.
+- **Why:** a till's numbers and bills must come from that computer alone; a lost till's unsent numbers still count as issued.
+- **Change it:** *Settings › Tills*.
 
 ## Wholesale
 

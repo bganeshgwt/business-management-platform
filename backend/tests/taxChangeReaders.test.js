@@ -25,6 +25,7 @@ const HOW = {
   names: "names a rate without reading an item's (the activity log, a restaurant's default rate)",
   module: "the GST rate changes module itself",
   guests: "a shop's online shop for its guests: its link opened through linkAndCard, which applies due changes first, as access.open does",
+  till: "an offline till's bill: the rate its till charged on the bill's own day, checked against the item's changes dated by then",
 };
 
 const READERS = {
@@ -132,6 +133,10 @@ const READERS = {
   "modules/business/shop/services/shopOrders.service.js": "guests",
   "modules/business/shop/services/shopPacking.service.js": "gate",
   "modules/business/shop/services/shopSettings.service.js": "writes",
+  // An offline till keeps an item's rate with the changes dated ahead (its snapshot, read through the gate);
+  // a bill it sends keeps the rate it charged, checked against the changes in force on its own day.
+  "modules/business/till/services/tillSnapshot.service.js": "gate",
+  "modules/business/till/services/tillBills.service.js": "till",
 };
 
 function* sourceFiles(dir) {

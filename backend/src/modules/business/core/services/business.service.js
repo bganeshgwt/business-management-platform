@@ -774,6 +774,20 @@ const named = (value) => value !== undefined && value !== null && value !== '';
 // garage issued to a mechanic for the job, held for it), one entry per input
 // line ({ unitCost } or null): such a line takes nothing out of stock and keeps
 // the stock cost it was issued at.
+// `offline`: a bill an offline till made with no network and handed to its
+// customer (modules/business/till), posted as it was made. The caller has
+// checked the till, its number and who made it; `user` is that maker. The
+// bill takes the till's number (`number`, `seriesId`) and time (`madeAt`,
+// `day` its business date: the bill, its payments and its due date are
+// dated then); each line keeps the till's price and GST rate (`lines[i]`:
+// { unitPrice, packPrice?, priceKind, taxRate }), worked out with the
+// arithmetic every bill uses (no offer or coupon runs; the counter discount
+// is the one given then), and a sum more than ₹1 from the receipt's
+// (`total`, paise) is refused as a fault. What the till could not know is
+// noted, never refused: a price above today's MRP, a customer over their
+// limit or a walk-in left unpaid, and stock short (the usable lots are
+// taken, earliest expiry first, and the rest is noted for the till's
+// shortfalls). The notes come back as `offline` on the answer.
 // Free units and trade discount on a purchase line, in the line's own unit
 // (packs when it is entered in packs). null when neither is given.
 function readScheme(input) {
@@ -787,7 +801,8 @@ function readScheme(input) {
 }
 
 async function postDocument(db, business, user, body, { kind, requestKey, hash, lines: inputLines, paidNow, fixed = null, quote = false, walkInPays = false, voucher = null, finance = null,
-  membership = false, dueDay = null, jewellery = false, tenders = [], rental = false, fuel = false, lodging = false, noStock = false, advance = null, charge = false, issued = null }) {
+  membership = false, dueDay = null, jewellery = false, tenders = [], rental = false, fuel = false, lodging = false, noStock = false, advance = null, charge = false, issued = null,
+  offline = null }) {
   {
     // Serializes document posting within a business: one lock order for every
     // posting (business, then document, then stock lots).
@@ -798,8 +813,12 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
       return old;
     }
     // GST rate changes whose date has come take effect before a line reads its
-    // slab, so the bill is at the slabs in force on its own date.
-    await taxChanges().onPosting(db, business, inputLines, fixed);
+    // slab, so the bill is at the slabs in force on its own date. (An offline
+    // till's bill keeps the rates it was made at, which its till worked out
+    // for its own day.)
+    if (!offline) await taxChanges().onPosting(db, business, inputLines, fixed);
+    // What an offline bill posts with that a counter's bill would be refused for.
+    const offlineNotes = offline ? { prices: [], credit: null, shortfalls: [], total: null } : null;
     const settings = await repo.one(db, 'SELECT tax_mode,rounding,state_code,walk_in_credit FROM business_settings WHERE business_id=$1', [business.id]);
     // Purchase costs are always entered before tax; the setting is about selling prices.
     const taxMode = kind === 'sale' ? settings?.tax_mode || 'exclusive' : 'exclusive';
@@ -862,6 +881,10 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
       } else if (kit) {
         // A component's share of the kit's price, in the document's price terms.
         net = kit.share; price = kit.share / 100 / quantity;
+      } else if (kind === 'sale' && offline) {
+        // An offline till's bill: the price it was sold at stands, as businessPricing.js works a price out.
+        const priced = pricing.givenPrice(offline.lines[lineIndex], quantity, entered && { ...entered, factorMicro });
+        price = priced.stockPrice; net = priced.net; enteredPrice = priced.enteredPrice; priceKind = priced.priceKind;
       } else if (kind === 'sale') {
         // Customer, slab and pack prices (services/businessPricing.js).
         const priced = await pricing.salePrice(db, business, sku, contact?.id, quantity, entered && { ...entered, factorMicro },
@@ -882,7 +905,12 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
         net = roundedDivide(BigInt(net) * BigInt(scheme.paidMilli) * BigInt(10000 - scheme.discountBasis), BigInt(scheme.totalMilli) * 10000n);
       }
       // Nothing is billed above its MRP (a wholesale dispatch keeps its order's prices).
-      if (kind === 'sale' && !preset && !kit) checkMrp(sku.label, price, sku.tax_rate, taxMode, sku.mrp);
+      // An offline bill sold at a price above an MRP lowered since is noted instead.
+      if (kind === 'sale' && offline) {
+        if (sku.mrp !== null && sku.mrp !== undefined && shelfPaise(price, offline.lines[lineIndex].taxRate, taxMode) > paise(Number(sku.mrp))) {
+          offlineNotes.prices.push({ lineIndex, skuId: sku.id, label: sku.label, mrp: Number(sku.mrp).toFixed(2) });
+        }
+      } else if (kind === 'sale' && !preset && !kit) checkMrp(sku.label, price, sku.tax_rate, taxMode, sku.mrp);
       if (kind === 'purchase' && ((input.sellingPrice ?? '') !== '' || (input.mrp ?? '') !== '')) {
         const newPrice = (input.sellingPrice ?? '') === '' ? Number(sku.price) : decimal(input.sellingPrice, 'New selling price');
         const newMrp = (input.mrp ?? '') === '' ? sku.mrp : readMrp(input.mrp);
@@ -890,22 +918,25 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
       }
       // Cost of one stock unit on this line, to four places (exact for packs).
       const stockCost = kind !== 'purchase' ? null : entered || scheme?.free || scheme?.discountBasis ? (net / 100) / quantity : price;
-      const lotCode = (sku.tracking === 'batch' || sku.tracking === 'serial') && !estimate ? v.requiredString(input.lotCode, 'Batch / serial number', 100) : '';
+      // An offline bill names no batch: its lots are picked when it is posted, earliest expiry first.
+      const lotCode = (sku.tracking === 'batch' || sku.tracking === 'serial') && !estimate && !offline ? v.requiredString(input.lotCode, 'Batch / serial number', 100) : '';
       let expiresOn = null;
       if (input.expiresOn) expiresOn = dateText(input.expiresOn, 'Expiry date');
       if (kind === 'purchase' && business.business_type === 'pharmacy' && sku.tracking !== 'batch') fail('Pharmacy goods must use batch tracking');
       if (kind === 'purchase' && business.business_type === 'pharmacy' && !expiresOn) fail('Pharmacy receipts require an expiry date');
       // `amount`: the line at its price, in the document's price terms. Net
       // and tax are split below, once offers have been applied.
-      prepared.push({ sku, quantity, price, priceKind, amount: net, freeQuantity: scheme?.freeEntered || 0, discountPercent: scheme?.discount || 0, preset, kit, inputIndex: kit ? kit.inputIndex : kits().inputIndexOf(kitOf, lineIndex), lotCode, expiresOn, priceRule, entered, enteredPrice, factorMicro, stockCost });
+      // An offline bill's line is at the GST rate its till charged (worked out for the day it was made).
+      prepared.push({ sku: offline ? { ...sku, tax_rate: Number(offline.lines[lineIndex].taxRate).toFixed(2) } : sku,
+        quantity, price, priceKind, amount: net, freeQuantity: scheme?.freeEntered || 0, discountPercent: scheme?.discount || 0, preset, kit, inputIndex: kit ? kit.inputIndex : kits().inputIndexOf(kitOf, lineIndex), lotCode, expiresOn, priceRule, entered, enteredPrice, factorMicro, stockCost });
     }
     // Offers and redeemed loyalty points (retail modules, businessOffers.js)
     // come off sale lines before GST is worked out on what is left. Lines
     // with fixed prices (a dispatched order) keep theirs.
-    const offers = kind === 'sale' ? await retailOffers.priceSale(db, business, { contact, lines: prepared, body, taxMode }) : null;
+    const offers = kind === 'sale' ? await retailOffers.priceSale(db, business, { contact, lines: prepared, body, taxMode, given: Boolean(offline) }) : null;
     if (offers) await salonSales.priceSale(db, business, { contact, lines: prepared, body, pricing: offers });
-    // Apparel GST by the value of each piece after discounts (fashion).
-    if (kind === 'sale' && business.business_type === 'fashion') await fashionPricing().applyPriceSlabs(db, business, prepared, offers?.perLine, taxMode);
+    // Apparel GST by the value of each piece after discounts (fashion); an offline bill's till worked it out.
+    if (kind === 'sale' && business.business_type === 'fashion' && !offline) await fashionPricing().applyPriceSlabs(db, business, prepared, offers?.perLine, taxMode);
     for (const [index, line] of prepared.entries()) {
       if (line.preset) {
         line.net = line.amount; line.tax = line.preset.tax;
@@ -925,6 +956,13 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     const rounded = kind === 'sale' && !fuel && settings?.rounding === 'nearest_rupee' ? Math.floor((raw + 50) / 100) * 100 : raw;
     const roundOff = rounded - raw;
     if (quote) return retailOffers.quoteOf({ prepared, offers, subtotal, tax, roundOff, rounded, taxMode, contact });
+    // An offline bill worked out here to more than ₹1 from its receipt is a fault on the till, not a sale as made.
+    if (offline && rounded !== offline.total) {
+      if (Math.abs(rounded - offline.total) > 100) {
+        throw new AppError(409, `Bill ${offline.number} adds up to ${money(rounded)} here but its receipt says ${money(offline.total)}: it was not sent as it was made. Keep the receipt and show it to the manager.`, { reason: 'offline_total' });
+      }
+      offlineNotes.total = { receipt: money(offline.total), posted: money(rounded) };
+    }
     // A hardware shop's tinted paint (a base, its pack and a shade): its base
     // stays in stock, kept for its job, until the job is tinted.
     const tinted = kind === 'sale' ? await hardwareTinting().checkTints(db, business, { inputLines, prepared, location }) : null;
@@ -972,7 +1010,9 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     const paidPaise = parts.reduce((sum, part) => sum + paise(part.amount), 0);
     if (paidPaise + prepaid + financed > rounded) fail(parts.length > 1 ? 'The payments add up to more than the total' : 'The amount paid now is more than the total');
     if (walkInPays && !settings?.walk_in_credit && !contact && rounded > 0 && paidPaise + prepaid + financed < rounded) {
-      fail('A walk-in customer pays the whole bill now. To give udhaar, choose the customer first.', 409);
+      // An offline till allowed it under the setting it held: noted.
+      if (offline) offlineNotes.credit = { walkIn: true, unpaid: money(rounded - paidPaise - prepaid - financed) };
+      else fail('A walk-in customer pays the whole bill now. To give udhaar, choose the customer first.', 409);
     }
     // Season credit (a farm-input shop): a named customer's bill left on credit, within the season's limit.
     if (agri) await agriSales().checkCredit(db, business, agri, { contact, unpaid: rounded - paidPaise - prepaid - financed });
@@ -982,10 +1022,13 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
       // A held advance is already off what they owe (money on account), so it is not taken off twice.
       const after = paise(Number(owed.balance)) + rounded - paidPaise - prepaid - financed + advanceUse;
       if (after > paise(Number(contact.credit_limit))) {
-        fail(`This sale would take ${contact.name} to ${money(after)} owed, over their credit limit of ${Number(contact.credit_limit).toFixed(2)}. Take a payment now or raise the limit.`, 409);
+        // An offline till gave it within the limit as it knew it: noted.
+        if (offline) offlineNotes.credit = { owes: money(after), limit: Number(contact.credit_limit).toFixed(2) };
+        else fail(`This sale would take ${contact.name} to ${money(after)} owed, over their credit limit of ${Number(contact.credit_limit).toFixed(2)}. Take a payment now or raise the limit.`, 409);
       }
     }
-    const today = await repo.one(db, 'SELECT (now() AT TIME ZONE $1)::date AS day', [business.timezone]);
+    // An offline bill is dated the day it was made.
+    const today = offline ? { day: offline.day } : await repo.one(db, 'SELECT (now() AT TIME ZONE $1)::date AS day', [business.timezone]);
     // A season credit bill falls due at the harvest date given on it.
     const dueOn = agri?.dueOn ? { day: agri.dueOn } : dueDay ? { day: dueDay }
       : contact?.credit_days ? await repo.one(db, 'SELECT ($1::date + $2::int)::text AS day', [today.day, contact.credit_days]) : today;
@@ -1019,13 +1062,14 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
         fail('A bill over ₹2,00,000 needs the buyer\'s PAN: type it on the bill, or choose the customer with their PAN or GSTIN saved. A buyer who has no PAN signs a declaration (Form 97): record it on the bill instead.');
       }
     }
-    const number = await numbering.nextNumber(db, business.id, location.id, kind, user.id);
+    // An offline bill has its till's number and its own time.
+    const number = offline ? { number: offline.number, seriesId: offline.seriesId } : await numbering.nextNumber(db, business.id, location.id, kind, user.id);
     const saved = await repo.one(db, `INSERT INTO business_documents(business_id,location_id,kind,document_no,series_id,contact_id,contact_name,subtotal,tax,round_off,total,tax_mode,due_on,request_key,request_hash,notes,created_by,
-      place_of_supply,buyer_gstin,buyer_address,supplier_bill_no,supplier_bill_date,buyer_pan,pan_declaration)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) RETURNING *`,
+      place_of_supply,buyer_gstin,buyer_address,supplier_bill_no,supplier_bill_date,buyer_pan,pan_declaration,created_at)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,COALESCE($25::timestamptz,now())) RETURNING *`,
     [business.id, location.id, kind, number.number, number.seriesId, contact?.id || null, contact?.name || null,
       money(subtotal), money(tax), money(roundOff), money(rounded), taxMode, dueOn.day, requestKey, hash, v.optionalString(body.notes, 'Notes', 500), user.id,
-      placeOfSupply, buyerGstin, kind === 'sale' ? contact?.address || null : null, bill.number, bill.date, buyerPan, panDeclaration]);
+      placeOfSupply, buyerGstin, kind === 'sale' ? contact?.address || null : null, bill.number, bill.date, buyerPan, panDeclaration, offline?.madeAt || null]);
     for (const line of prepared) {
       const savedLine = await repo.one(db, `INSERT INTO business_document_lines(business_id,document_id,sku_id,label,unit,quantity,unit_price,tax_rate,net,tax,lot_code,price_rule_id,
         entered_unit,entered_quantity,entered_unit_price,unit_factor,hsn_code,mrp,kit_sku_id,kit_label,kit_group,free_quantity,discount_percent)
@@ -1059,6 +1103,14 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
         [business.id, location.id, line.sku.id, line.lotCode, line.expiresOn, line.quantity, line.stockCost.toFixed(4)]);
         await movement(db, business.id, updated.id, saved.id, line.quantity, updated.quantity);
         await db.query('UPDATE business_document_lines SET stock_unit_cost=$3 WHERE business_id=$1 AND id=$2', [business.id, savedLine.id, line.stockCost.toFixed(4)]);
+      } else if (offline) {
+        // An offline bill takes the usable stock there is, earliest expiry first (its batch is the first
+        // taken); what the books did not hold is noted, so no stock goes below zero.
+        const taken = await takeStock(db, business, { locationId: location.id, skuId: line.sku.id, quantity: line.quantity, documentId: saved.id, label: line.sku.label, partial: true });
+        if (taken.taken > 0) {
+          await db.query('UPDATE business_document_lines SET stock_unit_cost=$3,lot_code=$4 WHERE business_id=$1 AND id=$2', [business.id, savedLine.id, taken.cost, taken.lotCode]);
+        }
+        if (taken.short > 0) offlineNotes.shortfalls.push({ lineId: savedLine.id, skuId: line.sku.id, label: line.sku.label, unit: line.sku.unit, quantity: taken.short });
       } else {
         const lot = await repo.one(db, `SELECT * FROM business_stock_lots WHERE business_id=$1 AND location_id=$2 AND sku_id=$3 AND lot_code=$4
          AND (expires_on IS NULL OR expires_on >= (now() AT TIME ZONE $5)::date) FOR UPDATE`,
@@ -1086,7 +1138,8 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
           mrpFrom: update.sku.mrp, mrpTo: update.mrp === null || update.mrp === undefined ? null : Number(update.mrp).toFixed(2), documentNo: saved.document_no });
       }
     }
-    await repo.audit(db, business.id, user.id, `${kind}.posted`, saved.id, { total: saved.total, documentNo: saved.document_no, ...(warnings.length ? { warnings } : {}) });
+    await repo.audit(db, business.id, user.id, `${kind}.posted`, saved.id, { total: saved.total, documentNo: saved.document_no, ...(warnings.length ? { warnings } : {}),
+      ...(offline ? { madeOffline: offline.madeAt } : {}) });
     await repo.event(db, business.id, user.id, `${kind}.posted`, 'document', saved.id, {
       documentNo: saved.document_no, locationId: location.id, contactId: contact?.id || null, total: saved.total,
       lines: prepared.map((l) => ({ skuId: l.sku.id, quantity: l.quantity, lotCode: l.lotCode || null })),
@@ -1100,11 +1153,13 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     }
     let change = 0;
     for (const part of parts) {
-      await recordPayment(db, business, user, saved, { ...part, key: crypto.randomUUID() });
+      // An offline bill's money was taken when it was made (the cashier's shift and the day follow it).
+      await recordPayment(db, business, user, saved, { ...part, key: crypto.randomUUID(), at: offline?.madeAt || null });
       if (part.tendered !== null && part.tendered !== undefined) change += paise(part.tendered) - paise(part.amount);
     }
     const financeCase = financeUse ? await financeSales().record(db, business, user, saved, financeUse, { downPayment: paidPaise + prepaid, recordPayment }) : null;
-    const extras = { ...(change > 0 ? { change: money(change) } : {}), ...(financeCase ? { financeCase } : {}), ...(warnings.length ? { warnings } : {}) };
+    const extras = { ...(change > 0 ? { change: money(change) } : {}), ...(financeCase ? { financeCase } : {}), ...(warnings.length ? { warnings } : {}),
+      ...(offline ? { offline: offlineNotes } : {}) };
     if (kind === 'sale' && business.modules.includes('warranties') && prepared.some((l) => l.sku.tracking === 'serial')) {
       const warranties = await electronicsWarranties().registerOnSale(db, business, user, saved, prepared, { contact, buyer });
       return { ...saved, ...extras, warranties };
@@ -1114,6 +1169,33 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
 }
 async function movement(db, businessId, lotId, documentId, quantity, balance) {
   await db.query('INSERT INTO business_stock_movements(business_id,lot_id,document_id,quantity,balance_after) VALUES($1,$2,$3,$4,$5)', [businessId, lotId, documentId, quantity, balance]);
+}
+// Usable stock of one item at one location taken out for a sale document:
+// earliest expiry first, never an expired lot, never below zero, each lot's
+// movement on the document. Returns { taken, short (stock units), cost (per
+// unit taken, 4 places, null when none), lotCode (the first lot taken's) }.
+// `partial`: take what there is and say what was short (an offline till's
+// bill, whose shortfall is settled later, modules/business/till); otherwise
+// refuse when there is not enough. Inside the caller's transaction, the
+// business locked first.
+async function takeStock(db, business, { locationId, skuId, quantity, documentId, label, partial = false }) {
+  const lots = await repo.all(db, `SELECT * FROM business_stock_lots WHERE business_id=$1 AND location_id=$2 AND sku_id=$3 AND quantity>0
+    AND (expires_on IS NULL OR expires_on >= (now() AT TIME ZONE $4)::date) ORDER BY expires_on NULLS LAST,id FOR UPDATE`, [business.id, locationId, skuId, business.timezone]);
+  const wanted = milli(Number(quantity));
+  const available = lots.reduce((sum, lot) => sum + milli(Number(lot.quantity)), 0);
+  if (!partial && available < wanted) fail(`Not enough usable stock for ${label || 'this item'}: receive it first`, 409);
+  let left = wanted, cost = 0, lotCode = null;
+  for (const lot of lots) {
+    if (left <= 0) break;
+    const take = Math.min(left, milli(Number(lot.quantity)));
+    const updated = await repo.one(db, 'UPDATE business_stock_lots SET quantity=quantity-$3 WHERE business_id=$1 AND id=$2 RETURNING *', [business.id, lot.id, (take / 1000).toFixed(3)]);
+    await movement(db, business.id, lot.id, documentId, -(take / 1000), updated.quantity);
+    cost += (take / 1000) * Number(lot.unit_cost);
+    if (lotCode === null) lotCode = lot.lot_code;
+    left -= take;
+  }
+  const taken = wanted - left;
+  return { taken: taken / 1000, short: left / 1000, cost: taken > 0 ? (cost / (taken / 1000)).toFixed(4) : null, lotCode: lotCode ?? '' };
 }
 // A sale line whose goods leave stock after the bill was made (a hardware
 // shop's tinted paint leaves when its job is tinted): the line's own item and
@@ -1193,7 +1275,8 @@ function branchSeller(settings, location) {
 // supplierPaymentId: the supplier payment voucher it came from (payables).
 // methodName: the business's own name for the method (NULL from older screens).
 // Money from a collection receipt carries the receipt's method name.
-async function recordPayment(db, business, user, doc, { amount, method, methodName, reference, key, collectionId = null, supplierPaymentId = null, tendered = null }) {
+// at: when the money was taken, for an offline till's bill (null: now).
+async function recordPayment(db, business, user, doc, { amount, method, methodName, reference, key, collectionId = null, supplierPaymentId = null, tendered = null, at = null }) {
   if (methodName === undefined && collectionId) {
     const receipt = await repo.one(db, 'SELECT method,method_name FROM business_collections WHERE business_id=$1 AND id=$2', [business.id, collectionId]);
     methodName = receipt?.method === method ? receipt.method_name : null;
@@ -1203,8 +1286,8 @@ async function recordPayment(db, business, user, doc, { amount, method, methodNa
     COALESCE((SELECT sum(total) FROM business_returns WHERE business_id=$1 AND document_id=$2),0) AS returned,
     COALESCE((SELECT sum(amount) FROM business_refunds WHERE business_id=$1 AND document_id=$2),0) AS refunded`, [business.id, doc.id]);
   if (paise(amount) + paise(sums.paid) - paise(sums.refunded) > paise(doc.total) - paise(sums.returned)) fail('Payment exceeds the outstanding amount', 409);
-  const result = await repo.one(db, `INSERT INTO business_payments(business_id,document_id,amount,method,reference,request_key,created_by,collection_id,supplier_payment_id,tendered,method_name)
-   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`, [business.id, doc.id, amount, method, reference, key, user.id, collectionId, supplierPaymentId, tendered ?? null, methodName ?? null]);
+  const result = await repo.one(db, `INSERT INTO business_payments(business_id,document_id,amount,method,reference,request_key,created_by,collection_id,supplier_payment_id,tendered,method_name,created_at)
+   VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,COALESCE($12::timestamptz,now())) RETURNING *`, [business.id, doc.id, amount, method, reference, key, user.id, collectionId, supplierPaymentId, tendered ?? null, methodName ?? null, at]);
   await repo.audit(db, business.id, user.id, 'payment.recorded', result.id, { documentId: doc.id, amount, ...(methodName ? { method, methodName } : {}), ...(collectionId ? { collectionId } : {}), ...(supplierPaymentId ? { supplierPaymentId } : {}) });
   await repo.event(db, business.id, user.id, 'payment.recorded', 'payment', result.id, { documentId: doc.id, documentNo: doc.document_no, kind: doc.kind, amount: result.amount, method, ...(methodName ? { methodName } : {}) });
   return result;
@@ -1372,6 +1455,6 @@ async function reports(business, filters) {
 module.exports = { statusAllowed, list, linkRestaurant, createLocation, updateLocation, updateContact, reports, createCatalog, updateCatalog, createContact,
   createPriceRule, disablePriceRule, document, detail, payment, resource, appointment, appointmentStatus, decimal, dateText, uuid,
   lineNet, lineTax, inclusiveNet, kindPermission, readUnit, postDocument, recordPayment, conversion, requiredDecimals, readPayments,
-  readMrp, checkMrp, branchSeller, requireDepartmentItem, deliverLine, readHsn, readBarcode, readPan, signedDecimal, postOpeningStock,
+  readMrp, checkMrp, branchSeller, requireDepartmentItem, deliverLine, readHsn, readBarcode, readPan, signedDecimal, postOpeningStock, takeStock,
   // Online booking (modules/business/online-booking) books through the same clash check.
   appointmentClash };
