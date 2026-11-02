@@ -205,14 +205,19 @@ test("restaurant: kitchen reports, pre-orders, the guest's PAN and the captain a
   await O("POST", "/business-day/open", { openingCash: 500 }, 201, atA);
   const todayHere = today(zone);
   const yesterday = addDays(todayHere, -1);
+  // The main counter's open business day: before the morning cut-off a day opened
+  // now is still dated the evening before, so the kitchen's earlier day is the one
+  // before it, not the calendar's yesterday.
+  const openDay = (await one("SELECT to_char(business_date, 'YYYY-MM-DD') AS d FROM business_days WHERE restaurant_id = $1 AND outlet_id IS NULL AND day_status = 'open'", [rid])).d;
+  const dayBefore = addDays(openDay, -1);
   const lines = (...pairs) => pairs.map(([product, quantity, extra = {}]) => ({ productId: product.id, quantity, ...extra }));
   const ticketsOf = async (orderId) => (await request("GET", `/kitchen/orders/${orderId}/kots`, undefined, 200, cook)).data;
 
   // ---------------------------------------------------------------- the kitchen
 
   await t.test("the kitchen-station report: each station's tickets, dishes, times, late tickets and busiest hours; cancelled tickets left out", async () => {
-    // Five orders, cut into tickets now, then dated to yesterday's business
-    // day with fixed times on the restaurant's clock:
+    // Five orders, cut into tickets now, then dated to the business day before
+    // the open one, with fixed times on the restaurant's clock:
     //   main kitchen  M1 sent 19:00, ready 19:10, served 19:15
     //                 M2 sent 19:20, ready 19:45 (late: 25 min), served 20:00
     //                 M3 sent 20:05, ready and served 20:10 (bumped straight to served)
@@ -231,9 +236,9 @@ test("restaurant: kitchen reports, pre-orders, the guest's PAN and the captain a
     const day = await one(
       `INSERT INTO business_days (restaurant_id, business_date, opened_at, closed_at, day_status)
        VALUES ($1, $2, $3, $4, 'closed') RETURNING id`,
-      [rid, yesterday, momentAt(yesterday, "17:00", zone), momentAt(yesterday, "23:30", zone)]
+      [rid, dayBefore, momentAt(dayBefore, "17:00", zone), momentAt(dayBefore, "23:30", zone)]
     );
-    const at = (time) => (time ? momentAt(yesterday, time, zone) : null);
+    const at = (time) => (time ? momentAt(dayBefore, time, zone) : null);
     const set = (kot, status, sent, ready, served, extra = {}) =>
       pool.query(
         `UPDATE kots SET business_day_id = $2, kot_status = $3::varchar, created_at = $4, ready_at = $5, served_at = $6,
@@ -248,8 +253,8 @@ test("restaurant: kitchen reports, pre-orders, the guest's PAN and the captain a
     await set(kots[4], "served", "18:00", null, "21:00", { cleared: "manager" });
     await set(kots[5], "served", "19:05", "19:13", "19:20", { outletId: outletA.id });
 
-    const report = await O("GET", `/reports/kitchen-stations?from=${yesterday}&to=${yesterday}`);
-    assert.equal(report.from, yesterday);
+    const report = await O("GET", `/reports/kitchen-stations?from=${dayBefore}&to=${dayBefore}`);
+    assert.equal(report.from, dayBefore);
     assert.equal(report.lateMinutes, 20);
     assert.equal(report.cancelledLeftOut, 1);
     const main = report.stations.find((row) => row.stationName === "Main kitchen");
@@ -274,27 +279,27 @@ test("restaurant: kitchen reports, pre-orders, the guest's PAN and the captain a
     assert.deepEqual(report.hours, [{ hour: 18, tickets: 1 }, { hour: 19, tickets: 3 }, { hour: 20, tickets: 1 }]);
 
     // One outlet: its own tickets only.
-    const rooftop = await O("GET", `/reports/kitchen-stations?from=${yesterday}&to=${yesterday}`, undefined, 200, atA);
+    const rooftop = await O("GET", `/reports/kitchen-stations?from=${dayBefore}&to=${dayBefore}`, undefined, 200, atA);
     assert.deepEqual(rooftop.stations.map((row) => [row.stationName, row.tickets]), [["Tandoor", 1]]);
     assert.equal(rooftop.outletName, "Rooftop");
     // Today has none of them; another restaurant sees nothing of them.
-    assert.deepEqual((await O("GET", `/reports/kitchen-stations?from=${todayHere}&to=${todayHere}`)).stations, []);
-    assert.equal((await request("GET", `/reports/kitchen-stations?from=${yesterday}&to=${yesterday}`, undefined, 200, other)).data.total, null);
+    assert.deepEqual((await O("GET", `/reports/kitchen-stations?from=${openDay}&to=${openDay}`)).stations, []);
+    assert.equal((await request("GET", `/reports/kitchen-stations?from=${dayBefore}&to=${dayBefore}`, undefined, 200, other)).data.total, null);
     // Reports open it (reports.view); a cashier or a cook without it does not.
-    await request("GET", `/reports/kitchen-stations?from=${yesterday}&to=${yesterday}`, undefined, 403, captain);
+    await request("GET", `/reports/kitchen-stations?from=${dayBefore}&to=${dayBefore}`, undefined, 403, captain);
     await refused("GET", "/reports/kitchen-stations?from=2026-02-30", undefined, 400, /must be a real date/);
 
     // The same day's tickets, read only, on the dashboard's kitchen panel:
     // every ticket with its times, and the day's figures.
-    const earlier = await request("GET", `/kitchen/day?date=${yesterday}`, undefined, 200, cook).then((body) => body.data);
-    assert.equal(earlier.date, yesterday);
+    const earlier = await request("GET", `/kitchen/day?date=${dayBefore}`, undefined, 200, cook).then((body) => body.data);
+    assert.equal(earlier.date, dayBefore);
     assert.deepEqual(earlier.tickets.map((ticket) => ticket.id), [kots[4].id, kots[0].id, kots[5].id, kots[1].id, kots[2].id, kots[3].id]);
     assert.deepEqual([earlier.stats.totalCount, earlier.stats.lateCount, earlier.stats.clearedCount, earlier.stats.avgReadySeconds], [5, 2, 1, 720]);
     assert.equal(earlier.tickets[1].readyAt, at("19:10"));
-    assert.equal((await request("GET", `/kitchen/day?date=${yesterday}`, undefined, 200, cook, atA)).data.tickets.length, 1);
+    assert.equal((await request("GET", `/kitchen/day?date=${dayBefore}`, undefined, 200, cook, atA)).data.tickets.length, 1);
     await refused("GET", `/kitchen/day?date=${addDays(todayHere, 1)}`, undefined, 400, /Pick today or an earlier day/, cook);
     await refused("GET", "/kitchen/day?date=yesterday", undefined, 400, /must be a real date/, cook);
-    await request("GET", `/kitchen/day?date=${yesterday}`, undefined, 403, captain);
+    await request("GET", `/kitchen/day?date=${dayBefore}`, undefined, 403, captain);
     // Reading it changes nothing.
     assert.equal((await one("SELECT count(*)::int AS n FROM kots WHERE business_day_id = $1 AND kot_status = 'served'", [day.id])).n, 5);
   });
