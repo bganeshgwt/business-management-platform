@@ -41,8 +41,8 @@ const appsOf = (types) => [
 
 // Each group's mark, beside its name.
 const GROUP_ICONS = {
-  Food: "utensils", Shops: "store", Trade: "truck", "Speciality retail": "tag", "Building and farm": "layers",
-  "Vehicles and fuel": "fire", Services: "sparkles", Stays: "home", Health: "heart", "Weight-based": "scale",
+  Food: "utensils", Shops: "store", Trade: "truck", "Speciality retail": "tag", "Building and farm": "hammer",
+  "Vehicles and fuel": "car", Services: "sparkles", Stays: "bed", Health: "stethoscope", "Weight-based": "scale",
 };
 
 // Points of light drifting up through the hero: where each starts across it,

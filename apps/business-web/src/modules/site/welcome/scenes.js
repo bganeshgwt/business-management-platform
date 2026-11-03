@@ -18,7 +18,7 @@ export const SCENES = [
   {
     type: "grocery",
     label: "Kirana",
-    icon: "store",
+    icon: "basket",
     place: "Quick bill · Counter 1",
     summary: "A kirana store: items scanned by their barcodes and a scale label into a quick bill, paid by UPI.",
     notes: [
@@ -29,7 +29,7 @@ export const SCENES = [
   {
     type: "salon",
     label: "Salon",
-    icon: "sparkles",
+    icon: "scissors",
     place: "Today · Calendar",
     summary: "A salon: the day's appointments by stylist, with a package's sessions counted and a reminder ready on WhatsApp.",
     notes: [
@@ -40,7 +40,7 @@ export const SCENES = [
   {
     type: "healthcare",
     label: "Clinic",
-    icon: "activity",
+    icon: "stethoscope",
     place: "Front desk · Tokens",
     summary: "A clinic: the front desk's tokens and each doctor's queue, with a lab sample barcoded at collection.",
     notes: [

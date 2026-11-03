@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import Icon, { BrandMark } from "@bmp/ui/Icon";
+import { BUSINESS_ACCENTS } from "@bmp/ui/businessIcons";
 import SceneArt from "./SceneArt";
 import { SCENES } from "./scenes";
 import { useTilt } from "./pageMotion";
@@ -73,6 +74,12 @@ export default function HeroStage({ types }) {
   const [chosen, setChosen] = useState(0);
   const [paused, setPaused] = useState(false);
   const scenes = useMemo(() => (types.length ? SCENES.filter((scene) => types.some((type) => type.code === scene.type)) : SCENES), [types]);
+  // A scene's mark: its type's, as the platform sets it (the price list's
+  // types), in its accent, as the business's own top bar shows it.
+  const markOf = (scene) => {
+    const type = types.find((entry) => entry.code === scene.type);
+    return { icon: type?.icon || scene.icon, color: BUSINESS_ACCENTS[type?.accent] || null };
+  };
   useTilt(stageRef);
 
   if (!scenes.length) return null;
@@ -103,7 +110,7 @@ export default function HeroStage({ types }) {
           <div className="wl-window-bar" aria-hidden="true">
             <span className="wl-window-dots"><i /><i /><i /></span>
             <span key={scene.type} className="wl-window-place">
-              <BrandMark size={20} />
+              <BrandMark size={20} {...markOf(scene)} />
               {scene.place}
             </span>
             <LiveClock />
@@ -174,7 +181,7 @@ export default function HeroStage({ types }) {
                   className={`wl-tour-tab${active ? " is-active" : ""}`}
                   onClick={() => show(index)}
                 >
-                  <Icon name={item.icon} size={15} />
+                  <Icon name={markOf(item).icon} size={15} />
                   {item.label}
                   {active && <span className="wl-tour-line" aria-hidden="true" onAnimationEnd={() => show(current + 1)} />}
                 </button>
