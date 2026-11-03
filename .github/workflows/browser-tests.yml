@@ -64,8 +64,10 @@ jobs:
       # failing test's page as it stood when it failed.
       - if: failure()
         run: |
+          echo "--- the test API's server errors, with what led to them"
+          grep -n -B3 -A30 -E '" 5[0-9]{2} | 5[0-9]{2} [0-9.]+ ms|Error:|error:' test-results/e2e-api.log | head -250 || true
           echo "--- the test API's log, its last lines"
-          tail -n 150 test-results/e2e-api.log || true
+          tail -n 60 test-results/e2e-api.log || true
           for file in test-results/*/error-context.md; do
             [ -f "$file" ] || continue
             echo "--- $file"
