@@ -259,10 +259,10 @@ export default function QuotationDialog({ quotation, initial, onClose, onSaved }
               <input aria-label="Discount" type="number" min="0" step="0.01" value={form.discountValue} onChange={set("discountValue")} />
             </span>
           </Field>
-          <Field label="Reason for the discount"><input maxLength={120} required={Number(form.discountValue) > 0} value={form.discountReason} onChange={set("discountReason")} placeholder="e.g. bulk order for the site" /></Field>
+          <Field label="Reason for the discount"><input maxLength={120} required={Number(form.discountValue) > 0} value={form.discountReason} onChange={set("discountReason")} placeholder="e.g. a bulk order" /></Field>
         </div>
       )}
-      <Field label="Notes (optional)" wide><input maxLength={500} value={form.notes} onChange={set("notes")} placeholder="e.g. delivery to site in two loads; unloading by the customer" /></Field>
+      <Field label="Notes (optional)" wide><input maxLength={500} value={form.notes} onChange={set("notes")} /></Field>
     </FormDialog>
     {calculating && <CalculatorDialog biz={biz} target="quotation" onAdd={addCalculated} onClose={() => setCalculating(false)} />}
     </>

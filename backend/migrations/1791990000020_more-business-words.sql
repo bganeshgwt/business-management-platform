@@ -9,6 +9,8 @@
 --   phrase.labels         the label sheet (a garage's part labels)
 --   phrase.sell_plan      selling a plan at a gym, studio or coaching centre
 --                         (a coaching centre enrols a student)
+-- and a quotation's hold line that no longer repeats a validity: the
+-- quotation prints its own "The prices hold until …".
 
 INSERT INTO term_keys (key, area, label, hint, one, many, owner_may_rename, sort_order) VALUES
   ('booked_service', 'work', 'What a booking is for', 'The service a booking or a class is for.', 'Service', 'Services', FALSE, 325),
@@ -69,5 +71,24 @@ INSERT INTO business_kind_terms (business_type, kind, key, one, many) VALUES
   ('memberships', 'dance_studio', 'phrase.sell_plan', 'Enrol a student', NULL),
   ('memberships', 'sports_academy', 'phrase.sell_plan', 'Enrol a student', NULL);
 
+UPDATE business_type_terms t SET one = v.one, updated_at = now()
+FROM (VALUES
+  ('memberships', 'A place is held only once the fee is paid.'),
+  ('healthcare', 'Treatment is booked once you approve the estimate.'),
+  ('laundry', 'Pick-ups start once you approve the quotation.')
+) AS v(business_type, one)
+WHERE t.business_type = v.business_type AND t.key = 'phrase.quotation_hold';
+UPDATE business_kind_terms SET one = 'A seat is held only once the fee is paid.', updated_at = now()
+WHERE business_type = 'memberships' AND kind = 'coaching' AND key = 'phrase.quotation_hold';
+
 -- Down Migration
+UPDATE business_kind_terms SET one = 'The batch fee holds until the batch starts.'
+WHERE business_type = 'memberships' AND kind = 'coaching' AND key = 'phrase.quotation_hold';
+UPDATE business_type_terms t SET one = v.one
+FROM (VALUES
+  ('memberships', 'The plan price holds for 30 days.'),
+  ('healthcare', 'The package price holds for 30 days.'),
+  ('laundry', 'The rate holds for orders given within 30 days.')
+) AS v(business_type, one)
+WHERE t.business_type = v.business_type AND t.key = 'phrase.quotation_hold';
 DELETE FROM term_keys WHERE key IN ('booked_service', 'example.asset', 'example.offer_amount', 'phrase.labels', 'phrase.sell_plan');
