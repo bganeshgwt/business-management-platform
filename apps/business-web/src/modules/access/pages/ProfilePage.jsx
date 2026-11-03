@@ -13,7 +13,9 @@ import {
   updateProfile,
 } from "../../../services/auth.service";
 import { getErrorMessage } from "../../../services/api";
+import { makeTerms } from "../../../services/terms";
 import useAuth from "../../../hooks/useAuth";
+import useBusiness from "../../../hooks/useBusiness";
 import TwoStepCard from "./TwoStepCard";
 import SignInHistoryGrid from "./SignInHistoryGrid";
 import "../../../styles/access.css";
@@ -27,6 +29,10 @@ export default function ProfilePage() {
   const { user, refreshUser, replaceToken, hasFeature } = useAuth();
   // Set by the sign-in screen after a recovery code was used.
   const twoStepNotice = useLocation().state?.twoStepNotice || "";
+  // What a person locks and unlocks with their PIN, in the open business's
+  // word (a shop's till); with no business open, the screen.
+  const { context } = useBusiness();
+  const till = context ? makeTerms(context.terms).lower("till") : "screen";
 
   const [details, setDetails] = useState({
     name: user.name || "",
@@ -100,7 +106,7 @@ export default function ProfilePage() {
       // Every older session has just ended; this device carries on.
       replaceToken(result.data?.token);
       setPasswords({ currentPassword: "", newPassword: "", confirmPassword: "" });
-      setPasswordSuccess("Password changed. Any other phone or till signed in as you has been signed out.");
+      setPasswordSuccess(`Password changed. Any other phone, shared ${till} or browser signed in as you has been signed out.`);
     } catch (err) {
       setPasswordError(getErrorMessage(err));
     } finally {
@@ -129,7 +135,7 @@ export default function ProfilePage() {
       const result = await setMyPin(pinForm.password, pinForm.pin, pinForm.confirmPin);
       refreshUser(result.data);
       setPinForm({ password: "", pin: "", confirmPin: "" });
-      setPinSuccess(user.pinGiven ? result.message : user.hasPin ? "PIN changed" : "PIN set. You can now unlock a till and approve with it.");
+      setPinSuccess(user.pinGiven ? result.message : user.hasPin ? "PIN changed" : `PIN set. You can now unlock a ${till} and approve with it.`);
     } catch (err) {
       setPinError(getErrorMessage(err));
     } finally {
@@ -153,7 +159,7 @@ export default function ProfilePage() {
       const result = await clearMyPin(pinForm.password);
       refreshUser(result.data);
       setPinForm({ password: "", pin: "", confirmPin: "" });
-      setPinSuccess("PIN removed. You unlock the till with your password until you set a new one.");
+      setPinSuccess(`PIN removed. You unlock the ${till} with your password until you set a new one.`);
     } catch (err) {
       setPinError(getErrorMessage(err));
     } finally {
@@ -168,7 +174,7 @@ export default function ProfilePage() {
     try {
       const result = await signOutOtherDevices();
       replaceToken(result.data?.token);
-      setSessionMessage("Done. Every other phone, till or browser signed in as you has been signed out.");
+      setSessionMessage(`Done. Every other phone, shared ${till} or browser signed in as you has been signed out.`);
     } catch (err) {
       setSessionError(getErrorMessage(err));
     }
@@ -305,8 +311,8 @@ export default function ProfilePage() {
           onSubmit={savePin}
           icon="key"
           title="Personal PIN"
-          description={`4 to 6 digits, only yours. It unlocks a shared till and lets you take it over from someone else${
-            canApprove ? ", and it is how you approve a void, refund or day close at another person's till" : ""
+          description={`4 to 6 digits, only yours. It unlocks a shared ${till} and lets you take it over from someone else${
+            canApprove ? `, and it is how you approve a void, refund or day close at another person's ${till}` : ""
           }.`}
           actions={pinBadge}
         >
@@ -315,7 +321,7 @@ export default function ProfilePage() {
             <SuccessMessage message={pinSuccess} />
             {user.pinGiven && (
               <div className="alert alert-notice field-wide" role="status">
-                Someone else set your PIN. It opens a shared till for you, but approves nothing as you until you choose your own here.
+                Someone else set your PIN. It opens a shared {till} for you, but approves nothing as you until you choose your own here.
               </div>
             )}
 
@@ -376,7 +382,7 @@ export default function ProfilePage() {
           onSubmit={savePassword}
           icon="lock"
           title="Change password"
-          description="Changing it signs you out on every other phone, till and browser; this one stays signed in."
+          description={`Changing it signs you out on every other phone, shared ${till} and browser; this one stays signed in.`}
         >
           <div className="form-grid">
             <ErrorMessage message={passwordError} />
@@ -432,7 +438,7 @@ export default function ProfilePage() {
           icon="history"
           tone="info"
           title="Where you are signed in"
-          description="Lost a phone, or left a till signed in somewhere? Sign out everywhere else; this screen stays signed in."
+          description={`Lost a phone, or left a shared ${till} signed in somewhere? Sign out everywhere else; this one stays signed in.`}
           actions={
             <button type="button" className="button button-secondary button-sm" onClick={signOutOthers}>
               <Icon name="logout" size={15} /> Sign out all other devices

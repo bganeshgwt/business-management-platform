@@ -1309,7 +1309,9 @@ pages you may use. In this guide an arrow goes one level down the menu:
 - **Quick access** keeps up to five favourite pages above the menu (**Set
   up**, pick, arrange with the arrows, **Save shortcuts**). It belongs to your
   login on this browser, so everyone on a shared till has their own; each
-  business you open in Business Admin keeps its own set too.
+  business you open in Business Admin keeps its own set too, and its search
+  suggests that business's own pages (a gym's *check-in, members or
+  renewals*).
 - **The outlet picker** appears when the restaurant has an active outlet and
   you may see outlets and are not tied to one. Changing it reloads the page.
   From then on every order, bill, stock movement, report and dashboard figure
@@ -8090,7 +8092,9 @@ that outlet's tasks and issues (and whole-business ones) only.
 
 **Who "works here".** In a restaurant: its users and its staff records (an
 employee without a login can be named; their manager ticks the task for them).
-In other businesses: its members and its stylists, doctors or rooms (resources).
+In other businesses: its members and the people and rooms it books (a salon's
+stylists, a clinic's doctors, a gym's trainers and studios; a manager ticks the
+task for one without a login).
 "Whoever is on shift" in a restaurant means rostered that day or clocked in at
 that outlet; on a day with no roster it is everyone. In other businesses it is
 everyone working there. The first person to start a shared task does it.

@@ -4,6 +4,8 @@ import { NavLink } from "react-router-dom";
 import Icon from "@bmp/ui/Icon";
 import NavIcon from "./NavIcon";
 import { pageAccent } from "../services/pageAccent";
+import { makeTerms } from "../services/terms";
+import useBusiness from "../hooks/useBusiness";
 import Modal from "./Modal";
 import { ErrorMessage } from "./Feedback";
 import { allowedQuickPaths, QUICK_ACCESS_LIMIT, quickAccessKey, readQuickAccess, writeQuickAccess } from "../services/navigationPreferences";
@@ -15,6 +17,10 @@ function QuickAccessEditor({ sections, selected, onSave, onClose }) {
   const [error, setError] = useState("");
   const [announcement, setAnnouncement] = useState("");
   const dialogRef = useRef(null);
+  // What to search for: an open business's own pages, in its words ("check-in,
+  // members or renewals"; none when it keeps no example), else the restaurant's.
+  const { inBusinessAdmin, context } = useBusiness();
+  const example = inBusinessAdmin ? makeTerms(context?.terms).ex("quick_access") : "POS, bills or stock";
   const links = sections.flatMap(section => section.links);
   const paths = allowedQuickPaths(draft, links);
   const chosen = paths.map(path => links.find(link => link.to === path));
@@ -109,7 +115,7 @@ function QuickAccessEditor({ sections, selected, onSave, onClose }) {
 
         <label className="field quick-editor-search">
           <span>Find a page</span>
-          <input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Try POS, bills or stock" />
+          <input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder={example ? `Try ${example}` : undefined} />
         </label>
         <p className="quick-editor-hint" id="quick-selection-help">
           {full ? "5 pages selected. Remove one to add a different page." : "Only pages your role can open are listed."}

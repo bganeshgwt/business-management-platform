@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink } from "react-router-dom";
 import Icon from "@bmp/ui/Icon";
 import StatusBadge from "../../../components/StatusBadge";
@@ -7,6 +7,8 @@ import FormField from "../../../components/FormField";
 import { EmptyState } from "../../../components/Feedback";
 import { dateTime, relative } from "@bmp/shared/format";
 import { getErrorMessage } from "../../../services/api";
+import { makeTerms } from "../../../services/terms";
+import useBusiness from "../../../hooks/useBusiness";
 import toast from "../../../services/toast";
 import useTasks from "./useTasks";
 import { ISSUE_STATUS, PRIORITY, PROJECT_STATUS, SEVERITY, TASK_STATUS } from "./taskWords";
@@ -92,6 +94,13 @@ export function TasksNav() {
 // Who does it: people (one or several), a role, whoever is on shift, nobody yet.
 export function AssignField({ mode, assignees, onChange, allowOthers = true }) {
   const { roles, userId, world } = useTasks();
+  // A business's bookable people and rooms (its Appointments) have no login: a
+  // manager ticks their tasks. Named in its words: "a trainer or studio".
+  const business = useBusiness();
+  const terms = business.context?.terms;
+  const t = useMemo(() => makeTerms(terms), [terms]);
+  const noLogin = world === "restaurant" ? "Staff without a login are done for by their manager."
+    : business.has("appointments") ? `${t.a("resource").replace(/^./, (c) => c.toUpperCase())} without a login is done for by a manager.` : "";
   const setMode = (next) => onChange(next, next === "people" ? assignees.filter((a) => !["role", "business_role"].includes(a.kind)) : []);
   const chosen = assignees.filter((a) => !["role", "business_role"].includes(a.kind));
   const role = assignees.find((a) => ["role", "business_role"].includes(a.kind));
@@ -124,7 +133,7 @@ export function AssignField({ mode, assignees, onChange, allowOthers = true }) {
           )}
           <PeoplePicker aria-label="Add a person" placeholder="Add a person: type a name" exclude={chosen} clearOnSelect
             onChange={(p) => p && onChange("people", [...chosen, { kind: p.kind, id: p.id, name: p.name }])} />
-          <small className="muted">Several people: any one of them can do it. {world === "restaurant" ? "Staff without a login are done for by their manager." : "Stylists or rooms without a login are done for by a manager."}</small>
+          <small className="muted">Several people: any one of them can do it.{noLogin && ` ${noLogin}`}</small>
         </>
       )}
       {mode === "role" && (
