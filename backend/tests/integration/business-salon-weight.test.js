@@ -100,13 +100,15 @@ test('salon & spa and weight-based shops', { timeout: 300000 }, async (t) => {
     for (const kind of ['sales_order', 'collection', 'repair_job', 'processing']) assert.ok(kinds.d.includes(`'${kind}'`), kind);
   });
 
-  // Staff with each template role in the salon and the meat shop.
+  // Staff with each template role in the salon and the meat shop. A salon's
+  // Receptionist bills in the cashier's place (its trade's roles).
   const staff = { salon: {}, meat: {} };
   for (const [type, business] of [['salon', salon], ['meat', meat]]) {
     const roles = (await request('GET', `/businesses/${business.id}/roles`)).items;
     for (const template of ['cashier', 'stock_keeper', 'viewer']) {
+      const code = type === 'salon' && template === 'cashier' ? 'receptionist' : template;
       const person = await one('INSERT INTO users(restaurant_id,name,email,password_hash) VALUES($1,$2,$3,$4) RETURNING id', [ownerUser.restaurant_id, `${type} ${template}`, `${type}-${template}@test.invalid`, hash]);
-      await request('POST', `/businesses/${business.id}/members`, { userId: person.id, roleId: roles.find((r) => r.template_code === template).id }, 201);
+      await request('POST', `/businesses/${business.id}/members`, { userId: person.id, roleId: roles.find((r) => r.template_code === code).id }, 201);
       staff[type][template] = as(await login(`${type}-${template}@test.invalid`));
     }
   }

@@ -28,6 +28,8 @@ async function load(user, businessId) {
 async function open(user, businessId) {
   const business = await load(user, businessId);
   await require('../../../tax-changes/services/taxChangesShop').onOpen(business);
+  // Its words, read now, before any transaction of the request (businessWords termsOf).
+  business.words = await businessWords().wordsOf(business);
   return business;
 }
 

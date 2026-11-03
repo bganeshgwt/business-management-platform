@@ -238,7 +238,7 @@ async function applyConsents(db, business, user, contact, choices) {
 async function createContact(business, user, body, inTransaction = null) {
   await access.require(business, 'contacts.create');
   const kind = v.requiredEnum(body.kind, 'Contact type', ['customer', 'supplier']);
-  const f = contactFields(body, kind, await termsOf(business));
+  const f = contactFields(body, kind, await termsOf(business, inTransaction || undefined));
   const choices = personalConsents().readChoices(body.consents);
   const run = inTransaction ? (work) => work(inTransaction) : repo.transaction;
   return run(async (db) => {

@@ -71,7 +71,7 @@ async function recordGuestConsents(db, business, contactId, choices, noticeId) {
   const status = await consents.active(db, businessId, person);
 
   if (status.erased) {
-    fail(`This ${(await termsOf(businessId)).lower("customer")}'s data was erased at their request: no consent is recorded for them`, 409);
+    fail(`This ${(await termsOf(businessId, db)).lower("customer")}'s data was erased at their request: no consent is recorded for them`, 409);
   }
 
   // Offers are never sent to a child, whoever agrees.

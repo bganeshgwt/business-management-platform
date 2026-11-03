@@ -35,7 +35,10 @@ const forget = (businessId) => (businessId === undefined ? kept.clear() : kept.d
 
 // A business's words as the staff app reads them, for what the server writes
 // itself: t(key), t(key, 'many'), t.lower, t.a, t.count, t.ex (utils/words.js).
-const termsOf = async (business, db) => terms(await wordsOf(business, db));
+// A business opened for a request carries its words (businessAccess open), so
+// a service inside its transaction reads them without asking the pool for
+// another connection; otherwise they are read on `db`.
+const termsOf = async (business, db) => terms(business?.words || await wordsOf(business, db));
 
 // Every word's default, kept a minute: what text written for every business
 // (the platform's modules and permissions) says.

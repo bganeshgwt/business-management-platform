@@ -33,7 +33,11 @@ async function contactReferences(db) {
 
 // What still ties the person to the business: an erasure waits for each.
 // `t`: the business's words.
+// A business's words for a person: { person, people, Person } ("member", "members", "Member").
+const personWords = (t) => ({ person: t.lower('customer'), people: t.lower('customer', 'many'), Person: t('customer') });
+
 async function openItems(db, business, contactId, t) {
+  t = t || await termsOf(business, db);
   const b = business.id;
   const items = [];
   const balance = await repo.one(db, `SELECT ${repo.contactBalanceSql('c')} AS balance FROM business_contacts c WHERE c.business_id=$1 AND c.id=$2`, [b, contactId]);
@@ -109,6 +113,7 @@ async function exportOf(db, business, contactId) {
 // { erased: [{ heading, rows }], kept: [sentences] }. `words`: the world's
 // words for a person ({ person, Person }).
 async function erase(db, business, user, contactId, words) {
+  words = words || personWords(await termsOf(business, db));
   const b = business.id;
   const contact = await repo.one(db, 'UPDATE business_contacts SET name=$3,phone=NULL,email=NULL,address=NULL,gstin=NULL,pan=NULL,active=FALSE,erased_at=now(),erased_by=$4,updated_at=now() WHERE business_id=$1 AND id=$2 RETURNING id',
     [b, contactId, erasedName(contactId, words.person), user.id]);
@@ -145,7 +150,7 @@ async function erase(db, business, user, contactId, words) {
 // its people named in the business's words ("member", "members", "Member").
 async function world(business, user) {
   const t = await termsOf(business);
-  const words = { person: t.lower('customer'), people: t.lower('customer', 'many'), Person: t('customer') };
+  const words = personWords(t);
   return {
     kind: 'shop',
     businessId: business.id,

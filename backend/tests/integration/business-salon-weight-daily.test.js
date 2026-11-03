@@ -76,10 +76,10 @@ test('salon & weight shops, day to day', { timeout: 300000 }, async (t) => {
   const M = (suffix) => `/businesses/${meat.id}/${suffix}`;
   const D = (suffix) => `/businesses/${dry.id}/${suffix}`;
 
-  // Staff with the cashier role in the salon.
+  // Staff with the salon's billing role: its Receptionist, which takes the cashier's place in a salon.
   const roles = (await request('GET', S('roles'))).items;
   const cashierUser = await one('INSERT INTO users(restaurant_id,name,email,password_hash) VALUES($1,$2,$3,$4) RETURNING id', [ownerUser.restaurant_id, 'Salon cashier', 'swpro-cashier@test.invalid', hash]);
-  await request('POST', S('members'), { userId: cashierUser.id, roleId: roles.find((r) => r.template_code === 'cashier').id }, 201);
+  await request('POST', S('members'), { userId: cashierUser.id, roleId: roles.find((r) => r.template_code === 'receptionist').id }, 201);
   const cashier = as(await login('swpro-cashier@test.invalid'));
 
   // --- Salon set-up -------------------------------------------------------------------------
