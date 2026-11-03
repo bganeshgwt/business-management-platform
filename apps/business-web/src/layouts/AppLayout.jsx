@@ -329,7 +329,7 @@ function AppShell() {
   const bellFeed = useMemo(() => (businessMode && businessId ? businessFeed(businessId, user.id) : null), [businessMode, businessId, user.id]);
   const availableSections = useMemo(() => {
     if (businessMode) {
-      return businessContext ? businessMenu(businessId, businessContext.business.business_type, can, has, Boolean(businessContext.role?.full_access), makeTerms(businessContext.terms)) : [];
+      return businessContext ? businessMenu(businessId, businessContext.business.business_type, can, has, Boolean(businessContext.role?.full_access), makeTerms(businessContext.terms), businessContext.look) : [];
     }
     const resolved = NAV_SECTIONS.filter((section) => user.restaurantId || section.title === "Platform").map((section) => ({
       ...section,

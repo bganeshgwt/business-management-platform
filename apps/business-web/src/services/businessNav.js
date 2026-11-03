@@ -447,14 +447,15 @@ export function businessSections(type, t = makeTerms()) {
 }
 
 // The menu this person sees in this business, as the main layout draws it;
-// owner: whether they hold its Owner role; t: the business's words.
-export function businessMenu(businessId, type, can, has, owner = false, t = makeTerms()) {
+// owner: whether they hold its Owner role; t: the business's words; look:
+// its look (what a new item starts as decides the label sheet's place).
+export function businessMenu(businessId, type, can, has, owner = false, t = makeTerms(), look = null) {
   const rules = businessSections(type, t).flatMap((group) => group.links);
   const allowed = (link) => link && typeAllows(link, type) && (!link.need || can(link.need)) && (!link.module || has(link.module)) && (!link.owner || owner);
   return dailyWorkspaces(type).map((group) => ({
     title: group.title,
     links: group.keys.map((key) => {
-      const names = WORKSPACES[key] ? workspaceSections(key, type) : [key];
+      const names = WORKSPACES[key] ? workspaceSections(key, type, look) : [key];
       const available = names.map((name) => rules.find((link) => link.section === name && typeAllows(link, type))).filter(allowed);
       const link = available[0];
       if (!link) return null;

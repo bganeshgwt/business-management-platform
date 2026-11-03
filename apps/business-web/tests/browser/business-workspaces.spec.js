@@ -285,7 +285,7 @@ for(const type of ['grocery','supermarket','wholesale','fashion','electronics','
     const context=await api.businessContext(id);
     const allowed=rule=>rule&&nav.typeAllows(rule,type)&&(!rule.need||context.permissions.includes(rule.need)&&context.modules.includes(rule.need.split('.')[0]))&&(!rule.module||context.modules.includes(rule.module));
     const rules=nav.businessSections(type).flatMap(group=>group.links);
-    const names=workspace.dailyWorkspaces(type).flatMap(group=>group.keys).flatMap(key=>workspace.WORKSPACES[key]?workspace.workspaceSections(key,type):[key]);
+    const names=workspace.dailyWorkspaces(type).flatMap(group=>group.keys).flatMap(key=>workspace.WORKSPACES[key]?workspace.workspaceSections(key,type,context.look):[key]);
     // A clinic's two workspaces open screens of their own, outside Business Admin (clinic-lab.spec.js).
     return [...new Set(names)].filter(name=>!['','counter','rx-sale','salon-bill','jewellery-bill','dispatch','routes','clinic-workspace','lab-workspace'].includes(name)&&allowed(rules.find(rule=>rule.section===name&&nav.typeAllows(rule,type))));
   },{id:business.id,type});

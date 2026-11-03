@@ -14,7 +14,7 @@ export default function WorkspaceNav({ section }) {
   // Billing screens stay uncluttered; Tasks draws its own tabs (TasksNav).
   if (['counter','rx-sale','salon-bill','jewellery-bill','tasks'].includes(section)) return null;
   if (!key || section === 'patients' && pathname.endsWith('/patients') === false) return null;
-  const wanted = workspaceSections(key, type);
+  const wanted = workspaceSections(key, type, context.look);
   const rules = businessSections(type, t).flatMap((group) => group.links);
   const links = wanted.map((name) => rules.find((rule) => rule.section === name && typeAllows(rule, type)))
     .filter((rule) => rule && (!rule.need || can(rule.need)) && (!rule.module || has(rule.module)) && (!rule.owner || context.role?.full_access))

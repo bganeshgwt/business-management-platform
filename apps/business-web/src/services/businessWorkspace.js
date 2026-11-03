@@ -1,4 +1,4 @@
-import { GOODS, ONLINE_SHOP, SERVICES, WEIGHED } from './businessTypes.js';
+import { GOODS, ONLINE_SHOP, WEIGHED } from './businessTypes.js';
 import { makeTerms } from './terms.js';
 
 // Presentation groups share the existing route permissions and module guards.
@@ -69,7 +69,8 @@ export function workspaceFor(section, type) {
   return Object.keys(WORKSPACES).find((key) => WORKSPACES[key].includes(section)) || null;
 }
 
-export function workspaceSections(key, type) {
+// look: the business's look (its context's), for what follows its type's data.
+export function workspaceSections(key, type, look = null) {
   const list = WORKSPACES[key] || [];
   // Packaging, sizes, recipes, warranties and prescribing stay in their trades.
   return list.filter((section) => {
@@ -77,10 +78,11 @@ export function workspaceSections(key, type) {
     // the price lists on finds them with its products.
     if (section === 'pricing') return key === 'orders' ? type === 'wholesale' : type !== 'wholesale';
     if (section === 'kits') return ['electronics', 'fashion', 'books', 'supermarket', 'general_retail', 'hardware', 'agri_inputs', 'garage'].includes(type);
-    // Shelf and barcode labels are a goods shop's: a business that sells its
-    // time and work (its new items start as services) keeps the page off its
-    // menu, and reaches it from a goods receipt's "Print labels".
-    if (section === 'labels') return !SERVICES.includes(type);
+    // Shelf and barcode labels are a goods shop's: a business whose new items
+    // start as services (its type's, Platform › Business types) sells its time
+    // and work, keeps the page off its menu, and reaches it from a goods
+    // receipt's "Print labels".
+    if (section === 'labels') return (look?.defaultItemKind || 'goods') === 'goods';
     if (section === 'weight-stock') return WEIGHED.includes(type);
     if (section === 'processing') return WEIGHED.includes(type);
     if (section === 'wastage') return [...WEIGHED,'grocery','supermarket','general_retail'].includes(type);
