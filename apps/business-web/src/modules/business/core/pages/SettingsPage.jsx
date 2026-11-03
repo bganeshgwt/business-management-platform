@@ -6,6 +6,7 @@ import { COMMON_CURRENCIES } from "./newBusiness";
 
 const zoneList = (() => { try { return Intl.supportedValuesOf("timeZone"); } catch { return ["Asia/Kolkata"]; } })();
 import { getErrorMessage } from "../../../../services/api";
+import { sectionRule, typeAllows } from "../../../../services/businessNav";
 import { BusinessHeader, Badge, Field } from "./ui";
 import { useDirtyGuard, useOpenBusiness } from "./hooks";
 import { confirmAction } from "../../../../services/confirm";
@@ -53,11 +54,30 @@ const SECTIONS = [
   { id: "bz-settings-words", label: "Words" },
 ];
 
+// Whether the business has a screen: its type's menu has it and the module it
+// needs is on (services/businessNav.js).
+const hasScreen = (biz, section) => {
+  const rule = sectionRule(section, biz.type);
+  return Boolean(rule && typeAllows(rule, biz.type) && (!rule.module || biz.has(rule.module)));
+};
+// A placeholder from the business's own example ("e.g. …"), none when it has none.
+const example = (text) => (text ? `e.g. ${text}` : undefined);
+
 // This business's own details and billing rules, and the modules it uses.
-// Nothing here touches any other business.
+// Nothing here touches any other business. A rule shows where the business
+// uses it: the counter's (walk-ins, a shared till) where it bills at Quick
+// bill; receipts where its bills print on a receipt roll (Quick bill, a
+// salon's New bill); the rest by its modules. Its words and examples are its
+// own (services/terms.js).
 export default function SettingsPage() {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const editable = biz.can("settings.edit");
+  const counter = hasScreen(biz, "counter");
+  const receipts = counter || hasScreen(biz, "salon-bill");
+  const rules = receipts || ["batches", "exchanges", "receivables", "weight", "tasks"].some((module) => biz.has(module));
+  const ownWords = biz.type !== "restaurant";
+  const sections = SECTIONS.filter((s) => (s.id !== "bz-settings-rules" || rules) && (s.id !== "bz-settings-words" || ownWords));
   const [form, setForm] = useState(null);
   const [saved, setSaved] = useState(null);
   const [savedAt, setSavedAt] = useState(null);
@@ -86,7 +106,7 @@ export default function SettingsPage() {
       setSavedAt(new Date());
       setDirty(false);
       setNotice("");
-      toast.success("Settings saved. New sales use them from now on; posted bills keep what they were.");
+      toast.success(`Settings saved. New ${t.lower("sale", "many")} use them from now on; posted bills keep what they were.`);
       biz.reloadContext();
       // A new business name shows in the switcher and the header at once.
       if (saved.name !== biz.business.name) biz.reloadDirectory();
@@ -104,7 +124,7 @@ export default function SettingsPage() {
       <ErrorMessage message={error} />
       {!form && !error && <Loading />}
       {form && (
-        <SettingsLayout sections={SECTIONS}>
+        <SettingsLayout sections={sections}>
         <form className="stack" onSubmit={save}>
           <fieldset className="bz-plain-fieldset" disabled={!editable || busy}>
             <SectionCard id="bz-settings-details" icon="store" title="Business details" description="The business's own name, and what invoices and receipts print at the top.">
@@ -112,7 +132,7 @@ export default function SettingsPage() {
                 <Field label="Business name" hint="As the business switcher, the header and every screen show it.">
                   <input required maxLength={150} value={form.name} onChange={set("name")} />
                 </Field>
-                <Field label="Name shown in the app" hint="Printed on till receipts, slips and cards."><input required maxLength={150} value={form.displayName} onChange={set("displayName")} /></Field>
+                <Field label="Name shown in the app" hint="Printed on receipts, slips and cards."><input required maxLength={150} value={form.displayName} onChange={set("displayName")} /></Field>
                 <Field label="Legal name (on invoices)"><input maxLength={200} value={form.legalName} onChange={set("legalName")} /></Field>
                 <Field label="GSTIN" hint="Its first two digits set the state."><input maxLength={20} className="mono" value={form.gstin} onChange={set("gstin")} /></Field>
                 <Field label="GST state code"><input maxLength={2} inputMode="numeric" className="mono" value={form.stateCode} onChange={set("stateCode")} placeholder="e.g. 27" /></Field>
@@ -125,15 +145,15 @@ export default function SettingsPage() {
                 <Field label="Logo (optional)" wide hint="The web address of your logo image; it is printed at the top of invoices."><input maxLength={300} value={form.logoPath} onChange={set("logoPath")} /></Field>
               </div>
             </SectionCard>
-            <SectionCard id="bz-settings-prices" icon="receipt" title="Prices, totals and numbering" description="How new sales are worked out.">
+            <SectionCard id="bz-settings-prices" icon="receipt" title="Prices, totals and numbering" description={`How new ${t.lower("sale", "many")} are worked out.`}>
               <div className="form-grid">
-                <Field label="Selling prices" hint="Inclusive: the price on the shelf already has GST in it.">
+                <Field label="Selling prices" hint={`Inclusive: the price on your ${t.lower("catalog")} already has GST in it.`}>
                   <select value={form.taxMode} onChange={set("taxMode")}>
                     <option value="exclusive">Before GST (GST added on top)</option>
                     <option value="inclusive">Including GST</option>
                   </select>
                 </Field>
-                <Field label="Round sale totals">
+                <Field label={`Round ${t.lower("sale")} totals`}>
                   <select value={form.rounding} onChange={set("rounding")}>
                     <option value="none">No rounding (to the paisa)</option>
                     <option value="nearest_rupee">To the nearest rupee</option>
@@ -157,61 +177,77 @@ export default function SettingsPage() {
                     {["DD/MM/YYYY", "DD-MM-YYYY", "DD MMM YYYY", "YYYY-MM-DD"].map((f) => <option key={f} value={f}>{f}</option>)}
                   </select>
                 </Field>
-                <Field label="Most discount at the counter (%)" hint="The most a manager can take off a bill at Quick bill (with a reason). The owner is not limited.">
+                <Field label="Most discount on a bill (%)" hint="The most a manager can take off a bill (with a reason). The owner is not limited.">
                   <input type="number" min="0" max="100" step="0.5" value={form.maxBillDiscountPercent} onChange={set("maxBillDiscountPercent")} />
                 </Field>
-                <Field label="Walk-in customers" hint="Udhaar is for named customers; a walk-in pays the whole bill unless you allow otherwise.">
-                  <select value={form.walkInCredit ? "yes" : "no"} onChange={(e) => { setDirty(true); setForm((f) => ({ ...f, walkInCredit: e.target.value === "yes" })); }}>
-                    <option value="no">Pay the whole bill (recommended)</option>
-                    <option value="yes">May leave a bill unpaid</option>
-                  </select>
-                </Field>
-                <Field label="Shared till" hint="Each cashier switches the till to themselves with their own PIN; every bill records who billed it. Asking for every bill stops anyone billing under a colleague's name.">
-                  <select value={form.counterPinEveryBill ? "yes" : "no"} onChange={(e) => { setDirty(true); setForm((f) => ({ ...f, counterPinEveryBill: e.target.value === "yes" })); }}>
-                    <option value="no">Ask the PIN only to switch who is billing</option>
-                    <option value="yes">Ask the biller's PIN for every bill</option>
-                  </select>
-                </Field>
-                <Field label="Invoice footer" wide><input maxLength={500} value={form.invoiceFooter} onChange={set("invoiceFooter")} placeholder="e.g. Goods once sold will be exchanged within 7 days with the bill." /></Field>
-                <Field label="Receipt footer" wide><input maxLength={300} value={form.receiptFooter} onChange={set("receiptFooter")} placeholder="e.g. Thank you! Visit again." /></Field>
+                {counter && (
+                  <>
+                    <Field label={t("walk_in", "many")} hint={`${t("on_account")} is for named ${t.lower("customer", "many")}; ${t.a("walk_in")} pays the whole bill unless you allow otherwise.`}>
+                      <select value={form.walkInCredit ? "yes" : "no"} onChange={(e) => { setDirty(true); setForm((f) => ({ ...f, walkInCredit: e.target.value === "yes" })); }}>
+                        <option value="no">Pay the whole bill (recommended)</option>
+                        <option value="yes">May leave a bill unpaid</option>
+                      </select>
+                    </Field>
+                    <Field label={`Shared ${t.lower("till")}`} hint={`Each person who bills at the ${t.lower("counter")} switches the ${t.lower("till")} to themselves with their own PIN; every bill records who billed it. Asking for every bill stops anyone billing under a colleague's name.`}>
+                      <select value={form.counterPinEveryBill ? "yes" : "no"} onChange={(e) => { setDirty(true); setForm((f) => ({ ...f, counterPinEveryBill: e.target.value === "yes" })); }}>
+                        <option value="no">Ask the PIN only to switch who is billing</option>
+                        <option value="yes">Ask the biller's PIN for every bill</option>
+                      </select>
+                    </Field>
+                  </>
+                )}
+                <Field label="Invoice footer" wide><input maxLength={500} value={form.invoiceFooter} onChange={set("invoiceFooter")} placeholder={example(t.ex("invoice_footer"))} /></Field>
+                {receipts && <Field label="Receipt footer" wide><input maxLength={300} value={form.receiptFooter} onChange={set("receiptFooter")} placeholder="e.g. Thank you! Visit again." /></Field>}
                 {biz.has("quotations") && (
                   <Field label="Terms and conditions on quotations" wide hint="Printed on every new quotation. A quotation keeps the terms it was made with: changing them here does not change quotations already made.">
-                    <textarea rows={4} maxLength={2000} value={form.quotationTerms} onChange={set("quotationTerms")} placeholder="e.g. Prices include delivery within the city. 50% advance with the order. Unloading by the customer." />
+                    <textarea rows={4} maxLength={2000} value={form.quotationTerms} onChange={set("quotationTerms")} placeholder={example(t.ex("quotation_terms"))} />
                   </Field>
                 )}
               </div>
             </SectionCard>
-            <SectionCard id="bz-settings-rules" icon="sliders" title="Rules" description="How this business works day to day. Each starts at the usual value; change only what you need.">
+            {rules && <SectionCard id="bz-settings-rules" icon="sliders" title="Rules" description="How this business works day to day. Each starts at the usual value; change only what you need.">
               <div className="form-grid">
-                <Field label="Expiring soon means within (days)" hint="Batches shown on the Overview, the bell, the near-expiry list and the stock list.">
-                  <input type="number" min="1" max="365" required value={form.nearExpiryDays} onChange={set("nearExpiryDays")} />
-                </Field>
-                <Field label="Credit vouchers valid for (days)" hint="A voucher from an exchange or return can be spent until then.">
-                  <input type="number" min="1" max="3650" required value={form.voucherValidDays} onChange={set("voucherValidDays")} />
-                </Field>
-                <Field label="Customer credit age groups (days)" hint="What customers owe is grouped by the age of the bill: up to the first, up to the second, up to the third, and older." wide>
-                  <span style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-                    <input type="number" min="1" max="3650" required aria-label="First group up to (days)" value={form.ageing1} onChange={set("ageing1")} />
-                    <input type="number" min="2" max="3650" required aria-label="Second group up to (days)" value={form.ageing2} onChange={set("ageing2")} />
-                    <input type="number" min="3" max="3650" required aria-label="Third group up to (days)" value={form.ageing3} onChange={set("ageing3")} />
-                  </span>
-                </Field>
-                <Field label="Quick weight buttons (grams)" hint="At Quick bill for loose goods, e.g. 100, 250, 500, 1000. Up to 8.">
-                  <input required value={form.weightButtons} onChange={set("weightButtons")} />
-                </Field>
-                <Field label="Till receipt paper" hint="The width of the receipt printer's roll.">
-                  <select value={form.receiptWidthMm} onChange={set("receiptWidthMm")}>
-                    <option value="80">80 mm</option>
-                    <option value="58">58 mm</option>
-                  </select>
-                </Field>
-                <Field label="Day cut-off" hint="A task due after midnight, before this hour, belongs to the day before (a late closing check).">
-                  <select value={form.dayCutoffHour} onChange={set("dayCutoffHour")}>
-                    {Array.from({ length: 13 }, (_, h) => <option key={h} value={h}>{h === 0 ? "Midnight" : h === 12 ? "Noon" : `${h} am`}</option>)}
-                  </select>
-                </Field>
+                {biz.has("batches") && (
+                  <Field label="Expiring soon means within (days)" hint="Batches shown on the Overview, the bell, the near-expiry list and the stock list.">
+                    <input type="number" min="1" max="365" required value={form.nearExpiryDays} onChange={set("nearExpiryDays")} />
+                  </Field>
+                )}
+                {biz.has("exchanges") && (
+                  <Field label="Credit vouchers valid for (days)" hint="A voucher from an exchange or return can be spent until then.">
+                    <input type="number" min="1" max="3650" required value={form.voucherValidDays} onChange={set("voucherValidDays")} />
+                  </Field>
+                )}
+                {biz.has("receivables") && (
+                  <Field label={`${t("customer")} credit age groups (days)`} hint={`What ${t.lower("customer", "many")} owe is grouped by the age of the bill: up to the first, up to the second, up to the third, and older.`} wide>
+                    <span style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+                      <input type="number" min="1" max="3650" required aria-label="First group up to (days)" value={form.ageing1} onChange={set("ageing1")} />
+                      <input type="number" min="2" max="3650" required aria-label="Second group up to (days)" value={form.ageing2} onChange={set("ageing2")} />
+                      <input type="number" min="3" max="3650" required aria-label="Third group up to (days)" value={form.ageing3} onChange={set("ageing3")} />
+                    </span>
+                  </Field>
+                )}
+                {biz.has("weight") && (
+                  <Field label="Quick weight buttons (grams)" hint="At Quick bill for loose goods, e.g. 100, 250, 500, 1000. Up to 8.">
+                    <input required value={form.weightButtons} onChange={set("weightButtons")} />
+                  </Field>
+                )}
+                {receipts && (
+                  <Field label="Receipt paper" hint="The width of the receipt printer's roll.">
+                    <select value={form.receiptWidthMm} onChange={set("receiptWidthMm")}>
+                      <option value="80">80 mm</option>
+                      <option value="58">58 mm</option>
+                    </select>
+                  </Field>
+                )}
+                {biz.has("tasks") && (
+                  <Field label="Day cut-off" hint="A task due after midnight, before this hour, belongs to the day before (a late closing check).">
+                    <select value={form.dayCutoffHour} onChange={set("dayCutoffHour")}>
+                      {Array.from({ length: 13 }, (_, h) => <option key={h} value={h}>{h === 0 ? "Midnight" : h === 12 ? "Noon" : `${h} am`}</option>)}
+                    </select>
+                  </Field>
+                )}
               </div>
-            </SectionCard>
+            </SectionCard>}
           </fieldset>
           <SettingsSaveBar
             dirty={dirty}
@@ -223,7 +259,7 @@ export default function SettingsPage() {
           />
         </form>
         <ModulesCard />
-        {biz.type !== "restaurant" && <WordsCard />}
+        {ownWords && <WordsCard />}
         </SettingsLayout>
       )}
       {!form && <ModulesCard />}

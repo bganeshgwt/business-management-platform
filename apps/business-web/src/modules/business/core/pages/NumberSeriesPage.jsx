@@ -8,34 +8,46 @@ import FormDialog from "./FormDialog";
 import { BusinessHeader, Field } from "./ui";
 import { businessToday, useOpenBusiness, useServerList } from "./hooks";
 
-const KINDS = { sale: "Sale invoices", purchase: "Purchase receipts", sales_return: "Credit notes (sales returns)", purchase_return: "Debit notes (supplier returns)", stock_transfer: "Stock transfers", stock_count: "Stock counts",
-  // Wholesale sales orders and collection receipts.
-  sales_order: "Sales orders", collection: "Collection receipts", purchase_order: "Purchase orders", delivery_challan: "Delivery challans",
+// Each kind of document, and the modules that make it (any one of them): a
+// new series is offered only for the documents this business makes. The
+// server's list is businessNumbering.js.
+const DOCUMENTS = {
+  sale: ["Sale invoices", "sales"], sales_return: ["Credit notes (sales returns)", "sales"],
+  purchase: ["Purchase receipts", "purchasing"], purchase_return: ["Debit notes (supplier returns)", "purchasing"],
+  purchase_order: ["Purchase orders", "purchasing"], supplier_payment: ["Supplier payments", "purchasing"],
+  stock_transfer: ["Stock transfers", "stock_transfers"], stock_count: ["Stock counts", "stock_counts"],
+  // Wholesale sales orders and their delivery challans.
+  sales_order: ["Sales orders", "sales_orders"], delivery_challan: ["Delivery challans", "sales_orders"],
+  // Money received against dues, and the advances taken with an exchange or a repair.
+  collection: ["Collection receipts", "receivables", "exchanges", "repairs"],
   // Electronics repair job cards.
-  repair_job: "Repair job cards",
-  // Meat / weight shops' cutting batches.
-  processing: "Cutting batches",
+  repair_job: ["Repair job cards", "repairs"],
+  // Cutting batches (meat), sorting and repacking (loose goods).
+  processing: ["Cutting batches", "processing"],
   // Estimates (not GST documents).
-  quotation: "Quotations",
-  // An optical shop's spectacle orders (job cards; not GST documents).
-  spectacle_order: "Spectacle orders",
+  quotation: ["Quotations", "quotations"],
+  // Spectacle orders (job cards; not GST documents).
+  spectacle_order: ["Spectacle orders", "optical"],
   // A garage's job cards (not GST documents).
-  job_card: "Job cards",
-  // A gym's, studio's or coaching centre's memberships (not GST documents).
-  membership: "Memberships",
-  // A laundry's garment orders (not GST documents).
-  laundry_order: "Garment orders",
-  // A jeweller's old gold vouchers and gold schemes (not GST documents).
-  old_gold: "Old gold vouchers", gold_scheme: "Gold schemes",
-  // A jeweller's karigar challans and receipts, custom orders, approval challans, hallmarking consignments and metal vouchers (not GST documents).
-  karigar_issue: "Karigar issue challans", karigar_receipt: "Karigar receipts", custom_order: "Custom orders", approval: "Approval challans",
-  hallmark_consignment: "Hallmarking consignments", metal_voucher: "Metal vouchers", refinery_challan: "Refinery challans",
-  // A rental business's bookings (not GST documents: the bill at the return is).
-  rental: "Rental bookings",
+  job_card: ["Job cards", "garage"],
+  // Memberships of a gym, a studio or a coaching centre (not GST documents).
+  membership: ["Memberships", "member_plans"],
+  // Garment orders (not GST documents).
+  laundry_order: ["Garment orders", "laundry"],
+  // A jeweller's old gold vouchers, gold schemes, karigar challans and receipts, custom orders, approval challans,
+  // hallmarking consignments, metal vouchers and refinery challans (not GST documents).
+  old_gold: ["Old gold vouchers", "jewellery"], gold_scheme: ["Gold schemes", "jewellery"],
+  karigar_issue: ["Karigar issue challans", "jewellery"], karigar_receipt: ["Karigar receipts", "jewellery"], custom_order: ["Custom orders", "jewellery"],
+  approval: ["Approval challans", "jewellery"], hallmark_consignment: ["Hallmarking consignments", "jewellery"], metal_voucher: ["Metal vouchers", "jewellery"],
+  refinery_challan: ["Refinery challans", "jewellery"],
+  // Rental bookings (not GST documents: the bill at the return is).
+  rental: ["Rental bookings", "rentals"],
   // A fuel station's shifts (not GST documents: the fuel bills a close posts are).
-  fuel_shift: "Fuel shifts",
-  // A hotel's, lodge's or guest house's reservations and stays, and its group bookings (not GST documents: the bill at check-out is).
-  stay: "Stays", stay_group: "Group bookings" };
+  fuel_shift: ["Fuel shifts", "fuel"],
+  // Reservations and stays, and group bookings (not GST documents: the bill at check-out is).
+  stay: ["Stays", "lodging"], stay_group: ["Group bookings", "lodging"],
+};
+const documentName = (kind) => DOCUMENTS[kind]?.[0] || kind;
 const fiscalLabel = (year) => `${year}-${String((Number(year) + 1) % 100).padStart(2, "0")}`;
 const sample = (s) => `${s.prefix}${String(s.next_number).padStart(s.padding, "0")}`;
 
@@ -48,7 +60,7 @@ export default function NumberSeriesPage() {
   const [editing, setEditing] = useState(null);
   const [notice, setNotice] = useState("");
   const columns = [
-    { key: "document_kind", header: "Document", value: (s) => KINDS[s.document_kind], mobile: "title", pin: true },
+    { key: "document_kind", header: "Document", value: (s) => documentName(s.document_kind), mobile: "title", pin: true },
     { key: "location", header: "Location", value: (s) => s.location_name, mobile: "subtitle" },
     { key: "fiscal_year", header: "Financial year", value: (s) => fiscalLabel(s.fiscal_year) },
     { key: "prefix", header: "Prefix", value: (s) => s.prefix, className: "mono" },
@@ -65,7 +77,7 @@ export default function NumberSeriesPage() {
       <ErrorMessage message={list.error} />
       <SectionCard flush icon="list" title="Series">
         <DataGrid {...list.gridProps} caption="Number series" columns={columns.filter(Boolean)} rowNoun={["series", "series"]}
-          empty="No series yet" emptyHint="The first sale at a location starts one, like SI/2627/0001." />
+          empty="No series yet" emptyHint={`The first ${biz.t.lower("sale")} at ${biz.t.a("location")} starts one, like SI/2627/0001.`} />
       </SectionCard>
       {editing && <SeriesDialog series={editing} onClose={() => setEditing(null)} onSaved={(s) => { setEditing(null); setNotice(`Series ${s.prefix} saved.`); list.reload(); }} />}
     </div>
@@ -78,8 +90,10 @@ function SeriesDialog({ series, onClose, onSaved }) {
   const today = businessToday(biz.business.timezone);
   const startMonth = Number(biz.settings.fiscal_year_start_month || 4);
   const thisYear = Number(today.slice(5, 7)) >= startMonth ? Number(today.slice(0, 4)) : Number(today.slice(0, 4)) - 1;
+  // The documents this business makes, by its modules.
+  const offered = Object.entries(DOCUMENTS).filter(([, [, ...modules]]) => modules.some((module) => biz.has(module)));
   const [form, setForm] = useState({
-    locationId: String(series.location_id || biz.locations[0]?.id || ""), documentKind: series.document_kind || "sale", fiscalYear: String(series.fiscal_year || thisYear),
+    locationId: String(series.location_id || biz.locations[0]?.id || ""), documentKind: series.document_kind || offered[0]?.[0] || "sale", fiscalYear: String(series.fiscal_year || thisYear),
     prefix: series.prefix || "", padding: String(series.padding || 4), nextNumber: String(series.next_number || 1),
   });
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
@@ -92,7 +106,7 @@ function SeriesDialog({ series, onClose, onSaved }) {
       {!editing && (
         <>
           <Field label="Document">
-            <select value={form.documentKind} onChange={set("documentKind")}>{Object.entries(KINDS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+            <select value={form.documentKind} onChange={set("documentKind")}>{offered.map(([kind, [name]]) => <option key={kind} value={kind}>{name}</option>)}</select>
           </Field>
           <Field label="Location">
             <select value={form.locationId} onChange={set("locationId")}>{biz.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select>

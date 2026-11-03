@@ -1009,16 +1009,18 @@ until the first bill or purchase is recorded; the time zone decides what
 
 Each rule starts at the usual value; change only what you need. Why each rule
 is as it is, and which rules stay fixed, is in
-[BUSINESS_RULES.md](BUSINESS_RULES.md).
+[BUSINESS_RULES.md](BUSINESS_RULES.md). A rule shows only where the business
+uses it (*Shows when*), and speaks its words: a gym's *Member credit age
+groups*, a clinic's *Patient credit age groups*.
 
-| Rule | Default | What it changes |
-|---|---|---|
-| Expiring soon means within | 30 days | Batches on the Overview, the bell, the near-expiry list and the stock list's "Expiring" filter (a pharmacy keeps its own in Pharmacy settings) |
-| Credit vouchers valid for | 90 days | How long a voucher from an exchange or return can be spent |
-| Customer credit age groups | 30, 60, 90 days | The columns of Outstanding, Udhaar and the wholesale reports ("0–30 days" … "Over 90 days" follow the numbers) |
-| Quick weight buttons | 250 g, 500 g, 1 kg, 2 kg | The buttons on a loose item at Quick bill (up to 8) |
-| Till receipt paper | 80 mm | 58 mm for a small receipt printer |
-| Day cut-off | 5 am | A task due after midnight, before this hour, belongs to the day before |
+| Rule | Default | Shows when | What it changes |
+|---|---|---|---|
+| Expiring soon means within | 30 days | Batches & expiry is on | Batches on the Overview, the bell, the near-expiry list and the stock list's "Expiring" filter (a pharmacy keeps its own in Pharmacy settings) |
+| Credit vouchers valid for | 90 days | Exchanges is on | How long a voucher from an exchange or return can be spent |
+| Customer credit age groups | 30, 60, 90 days | Collections & outstanding is on | The columns of Outstanding, Udhaar and the wholesale reports ("0–30 days" … "Over 90 days" follow the numbers) |
+| Quick weight buttons | 250 g, 500 g, 1 kg, 2 kg | Sold by weight is on | The buttons on a loose item at Quick bill (up to 8) |
+| Receipt paper | 80 mm | The business prints receipts (Quick bill, a salon's New bill) | 58 mm for a small receipt printer |
+| Day cut-off | 5 am | Tasks & checklists is on | A task due after midnight, before this hour, belongs to the day before |
 
 ## First steps in a new business
 
@@ -1056,16 +1058,21 @@ business's activity (`settings.words_updated`).
    address, phone and logo. Under *Prices, totals and numbering*: whether
    selling prices include GST (a goods shop starts with prices including GST,
    rounded to the rupee), the financial year (fixed once the first document
-   is numbered), *Most discount at the counter*, the *Walk-in customers* rule
-   and the *Shared till* PIN rule, the footers, and (with Quotations on) the
-   *Terms and conditions on quotations*. Then the [Rules](#business-settings--rules).
+   is numbered), *Most discount on a bill*, the invoice footer, and (with
+   Quotations on) the *Terms and conditions on quotations*. A business that
+   bills at Quick bill also has the *Walk-in customers* rule (in its own
+   words: *Walk-in farmers*) and the *Shared till* PIN rule; one that prints
+   receipts (Quick bill, a salon's New bill) has the receipt footer. Each
+   example is the business's own (a gym's invoice footer suggests *Fees are
+   non-refundable…*). Then the [Rules](#business-settings--rules).
 2. **Settings › Locations.** Each location's address and phone, and its GSTIN
-   if it is registered on its own. Add the other branches and godowns, and
-   untick *Sells at the counter* on a godown so Quick bill does not offer it.
+   if it is registered on its own. Add the other branches and godowns; a
+   business that bills at Quick bill unticks *Takes bills here* on a godown
+   so Quick bill does not offer it.
 3. **Settings › Payment methods.** A new business starts with Cash, UPI, Card,
-   Bank transfer and Cheque. Rename them the way the counter says them
-   (PhonePe, Paytm, the bank account), add your own and switch off the ones
-   you do not take.
+   Bank transfer and Cheque. Rename them the way your counter (front desk,
+   reception) says them (PhonePe, Paytm, the bank account), add your own and
+   switch off the ones you do not take.
 4. **Settings › Tax rates.** A new business starts with GST nil / exempt,
    5 %, 18 % (the slab a new item gets unless you choose another) and 40 %.
    *Add slab* for any other rate your goods need.
@@ -3297,7 +3304,7 @@ panel over it.
 | Business | The type's own records: **Registers & prescriptions** (pharmacy), **Booklists & orders** (books), **Repairs** (electronics), **Packages** (salon), **Lab orders** (clinic), **Farm inputs** (seeds, fertilisers & pesticides) | Described with each type below. |
 | Management | **Reports**, with the type's own reports, Staff commissions and Activity log | Money by day, locations compared, departments; who did what (what a guest did on the guests' site, such as a booking or an order sent online, shows as *Guest (online)*; what the business's own rules did on their own time, such as a request not answered in time expiring, shows as *Automatic*). |
 | Management | **Tasks** | See [Part 4](#part-4--tasks-issues--projects). |
-| Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (*Doctors & rooms* in a clinic), Licences (with Licences & registrations on), Personal data, and Pharmacy settings, Clinic & lab settings, Farm input checks, Garage settings, Membership plans, Pumps & nozzles or Room types & rates; and Your plan, for the owner alone | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill at the counter (with a reason; the owner is not limited), whether a walk-in may leave a bill unpaid, and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates. A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
+| Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (*Doctors & rooms* in a clinic), Licences (with Licences & registrations on), Personal data, and Pharmacy settings, Clinic & lab settings, Farm input checks, Garage settings, Membership plans, Pumps & nozzles or Room types & rates; and Your plan, for the owner alone | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill (with a reason; the owner is not limited), and, where the business bills at Quick bill, whether a walk-in may leave a bill unpaid and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates; a new series is offered for the documents the business makes (a gym: Sale invoices, Credit notes, Memberships…). A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
 | Management | **Staff & access**, with Roles & permissions | Give a person from your staff list a role in this business, change it or switch it off. |
 
 **Two rules people notice:** prices, tax and totals are always worked out by the
@@ -3602,7 +3609,8 @@ the till printer, with lines for the cash counted and a signature.
   shift cannot be changed.
 - **Expenses** (a tab of Daily money; the page says *Daily expenses*): money
   already paid for running the business — rent, electricity & water, wages,
-  transport, shop supplies, cleaning, maintenance, other — with how and when
+  transport, its own supplies (*Shop supplies*, a gym's *Gym supplies*, a
+  garage's *Workshop supplies*), cleaning, maintenance, other — with how and when
   it was paid and at which location, dated up to 30 days back and never
   ahead. Supplier bills and stock stay in Purchases. **Record expense** needs
   `expenses.create`; a mistake is **Reversed** with a reason
@@ -3611,9 +3619,9 @@ the till printer, with lines for the cash counted and a signature.
 
 ### Payment methods
 
-**Settings › Payment methods** names the ways the business takes money as the
-counter says them: PhonePe, Paytm, Sodexo, the
-bank account. Each is one of five kinds — Cash, UPI, Card, Bank transfer or
+**Settings › Payment methods** names the ways the business takes money as its
+counter (a gym's front desk, a clinic's reception) says them: PhonePe, Paytm,
+the card machine, the bank account. Each is one of five kinds — Cash, UPI, Card, Bank transfer or
 Cheque — which decides how it is counted (cash in the drawer, cheques to the
 cheque register); the kind is fixed once made. **Add method**, **Edit** (with
 an *Order*: lower comes first at the counter) and **Switch off**: a method
@@ -4167,7 +4175,7 @@ left unpaid.
 
 **Discounts, coupons and vouchers.**
 - **Discount on this bill** (₹ or %) with a reason, for roles holding
-  `sales.discount` (Manager by default), up to *Most discount at the counter*
+  `sales.discount` (Manager by default), up to *Most discount on a bill*
   in Business settings (10 % unless changed; the owner is not limited).
 - **Coupon**: an offer with a coupon code applies only when the cashier types
   the code here ([Shop extras](#shop-extras-shelf-branch-and-member-prices-coupons-departments)).
@@ -4227,7 +4235,7 @@ pass and confirms no bill until then: *Your PIN for this bill* shows them
 *PIN not your own yet*, with the reason, and asks no PIN of them).
 
 **The till.** Only locations that sell at the counter are offered as the till
-(Settings › Locations › *Sells at the counter*). The till is remembered on the
+(Settings › Locations › *Takes bills here*). The till is remembered on the
 device, and changing it with a bill on screen asks first. **Open shift** and
 **Close shift** are the cashier's own drawer count ([Daily money, expenses and
 cashier shifts](#daily-money-expenses-and-cashier-shifts)). With the Offline

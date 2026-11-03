@@ -4,6 +4,7 @@ import Icon from "@bmp/ui/Icon";
 import SectionCard from "../../../../components/SectionCard";
 import { ErrorMessage, SuccessMessage } from "../../../../components/Feedback";
 import { businessWrite } from "../../../../services/business.service";
+import { sectionRule, typeAllows } from "../../../../services/businessNav";
 import FormDialog from "./FormDialog";
 import { ActiveBadge, Badge, BusinessHeader, Field } from "./ui";
 import { useOpenBusiness, useServerList } from "./hooks";
@@ -33,12 +34,21 @@ function openNow(hours, timezone) {
   return slot.open < slot.close ? now >= slot.open && now < slot.close : now >= slot.open || now < slot.close;
 }
 
-// The shops, counters and warehouses where this business keeps stock and sells.
+// Whether the business has a screen: its type's menu has it and the module it
+// needs is on (services/businessNav.js). A business that bills at Quick bill
+// may keep a location for stock only (a godown), which Quick bill leaves out.
+const hasScreen = (biz, section) => {
+  const rule = sectionRule(section, biz.type);
+  return Boolean(rule && typeAllows(rule, biz.type) && (!rule.module || biz.has(rule.module)));
+};
+
+// The places this business works from: where it bills, and where it keeps stock.
 export default function LocationsPage() {
   const biz = useOpenBusiness();
   const list = useServerList("locations", { gridId: "business-locations" });
   const [editing, setEditing] = useState(null);
   const [notice, setNotice] = useState("");
+  const counter = hasScreen(biz, "counter");
   const columns = [
     { key: "name", header: "Location", value: (l) => l.name, mobile: "title", pin: true },
     { key: "code", header: "Code", value: (l) => l.code, className: "mono", mobile: "subtitle" },
@@ -48,8 +58,8 @@ export default function LocationsPage() {
         ? <span className="bz-two-line"><span>{[l.address_line1, l.city].filter(Boolean).join(", ") || "—"}</span>{l.gstin && <small className="muted mono">GSTIN {l.gstin}</small>}</span>
         : <span className="muted">Business settings</span>) },
     // A warehouse keeps stock but is not offered as a till at Quick bill.
-    { key: "counter", header: "Quick bill", value: (l) => (l.sells_at_counter === false ? "Stock only" : "Sells here"),
-      render: (l) => <Badge tone={l.sells_at_counter === false ? "neutral" : "info"} label={l.sells_at_counter === false ? "Stock only" : "Sells here"} /> },
+    counter && { key: "counter", header: "Quick bill", value: (l) => (l.sells_at_counter === false ? "Stock only" : "Takes bills here"),
+      render: (l) => <Badge tone={l.sells_at_counter === false ? "neutral" : "info"} label={l.sells_at_counter === false ? "Stock only" : "Takes bills here"} /> },
     { key: "hours", header: "Opening hours", value: (l) => hoursText(l.opening_hours), render: (l) => {
       if (!l.opening_hours) return <span className="muted">Not given</span>;
       const open = l.active && openNow(l.opening_hours, biz.business.timezone);
@@ -62,7 +72,9 @@ export default function LocationsPage() {
   return (
     <div className="stack">
       <BusinessHeader icon="map-pin" title="Locations"
-        description="Each location has its own stock, document numbers and, if you enter them, its own address and GSTIN on its bills. A location holding stock, or with staff tied to it, cannot be closed until they are moved."
+        description={biz.has("inventory")
+          ? "Each location has its own stock, document numbers and, if you enter them, its own address and GSTIN on its bills. A location holding stock, or with staff tied to it, cannot be closed until they are moved."
+          : "Each location has its own document numbers and, if you enter them, its own address and GSTIN on its bills. A location with staff tied to it cannot be closed until they are moved."}
         actions={biz.can("settings.edit") && <button type="button" className="button" onClick={() => setEditing({})}><Icon name="plus" size={16} /> Add location</button>} />
       <SuccessMessage message={notice} />
       <ErrorMessage message={list.error} />
@@ -70,15 +82,16 @@ export default function LocationsPage() {
         <DataGrid {...list.gridProps} caption="Locations" columns={columns.filter(Boolean)} rowNoun={["location", "locations"]}
           rowClassName={(l) => (!l.active ? "dg-tone-muted" : "")} empty="No locations" />
       </SectionCard>
-      {editing && <LocationDialog location={editing} onClose={() => setEditing(null)} onSaved={saved} />}
+      {editing && <LocationDialog location={editing} counter={counter} onClose={() => setEditing(null)} onSaved={saved} />}
     </div>
   );
 }
 
 const ADDRESS_FIELDS = { addressLine1: "address_line1", addressLine2: "address_line2", city: "city", postalCode: "postal_code", stateCode: "state_code", gstin: "gstin", phone: "phone" };
 
-function LocationDialog({ location, onClose, onSaved }) {
+function LocationDialog({ location, counter, onClose, onSaved }) {
   const biz = useOpenBusiness();
+  const example = biz.t.ex("location");
   const editing = Boolean(location.id);
   const [form, setForm] = useState(() => ({
     name: location.name || "", code: location.code || "", active: location.active ?? true, sellsAtCounter: location.sells_at_counter ?? true,
@@ -96,7 +109,7 @@ function LocationDialog({ location, onClose, onSaved }) {
       onSubmit={() => (editing
         ? businessWrite(biz.id, `locations/${location.id}`, { name: form.name, active: form.active, sellsAtCounter: form.sellsAtCounter, ...address, openingHours }, "patch")
         : businessWrite(biz.id, "locations", { name: form.name, code: form.code, sellsAtCounter: form.sellsAtCounter, ...address, openingHours }))}>
-      <Field label="Name" wide><input required maxLength={150} value={form.name} onChange={set("name")} placeholder="e.g. Koregaon Park store" /></Field>
+      <Field label="Name" wide><input required maxLength={150} value={form.name} onChange={set("name")} placeholder={example ? `e.g. ${example}` : undefined} /></Field>
       <Field label="Code" hint="Short; used in document numbers."><input required maxLength={30} disabled={editing} className="mono" value={form.code} onChange={set("code")} placeholder="e.g. KP" /></Field>
       <Field label="Phone"><input maxLength={30} value={form.phone} onChange={set("phone")} placeholder="Empty: the business phone" /></Field>
       <p className="field-wide muted small">Address and GSTIN print on this location's bills. Leave them empty to print the ones in Business settings. A branch registered on its own GSTIN (often in another state) enters it here; its bills are then supplied from that state.</p>
@@ -118,7 +131,7 @@ function LocationDialog({ location, onClose, onSaved }) {
           </div>
         ))}
       </fieldset>
-      <label className="checkbox bz-check field-wide"><input type="checkbox" checked={form.sellsAtCounter} onChange={set("sellsAtCounter")} /> Sells at the counter (untick for a warehouse or godown: Quick bill then does not offer it)</label>
+      {counter && <label className="checkbox bz-check field-wide"><input type="checkbox" checked={form.sellsAtCounter} onChange={set("sellsAtCounter")} /> Takes bills here (untick for a warehouse or godown that only keeps stock: Quick bill then does not offer it)</label>}
       {editing && <label className="checkbox bz-check"><input type="checkbox" checked={form.active} onChange={set("active")} /> Open</label>}
     </FormDialog>
   );

@@ -13,16 +13,17 @@ import { forgetPaymentMethods, KIND_WORDS, METHOD_KINDS } from "./paymentMethods
 const KIND_HINTS = {
   cash: "Counted in the drawer; change is given back from cash.",
   upi: "PhonePe, Google Pay, Paytm, BHIM…",
-  card: "Debit / credit card machines, meal cards like Sodexo.",
+  card: "Debit / credit card machines, meal and gift cards.",
   bank: "NEFT, RTGS or IMPS into a bank account.",
   cheque: "Needs the cheque number; goes to the cheque register.",
 };
 
-// The ways this business takes money, named as the shop says them. Each has
-// one of five fixed kinds, which decides how the money is counted (cash in
+// The ways this business takes money, named as its own people say them. Each
+// has one of five fixed kinds, which decides how the money is counted (cash in
 // the drawer, cheques to the register); the kind cannot change once made.
 export default function PaymentMethodsPage() {
   const biz = useOpenBusiness();
+  const counter = biz.t.lower("counter");
   const [rows, setRows] = useState(null);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(null);
@@ -68,11 +69,11 @@ export default function PaymentMethodsPage() {
   return (
     <div className="stack">
       <BusinessHeader icon="wallet" title="Payment methods"
-        description="The ways you take money, named the way your counter says them: PhonePe, Paytm, Sodexo, your bank account. Each one is cash, UPI, card, bank transfer or cheque, and the day close counts it that way."
+        description={`The ways you take money, named the way your ${counter} says them: PhonePe, Paytm, the card machine, your bank account. Each one is cash, UPI, card, bank transfer or cheque, and the day close counts it that way.`}
         actions={canEdit && <button type="button" className="button" onClick={() => setEditing({})}><Icon name="plus" size={16} /> Add method</button>} />
       <SuccessMessage message={notice} />
       <ErrorMessage message={rows ? error : ""} />
-      <SectionCard flush icon="list" title="Methods" description="Switched-off methods stay on past bills but are no longer offered at the counter.">
+      <SectionCard flush icon="list" title="Methods" description={`Switched-off methods stay on past bills but are no longer offered at the ${counter}.`}>
         <DataGrid id="business-payment-methods" caption="Payment methods" columns={columns.filter(Boolean)} rows={rows || []} rowKey={(m) => m.id}
           loading={!rows && !error} error={rows ? "" : error} onRetry={reload} rowNoun={["method", "methods"]}
           rowClassName={(m) => (!m.active ? "dg-tone-muted" : "")} empty="No payment methods" />
@@ -100,7 +101,7 @@ function MethodDialog({ method, onClose, onSaved }) {
           {METHOD_KINDS.map((k) => <option key={k} value={k}>{KIND_WORDS[k]}</option>)}
         </select>
       </Field>
-      <Field label="Order (optional)" hint="Lower comes first at the counter."><input type="number" min="0" max="10000" step="1" value={form.sortOrder} onChange={set("sortOrder")} /></Field>
+      <Field label="Order (optional)" hint={`Lower comes first at the ${biz.t.lower("counter")}.`}><input type="number" min="0" max="10000" step="1" value={form.sortOrder} onChange={set("sortOrder")} /></Field>
       {editing && <label className="checkbox bz-check"><input type="checkbox" checked={form.active} onChange={set("active")} /> Switched on</label>}
     </FormDialog>
   );

@@ -11,10 +11,13 @@ import { Badge, BusinessHeader, Field, PeriodFilter } from './ui';
 import { businessToday, newKey, useOpenBusiness, useServerList } from './hooks';
 import { usePaymentMethods } from './paymentMethods';
 
-const CATEGORIES = {rent:'Rent',utilities:'Electricity & water',wages:'Wages',transport:'Transport',supplies:'Shop supplies',cleaning:'Cleaning',maintenance:'Maintenance',other:'Other'};
+const CATEGORIES = {rent:'Rent',utilities:'Electricity & water',wages:'Wages',transport:'Transport',supplies:'Supplies',cleaning:'Cleaning',maintenance:'Maintenance',other:'Other'};
+// The categories in the business's words: what it runs on is its own supplies ("Gym supplies").
+const categoriesOf = (t) => ({...CATEGORIES,supplies:t.ex('supplies')||CATEGORIES.supplies});
 
 export default function ExpensesPage() {
   const biz = useOpenBusiness();
+  const categories = categoriesOf(biz.t);
   const list = useServerList('expenses',{gridId:'business-expenses',period:true});
   const [adding,setAdding] = useState(false);
   const [reversing,setReversing] = useState(null);
@@ -34,7 +37,7 @@ export default function ExpensesPage() {
         columns={[
           {key:'spent_on',header:'Date',type:'date',value:r=>r.spent_on,mobile:'subtitle'},
           {key:'description',header:'Paid for',value:r=>r.description,mobile:'title',pin:true},
-          {key:'category',header:'Category',value:r=>CATEGORIES[r.category]},
+          {key:'category',header:'Category',value:r=>categories[r.category]},
           {key:'amount',header:'Amount',type:'money',exact:true,value:r=>Number(r.amount),mobile:'show'},
           {key:'method',header:'Paid by',value:r=>r.method_name || ({cash:'Cash',upi:'UPI',card:'Card',bank:'Bank transfer'})[r.method]},
           {key:'reference',header:'Reference',value:r=>r.reference || '',defaultHidden:true},
@@ -62,7 +65,7 @@ function ExpenseDialog({biz,onClose,onSaved}) {
     <Field label="Amount"><input required type="number" inputMode="decimal" min="0.01" max="999999999" step="0.01" value={form.amount} onChange={set('amount')}/></Field>
     <Field label="Paid by"><select value={methods.resolve(form.method,['cash','upi','card','bank'])} onChange={set('method')}>{methods.options(['cash','upi','card','bank']).map(m=><option key={m.key} value={m.key}>{m.name}</option>)}</select></Field>
     <Field label="Date"><input required type="date" max={today} value={form.spentOn} onChange={set('spentOn')}/></Field>
-    <Field label="Category"><select value={form.category} onChange={set('category')}>{Object.entries(CATEGORIES).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></Field>
+    <Field label="Category"><select value={form.category} onChange={set('category')}>{Object.entries(categoriesOf(biz.t)).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></Field>
     {biz.locations.length>1&&<Field label="Location"><select required value={form.locationId} onChange={set('locationId')}>{biz.locations.map(l=><option key={l.id} value={l.id}>{l.name}</option>)}</select></Field>}
     <Field label="Reference (optional)"><input maxLength={100} value={form.reference} onChange={set('reference')} placeholder="Receipt or transaction number"/></Field>
   </FormDialog>;
