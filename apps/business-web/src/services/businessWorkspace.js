@@ -109,6 +109,7 @@ export function workspaceLabel(section, type, fallback, t = makeTerms()) {
   if (section === 'udhaar' || section === 'outstanding') return t('dues_list', 'many');
   if (section === 'day-close') return 'Daily money';
   if (section === 'stock') return t.ex('phrase.stock') || fallback;
+  if (section === 'labels') return t.ex('phrase.labels') || fallback;
   if (section === 'processing') return t('processing', 'many');
   if (section === 'weight-reports') return t.ex('phrase.processing_report') || fallback;
   if (section === 'salon-calendar') return t('appointment', 'many');

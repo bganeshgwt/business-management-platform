@@ -130,7 +130,7 @@ export default function LabelsPage() {
 
   return (
     <div className="stack">
-      <BusinessHeader icon="tag" title="Barcode labels"
+      <BusinessHeader icon="tag" title={biz.t.ex("phrase.labels") || "Barcode labels"}
         description="Choose items, set how many labels each, and print on an A4 label sheet. Items without a barcode can be given one here."
         actions={<button type="button" className="button button-secondary" onClick={() => setSheetOpen(true)}><Icon name="print" size={16} /> Label sheet ({totalLabels})</button>} />
       <SuccessMessage message={notice} />

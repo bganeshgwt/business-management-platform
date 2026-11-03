@@ -63,7 +63,7 @@ export default function AppointmentsPage() {
       <span className="bz-two-line"><span>{a.contact_name} {a.source === "guests_site" && <span className="ob-online-tag">Online</span>}</span>
         {(a.online_person || a.online_vehicle || a.online_note) && <small className="muted">{[a.online_person && `For ${a.online_person}`, a.online_vehicle, a.online_note].filter(Boolean).join(" · ")}</small>}</span>
     ) },
-    { key: "service_name", header: t("service"), value: (a) => a.service_name, mobile: "show" },
+    { key: "service_name", header: t("booked_service"), value: (a) => a.service_name, mobile: "show" },
     { key: "resource_name", header: "With", value: (a) => a.resource_name, mobile: "show" },
     { key: "status", header: "Status", type: "status", value: (a) => statusOf(a), render: (a) => (ONLINE_STATUS[statusOf(a)] ? <Badge status={statusOf(a)} tone={ONLINE_STATUS[statusOf(a)].tone} label={ONLINE_STATUS[statusOf(a)].label} />
       : lateNow(a) ? <Badge status="overdue" tone="warning" label="Late" /> : <Badge status={a.status} />) },
@@ -159,7 +159,7 @@ function BookDialog({ onClose, onSaved }) {
           {(options?.["contacts?kind=customer&active=true"] || []).map((c) => <option key={c.id} value={c.id}>{c.name}{c.phone ? ` · ${c.phone}` : ""}</option>)}
         </select>
       </Field>
-      <Field label={t("service")}>
+      <Field label={t("booked_service")}>
         <select required value={form.skuId} onChange={set("skuId")}>
           <option value="">Choose…</option>
           {(options?.["catalog?kind=service&active=true"] || []).map((s) => <option key={s.id} value={s.id}>{s.label} · {biz.exact(s.price)}</option>)}

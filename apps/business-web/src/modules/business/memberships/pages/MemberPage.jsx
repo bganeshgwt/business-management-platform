@@ -84,7 +84,7 @@ export default function MemberPage() {
       <SectionCard icon="user-plus" title="Memberships"
         actions={(
           <span className="bz-row-actions">
-            {canSell && <button type="button" className="button button-sm" onClick={() => setDialog({ kind: "sell" })}><Icon name="plus" size={14} /> Sell a membership</button>}
+            {canSell && <button type="button" className="button button-sm" onClick={() => setDialog({ kind: "sell" })}><Icon name="plus" size={14} /> {biz.t.ex("phrase.sell_plan") || "Sell a membership"}</button>}
             {canEdit && member.member_code && <button type="button" className="button button-secondary button-sm" onClick={() => setDialog({ kind: "code" })}>Member code</button>}
           </span>
         )}>

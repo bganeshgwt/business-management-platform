@@ -29,7 +29,7 @@ export default function useTaskExamples() {
       checklistItem: t.ex("checklist_item"),
       templates: t.ex("templates"),
       issue: t.ex("issue"),
-      asset: "",
+      asset: t.ex("asset"),
       project: t.ex("project"),
       plans: "",
     };

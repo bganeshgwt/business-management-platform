@@ -66,7 +66,7 @@ export default function MembersPage() {
     <div className="stack">
       <BusinessHeader icon="users" title="Members & plans"
         description="Every member with their current membership, its status today and its last day or sessions left. A member opens their page: renew, upgrade, freeze, pass on or cancel there."
-        primary={canSell && <button type="button" className="button" onClick={() => setSelling(true)}><Icon name="plus" size={16} /> Sell a membership</button>}
+        primary={canSell && <button type="button" className="button" onClick={() => setSelling(true)}><Icon name="plus" size={16} /> {biz.t.ex("phrase.sell_plan") || "Sell a membership"}</button>}
         secondary={biz.can("member_plans.edit") && <button type="button" className="button button-secondary" onClick={() => setBringing(true)}>Bring in a membership</button>} />
       {counts && (
         <div className="stat-grid">
@@ -87,7 +87,7 @@ export default function MembersPage() {
           rowKey={(r) => r.contact_id} rowNoun={["member", "members"]} currency={biz.symbol} onRowClick={(r) => navigate(biz.path(`members/${r.contact_id}`))}
           rowClassName={(r) => (r.status === "frozen" ? "dg-tone-warning" : r.status === "expired" && !r.in_grace ? "dg-tone-muted" : "")}
           exportName={biz.can("member_plans.export") ? `${biz.business.code}-members` : undefined}
-          empty="No members yet" emptyHint={canSell ? "Sell a membership: the member gets a code with their first one." : undefined} emptyIcon="users" />
+          empty="No members yet" emptyHint={canSell ? `${biz.t.ex("phrase.sell_plan") || "Sell a membership"}: the ${biz.t.lower("customer")} gets a code with their first one.` : undefined} emptyIcon="users" />
       </SectionCard>
       {bringing && <BringInDialog onClose={() => setBringing(false)}
         onSaved={(m) => { setBringing(false); toast.success(`${m.membership_no} brought in for ${m.member_name}.`); navigate(biz.path(`members/${m.contact_id}`)); }} />}

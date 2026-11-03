@@ -33,7 +33,7 @@ function kindExamples({ t, amount }) {
   const category = t.ex("category").split("›")[0].trim();
   return {
     item_percent: item ? `e.g. 10% off ${item}` : "e.g. 10% off one item",
-    item_amount: item ? `e.g. a set amount off each ${item}` : "e.g. a set amount off each unit",
+    item_amount: t.ex("offer_amount") ? `e.g. ${t.ex("offer_amount")}` : item ? `e.g. a set amount off each ${item}` : "e.g. a set amount off each unit",
     category_percent: category ? `e.g. 15% off everything in ${category}` : "e.g. 15% off a whole category",
     bill_percent: "e.g. 5% off the whole bill",
     bill_amount: `e.g. ${amount(50)} off over ${amount(1000)}`,

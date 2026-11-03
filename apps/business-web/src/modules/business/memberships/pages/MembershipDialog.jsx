@@ -119,7 +119,7 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
       ...(addons.length ? { addons } : {}), ...(seats && contactId ? { seatMembers: seats } : {}), ...(form.soldBy ? { soldBy: form.soldBy } : {}),
       ...(form.trainerId ? { trainerId: form.trainerId } : {}), ...(lead ? { leadId: lead.id } : {}) });
   };
-  const titles = { sell: "Sell a membership", renew: `Renew ${membership?.membership_no || ""}`, upgrade: `Change the plan of ${membership?.membership_no || ""}` };
+  const titles = { sell: biz.t.ex("phrase.sell_plan") || "Sell a membership", renew: `Renew ${membership?.membership_no || ""}`, upgrade: `Change the plan of ${membership?.membership_no || ""}` };
   const choices = plans.filter((p) => mode !== "upgrade" || String(p.id) !== String(membership?.plan_id));
   // No plan to choose: where the plans are made, a link for whoever may make them.
   const noPlans = Boolean(options) && choices.length === 0;

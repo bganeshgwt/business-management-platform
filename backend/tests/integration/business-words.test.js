@@ -178,6 +178,18 @@ test('words and looks: by type, by kind, an owner\'s own, and the platform\'s co
     await owner('PUT', P('/business-types/memberships'), { accent: 'teal' }, 403);
   });
 
+  await t.test("a booking's service, an issue's and an offer's examples, the label sheet and selling a plan, by type and kind", async () => {
+    const word = async (id, key, plural = false) => (await one('SELECT business_word($1,$2,$3) AS w', [id, key, plural])).w;
+    const coaching = await owner('POST', '/businesses', { businessType: 'memberships', kind: 'coaching', name: 'Bright Minds Academy', code: 'BRIGHT-MINDS' }, 201);
+    assert.deepEqual([await word(coaching.id, 'booked_service', true), await word(coaching.id, 'phrase.sell_plan'), await word(coaching.id, 'example.offer_amount')],
+      ['Classes', 'Enrol a student', '₹2,000 off the course fee']);
+    const dental = await one("SELECT id FROM businesses WHERE code='SMILE-DENTAL'");
+    assert.deepEqual([await word(dental.id, 'example.asset'), await word(dental.id, 'booked_service')], ['Dental chair 2, autoclave', 'Consultation or test']);
+    const garage = await owner('POST', '/businesses', { businessType: 'garage', name: 'Speed Auto Works', code: 'SPEED-AUTO' }, 201);
+    assert.deepEqual([await word(garage.id, 'phrase.labels'), await word(garage.id, 'example.asset'), await word(garage.id, 'booked_service')],
+      ['Part labels', 'Hoist 2, wheel aligner', 'Service']);
+  });
+
   await t.test("a database message can name a business's word", async () => {
     assert.equal((await one("SELECT business_word($1,'customer',true) AS w", [gym.id])).w, 'Members');
     assert.equal((await one("SELECT business_word($1,'example.first_location') AS w", [gym.id])).w, 'Main branch');

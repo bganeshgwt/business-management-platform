@@ -79,7 +79,7 @@ function firstActions(biz, duesPath) {
   if (biz.type === "garage" && biz.has("garage") && can("garage.create")) list.push({ to: "vehicles?new=1", icon: "truck", label: "Add a vehicle" });
   // A gym's, studio's or coaching centre's day: members checking in at the desk, and memberships to sell.
   if (biz.type === "memberships" && biz.has("member_plans") && can("member_plans.create")) list.push({ to: "check-in", icon: "check", label: `Check ${t.a("customer")} in` });
-  if (biz.type === "memberships" && biz.has("member_plans") && can("member_plans.create") && can("sales.create")) list.push({ to: "members?new=1", icon: "user-plus", label: "Sell a membership" });
+  if (biz.type === "memberships" && biz.has("member_plans") && can("member_plans.create") && can("sales.create")) list.push({ to: "members?new=1", icon: "user-plus", label: t.ex("phrase.sell_plan") || "Sell a membership" });
   // A laundry's day: garment orders to take in at the counter, and the ready garments on the racks.
   if (biz.type === "laundry" && biz.has("laundry") && can("laundry.create")) list.push({ to: "laundry-new", icon: "clipboard", label: "Take in an order" });
   if (biz.type === "laundry" && biz.has("laundry") && can("laundry.view")) list.push({ to: "ready-racks", icon: "tag", label: "Find a garment" });
