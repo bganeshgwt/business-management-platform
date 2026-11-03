@@ -132,7 +132,8 @@ test("the gym's sessions: booked and cancelled in its words, a missed one in the
     await expect(book).toBeVisible({ timeout: 15_000 });
     await expect(book.getByLabel("Member", { exact: true }).locator("option", { hasText: gym.member.name })).toHaveCount(1, { timeout: 15_000 });
     await book.getByLabel("Member", { exact: true }).selectOption(String(gym.member.id));
-    await book.getByLabel("Service", { exact: true }).selectOption({ index: 1 });
+    // What a gym's booking is for, in its words.
+    await book.getByLabel("Session or class", { exact: true }).selectOption({ index: 1 });
     await book.getByLabel("With", { exact: true }).selectOption(String(gym.trainer.id));
     await book.getByLabel("Date", { exact: true }).fill(day);
     await book.getByLabel("Starts at", { exact: true }).fill(time);

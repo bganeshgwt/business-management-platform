@@ -38,7 +38,7 @@ test("a shop schedules the yearly change ahead, sees what each item becomes, and
   await expect(tool).toBeVisible();
   // In the grocery's own words: its products, and an HSN code of its own trade.
   await expect(tool.getByText("1 · Which products")).toBeVisible();
-  await expect(tool.getByLabel("HSN / SAC code begins")).toHaveAttribute("placeholder", "e.g. 1905");
+  await expect(tool.getByLabel("HSN / SAC code begins")).toHaveAttribute("placeholder", "e.g. 0713");
   await tool.getByLabel("Name or code").fill(GST_CHANGE.search);
   await tool.getByLabel("Moves to").selectOption({ label: "GST 5%" });
   // It starts on the next 1 April, the day GST rates change each year.

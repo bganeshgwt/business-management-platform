@@ -55,7 +55,7 @@ async function pick(page, box, text) {
 async function openWalkIn(page) {
   await page.goto(`/business-admin/${lodge.id}/lodging-desk`);
   await page.getByRole("region", { name: "In the house" }).getByRole("listitem").filter({ hasText: LODGING.walkIn.guest.name }).getByRole("link", { name: "Open" }).click();
-  await expect(page.getByRole("heading", { name: /^Stay ST\//, level: 1 })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: /^Stay RS\//, level: 1 })).toBeVisible({ timeout: 15_000 });
   await networkQuiet(page);
 }
 
@@ -92,11 +92,11 @@ test("a reservation, then the check-in with every occupant recorded; the room bo
   await page.getByLabel("Advance taken (optional)").fill(LODGING.walkIn.advance);
   await page.screenshot({ path: testInfo.outputPath("reservation.png"), fullPage: true });
   await page.getByRole("button", { name: "Reserve" }).click();
-  await expect(page.getByRole("heading", { name: /^Stay ST\//, level: 1 })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("heading", { name: /^Stay RS\//, level: 1 })).toBeVisible({ timeout: 15_000 });
 
   // The check-in: room 102 is booked for tonight by another guest — the screen says so, and the server refuses it.
   await page.getByRole("button", { name: "Check in", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: /^Check in ST\// });
+  const dialog = page.getByRole("dialog", { name: /^Check in RS\// });
   await dialog.getByLabel("Room", { exact: true }).selectOption(String(lodge.rooms["102"]));
   await expect(dialog.getByRole("alert").filter({ hasText: `Room 102 is booked by ${lodge.booked.stayNo} (${LODGING.booked.guest.name})` })).toBeVisible({ timeout: 15_000 });
   // Every occupant, not only the one who booked: of an Aadhaar only the last four digits; a foreign national's passport, visa and travel.
@@ -315,7 +315,7 @@ test("a group booking of two rooms a week ahead, shown on its page, with a room'
   await expect(rooms.getByRole("row").filter({ hasText: LODGING.group.organiser })).toHaveCount(2, { timeout: 15_000 });
   await page.getByRole("button", { name: "Rooming list" }).click();
   const rooming = page.getByRole("dialog", { name: /^Rooming list of GB\// });
-  await rooming.getByRole("group", { name: /^Guest of ST\// }).first().getByLabel("Guest's name").fill(LODGING.group.roomGuest);
+  await rooming.getByRole("group", { name: /^Guest of RS\// }).first().getByLabel("Guest's name").fill(LODGING.group.roomGuest);
   await rooming.getByRole("button", { name: "Save the rooming list" }).click();
   await expect(rooming).toBeHidden({ timeout: 15_000 });
   await expect(rooms.getByRole("row").filter({ hasText: LODGING.group.roomGuest })).toHaveCount(1, { timeout: 15_000 });
@@ -331,7 +331,7 @@ test("a folio opened for a company on the walk-in's stay, and the room routed to
   await openWalkIn(page);
   const region = page.getByRole("region", { name: "Folios" });
   await region.getByRole("button", { name: "Open a folio" }).click();
-  const open = page.getByRole("dialog", { name: /^Open a folio on ST\// });
+  const open = page.getByRole("dialog", { name: /^Open a folio on RS\// });
   await open.getByLabel("Folio name").fill("Company");
   await pick(page, open.getByRole("combobox", { name: "Billed to" }), LODGING.company.name);
   await open.getByRole("button", { name: "Open the folio" }).click();
@@ -340,7 +340,7 @@ test("a folio opened for a company on the walk-in's stay, and the room routed to
   await expect(folios.getByRole("row").filter({ hasText: "Company" })).toContainText(LODGING.company.gstin, { timeout: 15_000 });
   // The room routed to the company's folio: tonight's night, posted by the night audit and not billed, moves there with it.
   await region.getByRole("button", { name: "Routing" }).click();
-  const routing = page.getByRole("dialog", { name: /^Routing of ST\// });
+  const routing = page.getByRole("dialog", { name: /^Routing of RS\// });
   await routing.getByLabel("Room nights, early check-in and late check-out").selectOption({ label: "Company" });
   await routing.getByRole("button", { name: "Save the routing" }).click();
   await expect(routing).toBeHidden({ timeout: 15_000 });
@@ -358,7 +358,7 @@ test("a child joins the walk-in's stay in the house, and leaves partway, both ke
   await signIn(page);
   await openWalkIn(page);
   await page.getByRole("button", { name: "Add an occupant" }).click();
-  const join = page.getByRole("dialog", { name: /^Add an occupant to ST\// });
+  const join = page.getByRole("dialog", { name: /^Add an occupant to RS\// });
   await join.getByLabel("Adult or child").selectOption("child");
   await join.getByRole("group", { name: "Occupant 3 (child)" }).getByLabel("Full name").fill(LODGING.joining.fullName);
   await join.getByRole("button", { name: "Add the occupant" }).click();
