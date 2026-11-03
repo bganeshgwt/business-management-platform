@@ -11,6 +11,7 @@ import { monthStart } from "@bmp/shared/dates";
 import FormDialog from "../../core/pages/FormDialog";
 import { Badge, BusinessHeader, Field, FormError } from "../../core/pages/ui";
 import { businessToday, useOpenBusiness, useOptions, useServerList } from "../../core/pages/hooks";
+import { printsReceipts } from "../../core/pages/businessScreens";
 import { OFFER_KINDS, dateWords, offerHoursWords, offerSummary, offerWhen } from "./retail";
 import "../styles/business-retail.css";
 
@@ -195,7 +196,8 @@ function OfferDialog({ offer, onClose, onSaved }) {
           ))}
         </div>
       </div>
-      <Field label="Offer name" hint="Printed on the receipt next to what it saved." wide>
+      <Field label="Offer name" wide
+        hint={printsReceipts(biz) ? "Printed on the receipt next to what it saved." : "Named with what it saved in What offers gave away; a bill shows the total its offers saved."}>
         <input required maxLength={120} value={form.name} onChange={set("name")} placeholder={t.ex("offer_name") ? `e.g. ${t.ex("offer_name")}` : undefined} />
       </Field>
       {needsItem && (

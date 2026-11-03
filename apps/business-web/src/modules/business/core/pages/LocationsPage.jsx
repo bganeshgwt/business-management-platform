@@ -4,7 +4,7 @@ import Icon from "@bmp/ui/Icon";
 import SectionCard from "../../../../components/SectionCard";
 import { ErrorMessage, SuccessMessage } from "../../../../components/Feedback";
 import { businessWrite } from "../../../../services/business.service";
-import { sectionRule, typeAllows } from "../../../../services/businessNav";
+import { hasScreen } from "./businessScreens";
 import FormDialog from "./FormDialog";
 import { ActiveBadge, Badge, BusinessHeader, Field } from "./ui";
 import { useOpenBusiness, useServerList } from "./hooks";
@@ -34,15 +34,9 @@ function openNow(hours, timezone) {
   return slot.open < slot.close ? now >= slot.open && now < slot.close : now >= slot.open || now < slot.close;
 }
 
-// Whether the business has a screen: its type's menu has it and the module it
-// needs is on (services/businessNav.js). A business that bills at Quick bill
-// may keep a location for stock only (a godown), which Quick bill leaves out.
-const hasScreen = (biz, section) => {
-  const rule = sectionRule(section, biz.type);
-  return Boolean(rule && typeAllows(rule, biz.type) && (!rule.module || biz.has(rule.module)));
-};
-
-// The places this business works from: where it bills, and where it keeps stock.
+// The places this business works from: where it bills, and where it keeps
+// stock. A business that bills at Quick bill may keep a location for stock
+// only (a godown), which Quick bill leaves out.
 export default function LocationsPage() {
   const biz = useOpenBusiness();
   const list = useServerList("locations", { gridId: "business-locations" });

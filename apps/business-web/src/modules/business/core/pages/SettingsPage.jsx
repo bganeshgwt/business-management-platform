@@ -6,7 +6,7 @@ import { COMMON_CURRENCIES } from "./newBusiness";
 
 const zoneList = (() => { try { return Intl.supportedValuesOf("timeZone"); } catch { return ["Asia/Kolkata"]; } })();
 import { getErrorMessage } from "../../../../services/api";
-import { sectionRule, typeAllows } from "../../../../services/businessNav";
+import { hasScreen, printsReceipts } from "./businessScreens";
 import { BusinessHeader, Badge, Field } from "./ui";
 import { useDirtyGuard, useOpenBusiness } from "./hooks";
 import { confirmAction } from "../../../../services/confirm";
@@ -54,27 +54,21 @@ const SECTIONS = [
   { id: "bz-settings-words", label: "Words" },
 ];
 
-// Whether the business has a screen: its type's menu has it and the module it
-// needs is on (services/businessNav.js).
-const hasScreen = (biz, section) => {
-  const rule = sectionRule(section, biz.type);
-  return Boolean(rule && typeAllows(rule, biz.type) && (!rule.module || biz.has(rule.module)));
-};
 // A placeholder from the business's own example ("e.g. …"), none when it has none.
 const example = (text) => (text ? `e.g. ${text}` : undefined);
 
 // This business's own details and billing rules, and the modules it uses.
 // Nothing here touches any other business. A rule shows where the business
 // uses it: the counter's (walk-ins, a shared till) where it bills at Quick
-// bill; receipts where its bills print on a receipt roll (Quick bill, a
-// salon's New bill); the rest by its modules. Its words and examples are its
-// own (services/terms.js).
+// bill; receipts where its bills print on a receipt roll; the rest by its
+// modules (businessScreens.js). Its words and examples are its own
+// (services/terms.js).
 export default function SettingsPage() {
   const biz = useOpenBusiness();
   const { t } = biz;
   const editable = biz.can("settings.edit");
   const counter = hasScreen(biz, "counter");
-  const receipts = counter || hasScreen(biz, "salon-bill");
+  const receipts = printsReceipts(biz);
   const rules = receipts || ["batches", "exchanges", "receivables", "weight", "tasks"].some((module) => biz.has(module));
   const ownWords = biz.type !== "restaurant";
   const sections = SECTIONS.filter((s) => (s.id !== "bz-settings-rules" || rules) && (s.id !== "bz-settings-words" || ownWords));
