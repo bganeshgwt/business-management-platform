@@ -60,6 +60,17 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test --config e2e/playwright.config.mjs --shard=${{ matrix.shard }}/4
+      # What failed, in the job's own log: the test API's last lines and each
+      # failing test's page as it stood when it failed.
+      - if: failure()
+        run: |
+          echo "--- the test API's log, its last lines"
+          tail -n 150 test-results/e2e-api.log || true
+          for file in test-results/*/error-context.md; do
+            [ -f "$file" ] || continue
+            echo "--- $file"
+            sed -n '/^# Error details/,/^# Test source/p' "$file" | head -150
+          done
       # What failed, to look at: each failing test's screenshot and the test API's
       # log. Never the run's logins file (its test passwords), which the run
       # deletes itself as it ends.
