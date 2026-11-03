@@ -17,7 +17,7 @@ import "../styles/memberships.css";
 // each trainer's fixed sum, the classes they took (with someone attending),
 // the personal-training sessions they gave, and their share of the plans
 // sold for them; each salesperson's share of the plans they sold (before
-// GST, less what was credited back). The rates are the shop's own, set from
+// GST, less what was credited back). The rates are the business's own, set from
 // a month on. A month is paid once per person through the expense book (as
 // wages), so the drawer and the day's money see it.
 
@@ -43,7 +43,7 @@ export default function TrainerPayPage() {
   return (
     <div className="stack">
       <BusinessHeader icon="payroll" title="Trainer pay"
-        description="Each trainer's and salesperson's month from the classes, personal-training sessions and plans sold, at the shop's own rates; paid once a month through the expense book."
+        description="Each trainer's and salesperson's month from the classes, personal-training sessions and plans sold, at your own rates; paid once a month through the expense book."
         primary={<button type="button" className="button" onClick={() => setDialog({ rule: {} })}><Icon name="plus" size={16} /> Set a rate</button>} />
       <ErrorMessage message={error} />
       <Field label="Month"><input type="month" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} /></Field>

@@ -6055,11 +6055,12 @@ behind them (*Member contacts*) and the **Enquiries**; the plans are under
   is for that branch and hour, and on a pack has a session left beyond those
   booked); a full class puts the member on its waitlist while it has room.
   *Cancel* before the class begins: free before the cut-off, a late cancel
-  after it (with the shop's penalty); the first on the waitlist is promoted
-  when a place frees. *Attended* takes a session off a pack; *No-show* (once
-  the class has begun) takes the penalty. *Call off* cancels every booking
-  without a penalty. *Timetable* holds the rooms and the weekly classes; a
-  change makes again the classes to come that nobody has booked.
+  after it (with the penalty set in Membership plans); the first on the
+  waitlist is promoted when a place frees. *Attended* takes a session off a
+  pack; *No-show* (once the class has begun) takes the penalty. *Call off*
+  cancels every booking without a penalty. *Timetable* holds the rooms and
+  the weekly classes; a change makes again the classes to come that nobody
+  has booked.
 - **Members** (*Members*) — every member with their current membership (a
   plan by time before a pack, the one ending first), its status today
   (*Active*, *Frozen*, *Not started yet*, *In grace days*, *Over*, *Used up*,

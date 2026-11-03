@@ -16,11 +16,12 @@ import "../styles/memberships.css";
 // Classes: the week's classes made from the timetable, each with its places,
 // its waitlist and its bookings. The desk (or a trainer) books a member on a
 // membership that books the class, cancels (free before the cut-off, a late
-// cancel after it with the shop's penalty), and marks attendance on the class
-// list (a no-show once it has begun); a full class puts the member on its
-// waitlist, and a place that frees promotes the first on it. The timetable
-// below (rooms, and each class on its weekday with its instructor, places,
-// booking window, cut-off and waitlist) is changed by those who set up plans.
+// cancel after it with the penalty set in Membership plans), and marks
+// attendance on the class list (a no-show once it has begun); a full class
+// puts the member on its waitlist, and a place that frees promotes the first
+// on it. The timetable below (rooms, and each class on its weekday with its
+// instructor, places, booking window, cut-off and waitlist) is changed by
+// those who set up plans.
 
 const addDays = (day, n) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 const weekdayOf = (day) => { const d = new Date(`${day}T00:00:00Z`).getUTCDay(); return d === 0 ? 7 : d; };
@@ -256,7 +257,7 @@ function SlotDialog({ slot, rooms, trainers, onClose, onSaved }) {
       <Field label="Instructor"><select value={form.trainerId} onChange={set("trainerId")}><option value="">None</option>{trainers.filter((t) => t.active !== false).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select></Field>
       <Field label="Places" hint={room ? `The room holds ${room.capacity}; empty: all of them.` : undefined}><input type="number" min="1" max={room?.capacity || 500} value={form.capacity} onChange={set("capacity")} /></Field>
       <Field label="Booking opens (hours before)"><input type="number" required min="1" max="720" value={form.bookHours} onChange={set("bookHours")} /></Field>
-      <Field label="Cancel cut-off (hours before)" hint="A cancel after it is a late cancel, with the shop's penalty."><input type="number" required min="0" max="168" value={form.cancelHours} onChange={set("cancelHours")} /></Field>
+      <Field label="Cancel cut-off (hours before)" hint="A cancel after it is a late cancel, with the penalty set in Membership plans."><input type="number" required min="0" max="168" value={form.cancelHours} onChange={set("cancelHours")} /></Field>
       <Field label="Waitlist"><input type="number" required min="0" max="100" value={form.waitlistSize} onChange={set("waitlistSize")} /></Field>
       {editing && <label className="checkbox bz-check field-wide"><input type="checkbox" checked={form.active} onChange={set("active")} /> On the timetable</label>}
     </FormDialog>
