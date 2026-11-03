@@ -98,11 +98,11 @@ test("the platform console's pages open for the platform's super admin, whose ho
   await expect(page.locator('header.topbar[data-layout="platform"] .brand-name')).toHaveText("Platform console");
   // Its menu, each entry with its mark.
   const menu = page.locator('.nav-section[data-section="Platform"] a.nav-link');
-  await expect(menu.locator(".nav-label")).toHaveText(["Overview", "Businesses", "Restaurants", "Leads & trials", "Payments", "Invoices", "Reports", "Settings"]);
-  await expect(menu.locator("svg.nav-icon")).toHaveCount(8);
+  await expect(menu.locator(".nav-label")).toHaveText(["Overview", "Businesses", "Restaurants", "Leads & trials", "Payments", "Invoices", "Reports", "Business types", "Settings"]);
+  await expect(menu.locator("svg.nav-icon")).toHaveCount(9);
   // A business of the run.
   const pages = ["/platform", "/platform/businesses/new", `/platform/businesses/${business("grocery").id}`, "/platform/leads", "/platform/payments",
-    "/platform/invoices", "/platform/reports", "/platform/settings"];
+    "/platform/invoices", "/platform/reports", "/platform/business-types", "/platform/business-types/memberships", "/platform/settings"];
   for (const route of pages) {
     await opens(page, route, errors);
   }

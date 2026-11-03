@@ -140,7 +140,8 @@ for (const { viewport, colorScheme, phone } of SCREENS) {
       await page.getByTitle(`Open ${number}`, { exact: true }).click();
       const sale = page.getByRole("dialog", { name: `Sale ${number}` });
       await sale.getByRole("button", { name: "Record collection", exact: true }).click();
-      const collection = page.getByRole("dialog", { name: "Record a collection" });
+      // A bookshop's word for money received against dues.
+      const collection = page.getByRole("dialog", { name: "Record a payment received" });
       // From the bill, the amount still open on it.
       await expect(collection.getByLabel("Amount received", { exact: true })).toHaveValue("120.00");
       await collection.getByRole("button", { name: "Save receipt", exact: true }).click();
