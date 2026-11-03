@@ -71,11 +71,11 @@ for (const { viewport, colorScheme, phone } of SCREENS) {
       const customer = `Lakshmi Iyer ${tag}`;
       await signIn(page);
 
-      // The catalogue: a book with its ISBN, and no GST.
+      // The catalogue: a book with its ISBN, and no GST, in a bookshop's words.
       await open(page, books, "products", "Books & stationery");
-      await page.getByRole("button", { name: "Add item", exact: true }).click();
-      const item = page.getByRole("dialog", { name: "Add an item" });
-      await item.getByLabel("Product name", { exact: true }).fill(book.name);
+      await page.getByRole("button", { name: "Add book or item", exact: true }).click();
+      const item = page.getByRole("dialog", { name: "Add a book or item" });
+      await item.getByLabel("Book or item name", { exact: true }).fill(book.name);
       await item.getByLabel("SKU code", { exact: true }).fill(book.code);
       // Including GST or before it, as the shop's settings say: with no GST the two are the same.
       await item.getByLabel(/^Selling price/).fill("120");
@@ -177,9 +177,9 @@ for (const { viewport, colorScheme, phone } of SCREENS) {
       const books = business("books");
       await signIn(page);
       await open(page, books, "products", "Books & stationery");
-      await page.getByRole("button", { name: "Add item", exact: true }).click();
-      const item = page.getByRole("dialog", { name: "Add an item" });
-      const name = item.getByLabel("Product name", { exact: true });
+      await page.getByRole("button", { name: "Add book or item", exact: true }).click();
+      const item = page.getByRole("dialog", { name: "Add a book or item" });
+      const name = item.getByLabel("Book or item name", { exact: true });
       await name.fill("Tenali Raman stories");
       const ask = page.getByRole("dialog", { name: "Discard your changes?" });
 

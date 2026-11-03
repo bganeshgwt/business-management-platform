@@ -3379,6 +3379,27 @@ tracked (quantity only, batch and expiry, or serial / IMEI number), the
 selling price, MRP, GST slab, HSN code (SAC for a service), category and
 reorder level.
 
+- **In the business's own words.** The button, the form and the list name
+  the business's things its way: a gym's *Add plan or service*, *Plan or
+  service name* and *Plan code*, a garage's *Part number*; the examples in
+  the fields are the business's own (*e.g. Monthly membership*, a shelf
+  *e.g. Reception rack*), from its words (Platform › Business types and
+  Business settings › Words).
+- **Goods or a service.** A new item starts as the business's own kind: goods
+  in a shop, a service in a gym, a salon, a clinic, a laundry, a rental
+  business or a hotel, and always a service while Stock is off. Goods kept in
+  stock are offered only with Stock on, in the business's word for them (a
+  gym's *Product for sale (kept in stock)*, a salon's *Retail product*, a
+  garage's *Part*). A service has no barcode, brand, MRP, shelf, reorder level
+  or stock tracking, and is *Billed per* a unit of time or service; a barcode
+  typed before the kind was changed is not kept.
+- **The list** shows MRP, the shelf and what is in stock only with Stock on:
+  in a business whose new items start as goods, and in one whose items start
+  as services once it keeps goods (until then they wait in the column menu).
+- **For use in services only** (a business whose items start as services, or
+  that books appointments): goods kept to use in its services, never billed,
+  such as a gym's disinfectant and towels.
+
 - **Prices include GST** in a new goods shop (grocery, supermarket, books,
   pharmacy, fashion, electronics, meat and weight shops), and sale totals are
   rounded to the rupee. Both are set in Business settings › *Prices, totals

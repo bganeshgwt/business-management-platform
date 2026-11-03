@@ -523,7 +523,7 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 ### Items used in services
 
-- **Rule:** an item a salon or a clinic uses up in its services (hair colour, gloves) can be kept in stock and never sold. The bill screens leave it out.
+- **Rule:** an item a business uses up in its services (a salon's hair colour, a clinic's gloves, a gym's towels) can be kept in stock and never sold, where its new items start as services or it books appointments. The bill screens leave it out.
 - **Change it:** the item's *For use in services only, not sold*.
 
 ### Free goods on a supplier's bill

@@ -92,7 +92,7 @@ test("a crop-restricted pesticide is never billed for a barred crop", async ({ p
 test("the item form keeps a pesticide's molecules and refuses a banned one", async ({ page }) => {
   const errors = errorsOf(page);
   await page.goto(`/business-admin/${shop.id}/products?new=1`);
-  const dialog = page.getByRole("dialog", { name: "Add an item" });
+  const dialog = page.getByRole("dialog", { name: "Add a product" });
   await expect(dialog).toBeVisible({ timeout: 30_000 });
   await dialog.getByLabel("Product name").fill("Dicofol 18.5% EC 250 ml");
   await dialog.getByLabel("SKU code").fill("DCF-250");

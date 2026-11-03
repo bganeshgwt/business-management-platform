@@ -135,7 +135,7 @@ test("the recall list: who is due for an eye test, with the reminder ready on Wh
 test("contact lenses: the item form makes one item for each power", async ({ page }) => {
   const errors = errorsOf(page);
   await page.goto(`/business-admin/${shop.id}/products?new=1`);
-  const dialog = page.getByRole("dialog", { name: "Add an item" });
+  const dialog = page.getByRole("dialog", { name: "Add a product" });
   await expect(dialog).toBeVisible({ timeout: 30_000 });
   await dialog.getByLabel("Product name").fill("Acuvue Oasys (box of 6)");
   await dialog.getByLabel("Stock unit").selectOption({ label: "Box" });

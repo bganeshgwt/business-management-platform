@@ -7,7 +7,6 @@ import { ErrorMessage, Loading, SuccessMessage } from "../../../../components/Fe
 import { businessRead, businessWrite } from "../../../../services/business.service";
 import Modal from "../../../../components/Modal";
 import { getErrorMessage } from "../../../../services/api";
-import { SERVICES } from "../../../../services/businessTypes";
 import FormDialog from "./FormDialog";
 import { ActiveBadge, BusinessHeader, Field, FormError } from "./ui";
 import { quantity, useOpenBusiness, useOptions, useServerList } from "./hooks";
@@ -49,8 +48,13 @@ const FIGURES = ["coverageSqftPerUnit", "coverageSqftPerLitre", "litresPerUnit"]
 const CHANGEABLE_TEXTS = ["paintBase"];
 const TRACKING = { none: "Not stocked", quantity: "Quantity", batch: "Batch & expiry", serial: "Serial / IMEI" };
 
+// Whether the business's new items start as goods (a shop's) or as services (a
+// gym's, a clinic's): its type's, from the platform's Business types.
+const goodsFirst = (biz) => (biz.look?.defaultItemKind ?? "goods") === "goods";
+
 export default function CatalogPage() {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const [params, setParams] = useSearchParams();
   const [category, setCategory] = useState("");
   const { options } = useOptions(["categories?active=true"]);
@@ -66,30 +70,46 @@ export default function CatalogPage() {
   const taxChanges = useMemo(() => shopChanges(biz.id), [biz.id]);
   // A branch may sell at its own price once there is more than one.
   const branches = biz.locations.filter((l) => l.active).length > 1;
-  const title = biz.t("catalog", "many");
+  const title = t("catalog", "many");
+  // Goods kept in stock come with Stock. Their columns (MRP, shelf, stock)
+  // show where new items start as goods, and where they start as services
+  // once there are goods (a gym's products for sale); until then they wait in
+  // the column menu.
+  const keepsGoods = biz.has("inventory");
+  const startsAsGoods = goodsFirst(biz);
+  const [hasGoods, setHasGoods] = useState(false);
+  useEffect(() => {
+    if (!keepsGoods || startsAsGoods) return undefined;
+    const controller = new AbortController();
+    businessRead(biz.id, "catalog", { kind: "goods", limit: 1 }, controller.signal)
+      .then((page) => setHasGoods(page.total > 0)).catch(() => {});
+    return () => controller.abort();
+  }, [biz.id, keepsGoods, startsAsGoods, saved]);
+  const goodsShown = keepsGoods && (startsAsGoods || hasGoods);
   useEffect(() => {
     if (params.get("new")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);
 
   const columns = useMemo(() => [
-    { key: "label", header: "Item", value: (s) => s.label, mobile: "title", pin: true,
+    { key: "label", header: t("item"), value: (s) => s.label, mobile: "title", pin: true,
       render: (s) => <span className="bz-two-line"><strong>{s.label}</strong>{s.internal_use ? <small className="muted">Used in services · not sold</small> : s.product_name !== s.label && <small className="muted">{s.product_name}</small>}</span> },
-    { key: "code", header: "SKU", value: (s) => s.code, className: "mono", mobile: "subtitle" },
-    { key: "barcode", header: "Barcode", value: (s) => s.barcode || "", className: "mono", defaultHidden: true },
+    { key: "code", header: t("item_code"), value: (s) => s.code, className: "mono", mobile: "subtitle" },
+    keepsGoods && { key: "barcode", header: "Barcode", value: (s) => s.barcode || "", className: "mono", defaultHidden: true },
     { key: "category", header: "Category", value: (s) => s.category || "" },
     { key: "price", header: biz.settings.tax_mode === "inclusive" ? "Price (incl. tax)" : "Price", type: "money", exact: true, value: (s) => Number(s.price), mobile: "show" },
-    { key: "mrp", header: "MRP", type: "money", exact: true, value: (s) => (s.mrp === null || s.mrp === undefined ? null : Number(s.mrp)), defaultHidden: SERVICES.includes(biz.type) },
+    keepsGoods && { key: "mrp", header: "MRP", type: "money", exact: true, value: (s) => (s.mrp === null || s.mrp === undefined ? null : Number(s.mrp)), defaultHidden: !goodsShown },
     biz.has("loyalty") && { key: "member_price", header: "Member price", type: "money", exact: true, value: (s) => (s.member_price === null || s.member_price === undefined ? null : Number(s.member_price)) },
     // Its slab now, and a GST rate change still to come.
     { key: "tax", header: "GST", value: (s) => s.tax_rate_name || `${Number(s.tax_rate)}%`,
       render: (s) => <>{s.tax_rate_name || `${Number(s.tax_rate)}%`}{s.tax_change && <small className="txc-next">{s.tax_change.name} from {onDate(s.tax_change.startsOn)}</small>}</> },
     biz.has("agri") && { key: "input_kind", header: "Farm input", value: (s) => kindWord(classOf(s).kind),
       render: (s) => (classOf(s).kind ? `${kindWord(classOf(s).kind)}${classOf(s).subsidised ? " · subsidised" : ""}` : <span className="muted">—</span>) },
-    biz.has("inventory") && { key: "shelf", header: "Shelf", value: (s) => s.shelf_location || "", render: (s) => s.shelf_location || <span className="muted">—</span> },
+    keepsGoods && { key: "shelf", header: "Shelf", value: (s) => s.shelf_location || "", render: (s) => s.shelf_location || <span className="muted">—</span>, defaultHidden: !goodsShown },
     { key: "hsn", header: "HSN / SAC", value: (s) => s.hsn_code || "", className: "mono", defaultHidden: true },
     { key: "unit", header: "Unit", value: (s) => s.unit_name || s.unit },
-    { key: "tracking", header: "Stock tracking", value: (s) => TRACKING[s.tracking], defaultHidden: true },
-    { key: "stock", header: "In stock", type: "number", value: (s) => (s.kind === "service" ? null : Number(s.stock)), render: (s) => (s.kind === "service" ? <span className="muted">Service</span> : quantity(s.stock, s.unit)), mobile: "show" },
+    keepsGoods && { key: "tracking", header: "Stock tracking", value: (s) => TRACKING[s.tracking], defaultHidden: true },
+    keepsGoods && { key: "stock", header: "In stock", type: "number", value: (s) => (s.kind === "service" ? null : Number(s.stock)), defaultHidden: !goodsShown,
+      render: (s) => (s.kind === "service" ? <span className="muted">{t("service")}</span> : quantity(s.stock, s.unit)), mobile: "show" },
     // The case price and stock in cases, for goods sold by the pack.
     { key: "case_price", header: "Pack price", type: "money", exact: true, defaultHidden: !biz.has("sales_orders"),
       value: (s) => (packOf(s) ? Number(s.price) * packOf(s).factor : null), render: (s) => (packOf(s) ? `${biz.exact(Number(s.price) * packOf(s).factor)} / ${packOf(s).unit}` : <span className="muted">—</span>) },
@@ -103,18 +123,18 @@ export default function CatalogPage() {
         {!s.is_kit && <button type="button" className="chip-button" onClick={() => setHistory(s)}>GST history</button>}
       </span>
     ) },
-  ], [biz, branches]);
+  ], [biz, branches, t, keepsGoods, goodsShown]);
 
   return (
     <div className="stack">
       <BusinessHeader icon="tag" title={title}
-        description="Everything you sell, with its price, GST slab, category and stock. Changing a price never changes a bill already posted."
+        description={`Your ${t.lower("catalog")}: every ${t.lower("item")} with its price, GST slab${keepsGoods ? ", category and stock" : " and category"}. Changing a price never changes a bill already posted.`}
         secondary={biz.can("catalog.create") && <button type="button" className="button button-secondary" onClick={() => setImporting(true)}><Icon name="upload" size={16} /> Import from Excel or CSV</button>}
-        primary={biz.can("catalog.create") && <button type="button" className="button" onClick={() => setEditing({})}><Icon name="plus" size={16} /> Add item</button>} />
+        primary={biz.can("catalog.create") && <button type="button" className="button" onClick={() => setEditing({})}><Icon name="plus" size={16} /> Add {t.lower("item")}</button>} />
       <SuccessMessage message={notice} />
       <ErrorMessage message={list.error} />
       <HsnToFix onEdit={setEditing} refreshKey={saved} />
-      <SectionCard flush icon="list" title="All items">
+      <SectionCard flush icon="list" title={`All ${t.lower("item", "many")}`}>
         <DataGrid {...list.gridProps} caption={title} columns={columns.filter(Boolean)} currency={biz.symbol}
           toolbar={categories.length > 0 && (
             <label className="field">
@@ -127,7 +147,7 @@ export default function CatalogPage() {
           )}
           exportName={biz.can("catalog.export") ? `${biz.business.code}-catalogue` : undefined}
           rowClassName={(s) => (!s.active ? "dg-tone-muted" : s.kind === "goods" && Number(s.reorder_level) > 0 && Number(s.stock) <= Number(s.reorder_level) ? "dg-tone-warning" : "")}
-          empty="Nothing in the catalogue yet" emptyIcon="tag" />
+          empty={`Nothing in your ${t.lower("catalog")} yet`} emptyIcon="tag" />
       </SectionCard>
       {editing && <CatalogDialog sku={editing} onClose={() => setEditing(null)}
         onSaved={(s) => { setEditing(null); setNotice(`${s.label} saved.`); list.reload(); setSaved((n) => n + 1); }} />}
@@ -143,6 +163,7 @@ export default function CatalogPage() {
 
 function CatalogDialog({ sku, onClose, onSaved }) {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const editing = Boolean(sku.id);
   const { options, error } = useOptions(["units?active=true", "tax-rates?active=true", "categories?active=true", ...(biz.has("variants") && !editing ? ["catalog"] : [])]);
   // The online shop's part of the item, when the shop is on (its save follows the item's own).
@@ -150,9 +171,12 @@ function CatalogDialog({ sku, onClose, onSaved }) {
   const units = options?.["units?active=true"] || [];
   const slabs = options?.["tax-rates?active=true"] || [];
   const categories = options?.["categories?active=true"] || [];
-  const services = biz.type === "healthcare" || !biz.has("inventory");
+  // The kinds a new item may be, the one it starts as first: goods kept in
+  // stock (with Stock on) in the business's own word for them, and services.
+  const kinds = [biz.has("inventory") && ["goods", `${t("goods")} (kept in stock)`], ["service", t("service")]].filter(Boolean);
+  if (!goodsFirst(biz)) kinds.reverse();
   const [form, setForm] = useState(() => ({
-    name: "", productId: "", label: sku.label || "", code: "", barcode: sku.barcode || "", kind: sku.kind || (services ? "service" : "goods"), unit: services ? "service" : "each",
+    name: "", productId: "", label: sku.label || "", code: "", barcode: sku.barcode || "", kind: sku.kind || kinds[0][0], unit: kinds[0][0] === "service" ? "service" : "each",
     // Medicines, seeds and pesticides are sold by batch (lot, expiry).
     tracking: ["pharmacy", "agri_inputs"].includes(biz.type) ? "batch" : "quantity", price: sku.price || "", taxRateId: sku.tax_rate_id ? String(sku.tax_rate_id) : "",
     categoryId: sku.category_id ? String(sku.category_id) : "", brand: "", reorderLevel: sku.reorder_level ? String(Number(sku.reorder_level)) : "", active: sku.active ?? true,
@@ -167,13 +191,14 @@ function CatalogDialog({ sku, onClose, onSaved }) {
     openingQuantity: "", openingCost: "", openingLocation: String(biz.locations.find((l) => l.active)?.id || ""), openingLot: "", openingExpiry: "",
   }));
   const canOpening = !editing && biz.has("inventory") && biz.can("inventory.edit");
-  // A business doing services keeps some stock only to use in them (a salon's colour, a clinic's gloves).
-  const usedInServices = ["salon", "healthcare"].includes(biz.type) || biz.has("appointments");
+  // A business whose items start as services, or that books appointments,
+  // keeps some stock only to use in them (its consumables).
+  const usedInServices = !goodsFirst(biz) || biz.has("appointments");
   const set = (name) => (e) => {
     const value = e.target.type === "checkbox" ? e.target.checked : e.target.value;
     setForm((f) => ({ ...f, [name]: value, ...(name === "kind" ? { unit: value === "service" ? "service" : "each" } : {}) }));
   };
-  const defaultSlab = slabs.find((t) => t.is_default);
+  const defaultSlab = slabs.find((slab) => slab.is_default);
   const taxRateId = form.taxRateId || (editing ? "" : String(defaultSlab?.id || ""));
   const attributeFields = biz.context.capabilities.flatMap((cap) => ATTRIBUTES[cap] || []);
   // The details that may change after the item is made: figures and a few short texts.
@@ -190,6 +215,9 @@ function CatalogDialog({ sku, onClose, onSaved }) {
   // A spectacle lens's details (an optical shop's goods; not a contact lens made by powers).
   const lensItemOffered = form.kind === "goods" && usesOptical(biz) && !grid && !sku.attributes?.baseCurve;
   const lensAttributes = lensItemOffered ? lensItemAttributes(form.lensItem, { editing, was: lensItemForm(sku) }) : {};
+  // A service carries none of the goods' details, even ones typed before its kind was changed.
+  const goodsDetails = form.kind === "goods" ? {} : { barcode: "", brand: "", mrp: "", shelfLocation: "", reorderLevel: 0 };
+  const examples = { name: t.ex("item_name"), variant: t.ex("variant"), shelf: t.ex("shelf"), consumables: t.ex("consumables") };
 
   const submit = () => (grid
     ? businessWrite(biz.id, "optical/power-grid", gridBody(form, taxRateId)).then((r) => ({ ...r, label: `${r.product.name}: ${r.created} ${r.created === 1 ? "power" : "powers"}` }))
@@ -199,7 +227,7 @@ function CatalogDialog({ sku, onClose, onSaved }) {
       shelfLocation: form.shelfLocation, ...(biz.has("loyalty") ? { memberPrice: form.memberPrice } : {}), ...(usedInServices ? { internalUse: form.internalUse } : {}),
       ...(figureFields.length || agri || Object.keys(lensAttributes).length ? { attributes: { ...Object.fromEntries(figureFields.map(([key]) => [key, form[key] || ""])), ...agriAttributes, ...lensAttributes } } : {}) }, "patch")
     : businessWrite(biz.id, "catalog", {
-      ...fields, taxRateId: taxRateId || undefined, categoryId: form.categoryId || undefined, productId: form.productId || undefined, reorderLevel: form.reorderLevel || 0,
+      ...fields, taxRateId: taxRateId || undefined, categoryId: form.categoryId || undefined, productId: form.productId || undefined, reorderLevel: form.reorderLevel || 0, ...goodsDetails,
       attributes: { ...Object.fromEntries(attributeFields.map(([key]) => [key, form[key] || ""])), ...agriAttributes, ...lensAttributes },
       ...(canOpening && form.kind === "goods" && form.tracking !== "serial" && Number(form.openingQuantity) > 0 ? { openingStock: {
         quantity: form.openingQuantity, unitCost: form.openingCost || "0", locationId: form.openingLocation,
@@ -208,37 +236,43 @@ function CatalogDialog({ sku, onClose, onSaved }) {
     }));
 
   return (
-    <FormDialog title={editing ? `Edit ${sku.label}` : "Add an item"} icon="tag" width={720} onClose={onClose} onSaved={onSaved} onSubmit={() => submit().then((saved) => (online.current ? online.current.save(saved) : saved))} disabled={!options}>
+    <FormDialog title={editing ? `Edit ${sku.label}` : `Add ${t.a("item")}`} icon="tag" width={720} onClose={onClose} onSaved={onSaved} onSubmit={() => submit().then((saved) => (online.current ? online.current.save(saved) : saved))} disabled={!options}>
       <FormError message={error} />
       {!options && !error && <div className="field-wide"><Loading /></div>}
       {!editing && (
         <>
-          <Field label="Product name" wide><input required maxLength={150} value={form.name} onChange={set("name")} /></Field>
+          <Field label={`${t("item")} name`} wide>
+            <input required maxLength={150} value={form.name} onChange={set("name")} placeholder={examples.name ? `e.g. ${examples.name}` : undefined} />
+          </Field>
+          {/* The kind first: the fields below follow it. */}
+          <Field label="Kind" hint={biz.has("inventory") ? undefined : `For ${t.lower("goods", "many")} kept in stock, an owner switches Stock on under Settings › Business tools.`}>
+            <select value={form.kind} onChange={set("kind")}>
+              {kinds.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </Field>
+          <Field label={form.kind === "service" ? "Billed per" : "Stock unit"}>
+            <select required value={form.unit} onChange={set("unit")}>
+              {unitChoices.map((u) => <option key={u.code} value={u.code}>{u.name}</option>)}
+            </select>
+          </Field>
           {biz.has("variants") && products.length > 0 && (
-            <Field label="Variant of (optional)" hint="Pick a product to add this as one of its sizes or colours." wide>
+            <Field label="Variant of (optional)" hint={`Pick ${t.a("item")} to add this as one of its variants.`} wide>
               <select value={form.productId} onChange={set("productId")}>
-                <option value="">A new product</option>
+                <option value="">A new {t.lower("item")}</option>
                 {products.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
               </select>
             </Field>
           )}
           {lensGridOffered && <PowerGridFields value={form.lensGrid} adding={Boolean(form.productId)} onChange={(next) => setForm((f) => ({ ...f, lensGrid: next }))} />}
-          {!grid && <Field label="Name on the bill (optional)" hint="For a variant: e.g. “Blue / M”."><input maxLength={150} value={form.label} onChange={set("label")} /></Field>}
+          {!grid && (
+            <Field label="Name on the bill (optional)" hint={biz.has("variants") && examples.variant ? `For a variant: e.g. “${examples.variant}”.` : undefined}>
+              <input maxLength={150} value={form.label} onChange={set("label")} />
+            </Field>
+          )}
           {grid
             ? <Field label="Code prefix" hint="Each power's code: the prefix and the power (AO6-M250 for -2.50)."><input required={!form.productId} maxLength={20} value={form.code} onChange={set("code")} className="mono" /></Field>
-            : <Field label="SKU code"><input required maxLength={60} value={form.code} onChange={set("code")} className="mono" /></Field>}
-          {!grid && <Field label="Barcode (optional)"><input maxLength={80} value={form.barcode} onChange={set("barcode")} className="mono" /></Field>}
-          <Field label="Kind">
-            <select value={form.kind} onChange={set("kind")}>
-              {biz.has("inventory") && <option value="goods">Goods (kept in stock)</option>}
-              <option value="service">Service</option>
-            </select>
-          </Field>
-          <Field label="Stock unit">
-            <select required value={form.unit} onChange={set("unit")}>
-              {unitChoices.map((u) => <option key={u.code} value={u.code}>{u.name}</option>)}
-            </select>
-          </Field>
+            : <Field label={t("item_code")}><input required maxLength={60} value={form.code} onChange={set("code")} className="mono" /></Field>}
+          {!grid && form.kind === "goods" && <Field label="Barcode (optional)"><input maxLength={80} value={form.barcode} onChange={set("barcode")} className="mono" /></Field>}
           {form.kind === "goods" && (
             <Field label="Stock tracking">
               <select value={form.tracking} onChange={set("tracking")}>
@@ -248,7 +282,7 @@ function CatalogDialog({ sku, onClose, onSaved }) {
               </select>
             </Field>
           )}
-          <Field label="Brand (optional)"><input maxLength={100} value={form.brand} onChange={set("brand")} /></Field>
+          {form.kind === "goods" && <Field label="Brand (optional)"><input maxLength={100} value={form.brand} onChange={set("brand")} /></Field>}
         </>
       )}
       {editing && <Field label="Name on the bill" wide><input required maxLength={150} value={form.label} onChange={set("label")} /></Field>}
@@ -269,7 +303,7 @@ function CatalogDialog({ sku, onClose, onSaved }) {
       <Field label="GST slab">
         <select value={taxRateId} onChange={set("taxRateId")}>
           {editing && !sku.tax_rate_id && <option value="">{Number(sku.tax_rate)}% (no slab)</option>}
-          {slabs.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          {slabs.map((slab) => <option key={slab.id} value={slab.id}>{slab.name}</option>)}
         </select>
       </Field>
       <Field label={form.kind === "service" ? "SAC code (optional)" : "HSN code (optional)"} hint="4, 6 or 8 digits, printed on the tax invoice.">
@@ -283,12 +317,12 @@ function CatalogDialog({ sku, onClose, onSaved }) {
       </Field>
       {form.kind === "goods" && <Field label="Reorder level" hint="Shown as low on stock at or below this; purchase orders suggest topping up to it."><input type="number" min="0" step="0.001" value={form.reorderLevel} onChange={set("reorderLevel")} /></Field>}
       {form.kind === "goods" && (
-        <Field label="Shelf location (optional)" hint="Where it sits, e.g. “Aisle 3 · Shelf B” or “Backroom”.">
+        <Field label="Shelf location (optional)" hint={examples.shelf ? `Where it sits, e.g. “${examples.shelf}”.` : "Where it sits."}>
           <input maxLength={40} value={form.shelfLocation} onChange={set("shelfLocation")} />
         </Field>
       )}
       {biz.has("loyalty") && (
-        <Field label="Member price (optional)" hint="What a loyalty customer pays when the bill names them. Below the selling price.">
+        <Field label="Member price (optional)" hint={`What a loyalty ${t.lower("customer")} pays when the bill names them. Below the selling price.`}>
           <input type="number" min="0" step="0.01" value={form.memberPrice} onChange={set("memberPrice")} />
         </Field>
       )}
@@ -326,7 +360,7 @@ function CatalogDialog({ sku, onClose, onSaved }) {
       ))}
       {usedInServices && form.kind === "goods" && (
         <label className="checkbox bz-check field-wide">
-          <input type="checkbox" checked={form.internalUse} onChange={set("internalUse")} /> For use in services only, not sold (e.g. hair colour, developer, spa cream). It stays out of the bill.
+          <input type="checkbox" checked={form.internalUse} onChange={set("internalUse")} /> For use in services only, not sold{examples.consumables ? ` (e.g. ${examples.consumables})` : ""}. It stays out of the bill.
         </label>
       )}
       {biz.has("online_shop") && (biz.can("catalog.edit") || biz.can("online_shop.manage")) && form.kind === "goods" && !grid && (
