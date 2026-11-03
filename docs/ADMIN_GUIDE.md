@@ -4986,7 +4986,7 @@ For a business of type Clinics & diagnostic labs, with the business tools **Pati
 - **Doctor's share** of the fees.
 - **OPD timings**: by weekday, with morning and evening sessions and an optional cap on patients per session.
 
-*Add leave* blocks appointments and tokens on those days and says how many patients are already booked. A doctor with timings can only be booked inside them. *Book appointment* then shows the free slots, and the doctor's fee is filled in. *Bill this visit* shows whether it is a consultation, a paid follow-up or a free follow-up. A free follow-up is recorded without a bill. The **Earnings** tab shows each doctor's patients, fees and share for a period.
+*Add leave* blocks appointments and tokens on those days and says how many patients are already booked. A doctor with timings can only be booked inside them. *Book an appointment* then shows the free slots, and the doctor's fee is filled in. *Bill this visit* shows whether it is a consultation, a paid follow-up or a free follow-up. A free follow-up is recorded without a bill. The **Earnings** tab shows each doctor's patients, fees and share for a period.
 - **Qualifications, registration number and medical council**: what patients see before they book online (a doctor who signs prescriptions has theirs used while these are empty). The list says *Registration number not given* until one is.
 
 **Booked online** ([Online booking for appointments](#online-booking-for-appointments)). Patients book an OPD slot from the clinic's booking link; the front desk accepts or declines each request in *Online booking*. On *Today's patients* such a booking carries *Online*, for whom, new or visited before, and the reason; a request still waiting says *Online request*. On the day, *Arrived: token* on such a booking first shows the clinic's patients who share the mobile it was booked with (a family books on one phone, and the child or parent who came may be a patient already): each with their patient number, age and sex, beside the name, age and sex the guest typed. *Give <patient> the token* puts the booking on that patient's own record and gives their token. *Register as a new patient*, the last choice, registers them with their consent (the form filled from what they gave online) and gives the token at once. With no patient on that mobile, it goes straight to registering, or to the token for a patient the booking is already on. A booking for a day still to come says *Token on arrival*.
@@ -5519,8 +5519,9 @@ under *Reports*.
     *Contact lenses*; untick *Latest of each customer only* to see all), with
     the powers in one line and lapsed ones greyed; *Print* prints it (A5)
     with the examiner's registration.
-- **From an eye-test booking** — on *Appointments*, *Done* on an eye test
-  opens *Record a prescription* for that customer, kept with the booking.
+- **From an eye-test booking** — on *Eye tests* (the bookings list), *Done* on
+  an eye test opens *Record a prescription* for that customer, kept with the
+  booking.
   The booking gives one spectacle prescription and one contact-lens
   prescription at most.
 - **Correcting a prescription** — *Correct* is offered while no spectacle
@@ -7986,10 +7987,10 @@ answered in time. On the calendars a booking made online carries **Online**,
 and a request still waiting carries **Request**, holding its time until it is
 answered: on a salon's calendar it is a dashed block, the day's line counts
 *online to answer*, and the booking opens on *Answer it in Online booking*.
-On *Appointments* (an optical shop, a garage, a gym, a repair shop) the
-status says *Online request*, *Declined* or *Not answered*, the status filter
-finds them, and a booking 15 minutes past its start with nobody marked shows
-*Late*.
+On the bookings list (an optical shop's *Eye tests*, a garage's *Service
+bookings*, a gym's *Sessions*) the status says *Online request*, *Declined* or
+*Not answered*, the status filter finds them, and a booking 15 minutes past
+its start with nobody marked shows *Late*.
 
 **By trade:**
 

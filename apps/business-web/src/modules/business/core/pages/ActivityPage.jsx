@@ -3,14 +3,15 @@ import SectionCard from "../../../../components/SectionCard";
 import { ErrorMessage } from "../../../../components/Feedback";
 import { BusinessHeader, PeriodFilter } from "./ui";
 import { useOpenBusiness, useServerList } from "./hooks";
+import { bookedNote } from "./bookingWords";
 
-// What each entry says, in a shop owner's words (not "sale.posted" read as
+// What each entry says, in an owner's words (not "sale.posted" read as
 // "Sale posted", or "catalog.price_changed" as "Catalog price changed").
 const WORDS = {
-  "sale.posted": "Sale billed", "purchase.posted": "Purchase received", "payment.recorded": "Payment recorded",
-  "sale.returned": "Goods taken back", "purchase.returned": "Goods returned to supplier", "sale.refunded": "Customer refunded", "purchase.refunded": "Refund from supplier",
-  "collection.recorded": "Money collected from customer", "collection.applied": "Advance put against bills", "supplier.paid": "Supplier paid",
-  "udhaar.reminded": "Udhaar reminder sent", "catalog.created": "Item added", "catalog.updated": "Item changed", "catalog.price_changed": "Selling price changed",
+  "purchase.posted": "Purchase received", "payment.recorded": "Payment recorded",
+  "sale.returned": "Items taken back", "purchase.returned": "Goods returned to supplier", "purchase.refunded": "Refund from supplier",
+  "collection.applied": "Advance put against bills", "supplier.paid": "Supplier paid",
+  "catalog.created": "Item added", "catalog.updated": "Item changed", "catalog.price_changed": "Selling price changed",
   "catalog.barcodes_assigned": "In-store barcodes given", "catalog.scale_code_set": "Scale code set", "catalog.scale_code_removed": "Scale code removed",
   "catalog.variants_created": "Style added with sizes and colours", "catalog.variants_added": "Sizes or colours added", "catalog.variant_prices_set": "Size prices changed",
   "contact.created": "Contact added", "contact.updated": "Contact changed", "settings.updated": "Business settings changed",
@@ -22,17 +23,36 @@ const WORDS = {
   "sales_order.placed": "Sales order taken", "sales_order.dispatched": "Order dispatched", "role.created": "Role created", "role.updated": "Role changed",
   "module.enabled": "Module switched on", "module.disabled": "Module switched off", "location.created": "Location added", "location.updated": "Location changed",
   "tax_rate.created": "GST slab added", "tax_rate.updated": "GST slab changed", "number_series.created": "Number series added", "number_series.updated": "Number series changed",
-  "appointment.booked": "Appointment booked", "appointment.completed": "Appointment done", "appointment.cancelled": "Appointment cancelled", "appointment.no_show": "Client did not come",
-  "wastage.recorded": "Wastage recorded", "processing.posted": "Cutting batch recorded", "member.added": "Staff access given",
+  "appointment.accepted": "Online request accepted", "appointment.declined": "Online request declined", "appointment.expired": "Online request not answered in time",
+  "wastage.recorded": "Wastage recorded", "member.added": "Staff access given",
   "catalog.barcode_changed": "Barcode changed", "book.updated": "Book details changed", "book_set.created": "School set added", "book_set.updated": "School set changed",
   "book_order.created": "Book order taken", "book_order.arrived": "Ordered book arrived", "book_order.collected": "Ordered book collected", "book_order.cancelled": "Book order cancelled",
   // GST rate changes by date: entered ahead, cancelled before their date, or taking effect on it (in the name of who entered them).
   "tax_change.scheduled": "GST rate change scheduled", "tax_change.cancelled": "GST rate change cancelled", "tax_change.item_cancelled": "GST rate change cancelled for an item",
   "catalog.tax_changed": "Item's GST changed on its date", "catalog.slab_changed": "Item's GST slab changed",
   // A spreadsheet of products, customers or suppliers (the rows each made or changed have entries of their own).
-  "catalog.imported": "Products imported from a spreadsheet", "customers.imported": "Customers imported from a spreadsheet", "suppliers.imported": "Suppliers imported from a spreadsheet",
+  "catalog.imported": "Products imported from a spreadsheet", "suppliers.imported": "Suppliers imported from a spreadsheet",
 };
-const words = (action) => WORDS[action] || action.replace(/[._]/g, " ").replace(/^./, (c) => c.toUpperCase());
+// Entries that name the business's people, bills, bookings and dues, in its
+// words (services/terms.js): "Member did not come", "Session booked", "New bill".
+const OWN_WORDS = {
+  "sale.posted": (t) => `New ${t.lower("sale")}`,
+  "sale.refunded": (t) => `${t("customer")} refunded`,
+  "collection.recorded": (t) => `Money collected from ${t.lower("customer")}`,
+  "udhaar.reminded": (t) => `${t("dues")} reminder sent`,
+  "customers.imported": (t) => `${t("customer_list", "many")} imported from a spreadsheet`,
+  "processing.posted": (t) => `${t("processing")} batch recorded`,
+  "appointment.booked": (t) => bookedNote(t),
+  "appointment.completed": (t) => `${t("appointment")} done`,
+  "appointment.cancelled": (t) => `${t("appointment")} cancelled`,
+  "appointment.no_show": (t) => `${t("customer")} did not come`,
+  "appointment.arrived": (t) => `${t("customer")} arrived`,
+};
+const BOOKING = "appointment.";
+// Any other entry reads as its action does; a booking's with the business's word ("Session moved").
+const words = (action, t) => OWN_WORDS[action]?.(t) || WORDS[action]
+  || (action.startsWith(BOOKING) ? `${t("appointment")} ${action.slice(BOOKING.length).replace(/[._]/g, " ")}`
+    : action.replace(/[._]/g, " ").replace(/^./, (c) => c.toUpperCase()));
 
 // Detail keys a person reads; record IDs are left out.
 const LABELS = {
@@ -47,9 +67,10 @@ const LABELS = {
 };
 const MONEY = new Set(["total", "amount", "allocated", "from", "to", "mrpFrom", "mrpTo", "balance", "advance", "advanceKept", "priceFrom", "priceTo"]);
 function detailText(details, biz) {
+  const label = (k) => (k === "customer" ? biz.t("customer") : LABELS[k]);
   return Object.entries(details || {})
     .filter(([k, v]) => v !== null && v !== undefined && typeof v !== "object" && LABELS[k])
-    .map(([k, v]) => `${LABELS[k]} ${MONEY.has(k) && !Number.isNaN(Number(v)) ? biz.exact(v) : k === "walkInCredit" ? (v ? "yes" : "no") : String(v).replace(/_/g, " ")}`)
+    .map(([k, v]) => `${label(k)} ${MONEY.has(k) && !Number.isNaN(Number(v)) ? biz.exact(v) : k === "walkInCredit" ? (v ? "yes" : "no") : String(v).replace(/_/g, " ")}`)
     .join(" · ");
 }
 
@@ -59,7 +80,7 @@ export default function ActivityPage() {
   const list = useServerList("audit", { gridId: "business-activity", period: true });
   const columns = [
     { key: "created_at", header: "When", type: "datetime", value: (a) => a.created_at, mobile: "subtitle" },
-    { key: "action", header: "What happened", value: (a) => words(a.action), mobile: "title", pin: true },
+    { key: "action", header: "What happened", value: (a) => words(a.action, biz.t), mobile: "title", pin: true },
     { key: "actor_name", header: "Who", value: (a) => a.actor_name, mobile: "show" },
     { key: "details", header: "Details", value: (a) => detailText(a.details, biz), render: (a) => <span className="muted small">{detailText(a.details, biz) || "—"}</span> },
   ];

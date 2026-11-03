@@ -10,6 +10,7 @@ import { businessPath } from "../../../../services/businessNav";
 import FormDialog from "./FormDialog";
 import { Badge, BusinessHeader, Field, PeriodFilter } from "./ui";
 import { useOpenBusiness, useOptions, useServerList } from "./hooks";
+import { bookAction, bookedNote } from "./bookingWords";
 // An optical shop's eye test, done, opens its prescription for the customer.
 import PrescriptionDialog from "../../optical/pages/PrescriptionDialog";
 import { usesOptical } from "../../optical/pages/optical";
@@ -17,25 +18,25 @@ import "../../health/styles/health.css";
 import "../../online-booking/styles/online-booking.css";
 
 const clock = (value) => new Date(value).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
-// A guest's online request and its answer, and a booking 15 minutes past its start with nobody marked (Online booking).
+// A request made online and its answer, and a booking 15 minutes past its start with nobody marked (Online booking).
 const ONLINE_STATUS = { requested: { tone: "warning", label: "Online request" }, declined: { tone: "danger", label: "Declined" }, expired: { tone: "danger", label: "Not answered" } };
 const lateNow = (a) => a.status === "booked" && new Date(a.starts_at).getTime() < Date.now() - 15 * 60000;
 const statusOf = (a) => (a.status === "requested" && a.request_expires_at && new Date(a.request_expires_at).getTime() <= Date.now() ? "expired" : a.status);
 
-// Bookings against staff and rooms. Two bookings for the same person never
-// overlap; back-to-back is fine.
+// Bookings against the people and rooms a business books; a salon has its own
+// Calendar and history (salon/pages). Two bookings for the same person never
+// overlap; back-to-back is fine. In the business's words: a gym's sessions
+// with its trainers, a garage's service bookings.
 const dayIn = (value, timeZone) => new Intl.DateTimeFormat("en-CA", { timeZone }).format(new Date(value));
 const onOrBefore = (value, timeZone) => dayIn(value, timeZone) <= dayIn(Date.now(), timeZone);
 
 export default function AppointmentsPage() {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const [params, setParams] = useSearchParams();
   const [status, setStatus] = useState("");
   const list = useServerList("appointments", { gridId: "business-appointments", period: "ahead", params: status ? { status } : {} });
-  // A salon books, finishes and cancels in its Calendar, where service times,
-  // rooms, deposits and the no-show rule apply (the server applies them here too).
-  const salon = biz.type === "salon";
-  const [booking, setBooking] = useState(() => params.get("new") === "1" && biz.can("appointments.create") && !salon);
+  const [booking, setBooking] = useState(() => params.get("new") === "1" && biz.can("appointments.create"));
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [recording, setRecording] = useState(null);
@@ -46,7 +47,7 @@ export default function AppointmentsPage() {
   const update = async (row, next) => {
     try {
       await businessWrite(biz.id, `appointments/${row.id}`, { status: next }, "patch");
-      setNotice(`${row.contact_name}'s appointment marked ${next === "no_show" ? "no-show" : next}.`);
+      setNotice(`${row.contact_name}'s ${t.lower("appointment")} marked ${next === "no_show" ? "no-show" : next}.`);
       list.reload();
       // An eye test done: record its prescription now.
       if (next === "completed" && usesOptical(biz) && biz.can("optical.create")) setRecording({ customer: { id: row.contact_id, name: row.contact_name }, appointmentId: row.id });
@@ -58,18 +59,15 @@ export default function AppointmentsPage() {
   const columns = [
     { key: "starts_at", header: "When", type: "datetime", value: (a) => a.starts_at, mobile: "subtitle",
       render: (a) => `${new Date(a.starts_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}, ${clock(a.starts_at)}–${clock(a.ends_at)}` },
-    { key: "contact_name", header: biz.t("customer"), value: (a) => a.contact_name, mobile: "title", pin: true, render: (a) => (
+    { key: "contact_name", header: t("customer"), value: (a) => a.contact_name, mobile: "title", pin: true, render: (a) => (
       <span className="bz-two-line"><span>{a.contact_name} {a.source === "guests_site" && <span className="ob-online-tag">Online</span>}</span>
         {(a.online_person || a.online_vehicle || a.online_note) && <small className="muted">{[a.online_person && `For ${a.online_person}`, a.online_vehicle, a.online_note].filter(Boolean).join(" · ")}</small>}</span>
     ) },
-    { key: "service_name", header: "Service", value: (a) => a.service_name, mobile: "show" },
+    { key: "service_name", header: t("service"), value: (a) => a.service_name, mobile: "show" },
     { key: "resource_name", header: "With", value: (a) => a.resource_name, mobile: "show" },
     { key: "status", header: "Status", type: "status", value: (a) => statusOf(a), render: (a) => (ONLINE_STATUS[statusOf(a)] ? <Badge status={statusOf(a)} tone={ONLINE_STATUS[statusOf(a)].tone} label={ONLINE_STATUS[statusOf(a)].label} />
       : lateNow(a) ? <Badge status="overdue" tone="warning" label="Late" /> : <Badge status={a.status} />) },
-    salon && { key: "actions", header: "", label: "Actions", type: "actions", render: (a) => (
-      <Link className="chip-button" to={`${businessPath(biz.id, "salon-calendar")}?date=${new Intl.DateTimeFormat("en-CA", { timeZone: biz.business.timezone }).format(new Date(a.starts_at))}`}>Open in calendar</Link>
-    ) },
-    !salon && (biz.can("appointments.edit") || biz.can("appointments.cancel")) && { key: "actions", header: "", label: "Actions", type: "actions", render: (a) => (statusOf(a) === "requested" ? (
+    (biz.can("appointments.edit") || biz.can("appointments.cancel")) && { key: "actions", header: "", label: "Actions", type: "actions", render: (a) => (statusOf(a) === "requested" ? (
       <Link className="chip-button" to={businessPath(biz.id, "online-booking")}>Answer in Online booking</Link>
     ) : a.status === "booked" && (
       <div className="row-actions">
@@ -83,17 +81,13 @@ export default function AppointmentsPage() {
 
   return (
     <div className="stack">
-      <BusinessHeader icon="calendar" title={salon ? "Appointment history" : "Appointments"}
-        description={salon
-          ? "Every booking for the period. Book, finish, mark a no-show or cancel in the Calendar, where service times, rooms, deposits and the no-show rule apply."
-          : "Who is booked with whom, and when. The same person or room cannot be double-booked."}
-        actions={salon
-          ? <Link className="button" to={businessPath(biz.id, "salon-calendar")}><Icon name="calendar" size={16} /> Open the calendar</Link>
-          : biz.can("appointments.create") && <button type="button" className="button" onClick={() => setBooking(true)}><Icon name="plus" size={16} /> Book appointment</button>} />
+      <BusinessHeader icon="calendar" title={t("appointment", "many")}
+        description={`Who is booked with whom, and when. The same ${t.lower("resource")} cannot be double-booked.`}
+        actions={biz.can("appointments.create") && <button type="button" className="button" onClick={() => setBooking(true)}><Icon name="plus" size={16} /> {bookAction(t)}</button>} />
       <SuccessMessage message={notice} />
       <ErrorMessage message={error || list.error} />
-      <SectionCard flush icon="list" title="Appointments this month and the next 30 days">
-        <DataGrid {...list.gridProps} caption="Appointments" columns={columns.filter(Boolean)} rowNoun={["appointment", "appointments"]}
+      <SectionCard flush icon="list" title={`${t("appointment", "many")} this month and the next 30 days`}>
+        <DataGrid {...list.gridProps} caption={t("appointment", "many")} columns={columns.filter(Boolean)} rowNoun={[t.lower("appointment"), t.lower("appointment", "many")]}
           toolbar={(
             <>
               <PeriodFilter list={list} />
@@ -113,9 +107,9 @@ export default function AppointmentsPage() {
             </>
           )}
           rowClassName={(a) => (["cancelled", "declined", "expired"].includes(statusOf(a)) ? "dg-tone-muted" : a.status === "no_show" || statusOf(a) === "requested" || lateNow(a) ? "dg-tone-warning" : "")}
-          empty="No appointments in these dates" emptyIcon="calendar" />
+          empty={`No ${t.lower("appointment", "many")} in these dates`} emptyIcon="calendar" />
       </SectionCard>
-      {booking && <BookDialog onClose={() => setBooking(false)} onSaved={() => { setBooking(false); setNotice("Appointment booked."); list.reload(); }} />}
+      {booking && <BookDialog onClose={() => setBooking(false)} onSaved={() => { setBooking(false); setNotice(`${bookedNote(t)}.`); list.reload(); }} />}
       {recording && <PrescriptionDialog customer={recording.customer} appointmentId={recording.appointmentId} onClose={() => setRecording(null)}
         onSaved={(p) => { setRecording(null); setNotice(`${p.customer_name}'s prescription saved.`); }} />}
     </div>
@@ -124,6 +118,7 @@ export default function AppointmentsPage() {
 
 function BookDialog({ onClose, onSaved }) {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const { options } = useOptions(["contacts?kind=customer&active=true", "catalog?kind=service&active=true", "resources"]);
   const [form, setForm] = useState({ contactId: "", skuId: "", resourceId: "", date: "", start: "10:00", minutes: "60" });
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
@@ -157,14 +152,14 @@ function BookDialog({ onClose, onSaved }) {
     return businessWrite(biz.id, "appointments", { contactId: form.contactId, skuId: form.skuId, resourceId: form.resourceId, startsAt: starts.toISOString(), endsAt: ends.toISOString() });
   };
   return (
-    <FormDialog title="Book an appointment" icon="calendar" width={620} submitLabel="Book" onSubmit={submit} onClose={onClose} onSaved={onSaved} disabled={!options}>
-      <Field label={biz.t("customer")}>
+    <FormDialog title={bookAction(t)} icon="calendar" width={620} submitLabel="Book" onSubmit={submit} onClose={onClose} onSaved={onSaved} disabled={!options}>
+      <Field label={t("customer")}>
         <select required value={form.contactId} onChange={set("contactId")}>
           <option value="">Choose…</option>
           {(options?.["contacts?kind=customer&active=true"] || []).map((c) => <option key={c.id} value={c.id}>{c.name}{c.phone ? ` · ${c.phone}` : ""}</option>)}
         </select>
       </Field>
-      <Field label="Service">
+      <Field label={t("service")}>
         <select required value={form.skuId} onChange={set("skuId")}>
           <option value="">Choose…</option>
           {(options?.["catalog?kind=service&active=true"] || []).map((s) => <option key={s.id} value={s.id}>{s.label} · {biz.exact(s.price)}</option>)}
