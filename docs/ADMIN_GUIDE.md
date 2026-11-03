@@ -4339,7 +4339,8 @@ clinic's consultations, a bookshop's books), with no GST columns, taxable
 value or HSN tax summary; an **Invoice-cum-bill of supply** for taxable and
 exempt lines together to a buyer with no GSTIN; and a **Bill** from a business
 with no GSTIN in Business settings, with nothing about it on the buyer's copy
-(a bill that charges GST without one says so on its screen). Under the bill
+(a bill that charges GST without one says so on its screen). A bill that
+charges no GST on any line has no GST columns either. Under the bill
 prints the line the business's type keeps for it (a shop's exchange policy;
 none for a clinic, a gym or a salon).
 

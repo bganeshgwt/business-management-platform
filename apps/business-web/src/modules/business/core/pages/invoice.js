@@ -139,8 +139,9 @@ function invoiceFacts(doc, symbol = "₹") {
     seller, sale, pos, interstate, lines, summary: summaryRows.sort((a, b) => a.rate - b.rate || a.hsn.localeCompare(b.hsn)),
     taxable: sum("taxable"), cgst: sum("cgst"), sgst: sum("sgst"), igst: sum("igst"), tax: p(doc.tax), roundOff: p(doc.round_off), total: p(doc.total),
     discount: sum("discount"), paid, due: p(doc.total) - returned - paid + refunded,
-    // A bill of supply charges no GST, so it has no GST columns or summary.
-    title, untaxed: title === "Bill of supply",
+    // A bill with no GST on any line (a bill of supply, or an exempt bill from a
+    // business with no GSTIN) has no GST columns, taxable value or summary.
+    title, untaxed: sale && lines.length > 0 && lines.every((l) => l.exempt),
   };
 }
 

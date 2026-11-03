@@ -60,6 +60,10 @@ test("a clinic's exempt bill prints as a bill of supply: no GST columns, its wal
   // A named patient is the patient; a firm with a GSTIN is billed to.
   assert.match(a4(bill({ contact_id: 7, contact_name: "Lakshmi Narayanan" }), clinic), /<b>Patient<\/b><strong>Lakshmi Narayanan<\/strong>/);
   assert.match(a4(bill({ contact_id: 8, contact_name: "Apex Insurance", contact_gstin: "29AABCT1332L1ZT" }), clinic), /<b>Bill to<\/b><strong>Apex Insurance<\/strong>/);
+  // A clinic with no GSTIN: a bill, with no GST columns either, as none is charged.
+  const unregistered = a4(bill({ seller: { legal_name: "Lifeline Family Clinic" } }), clinic);
+  assert.match(unregistered, /<h2>Bill<\/h2>/);
+  for (const absent of ["CGST", "Taxable value", "Within the state", "GSTIN"]) assert.ok(!unregistered.includes(absent), `no "${absent}"`);
 });
 
 test("a gym with no GSTIN prints a bill in its words, with no exchange policy and no GSTIN nag on the buyer's copy", () => {

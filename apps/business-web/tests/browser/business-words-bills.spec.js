@@ -112,13 +112,15 @@ test("a clinic's bills are to patients; a walk-in patient's test billed and prin
   await expect(bill.getByRole("button", { name: "Cancel a service or charge" })).toBeVisible();
   await bill.getByRole("button", { name: "Print invoice (A4)" }).click();
   const printed = page.locator("#print-root");
-  // The test data's clinic has no GSTIN: a bill, never a tax invoice, and no nag about it on the patient's copy.
+  // The test data's clinic has no GSTIN: a bill, never a tax invoice, no nag about it on the
+  // patient's copy, and no GST columns on a bill that charges none.
   await expect(printed.locator("h2")).toHaveText("Bill");
   await expect(printed.locator(".parties .box").first()).toContainText("Walk-in patient");
   await expect(printed.locator("thead th").nth(1)).toHaveText("Service or charge");
   await expect(printed).toContainText(CLINIC.test.service);
   await expect(printed).not.toContainText("exchange policy");
-  await expect(printed).not.toContainText("Add the GSTIN");
+  await expect(printed).not.toContainText("GSTIN");
+  await expect(printed).not.toContainText("CGST");
   await page.emulateMedia({ media: "print" });
   await page.screenshot({ path: testInfo.outputPath("clinic-bill-printed.png"), fullPage: true });
   await page.emulateMedia({ media: "screen" });
@@ -129,7 +131,9 @@ test("a clinic's bills are to patients; a walk-in patient's test billed and prin
   await expect(column(page, "Patient")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("Walk-in patient").first()).toBeVisible();
 
-  await page.goto(`/business-admin/${clinic.id}/outstanding`);
-  await expect(heading(page, "Patient dues")).toBeVisible({ timeout: 30_000 });
+  // The day's money at the clinic's reception.
+  await page.goto(`/business-admin/${clinic.id}/day-close`);
+  await expect(heading(page, "Daily money")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/^Paid at the reception /)).toBeVisible({ timeout: 30_000 });
   expect(errors).toEqual([]);
 });
