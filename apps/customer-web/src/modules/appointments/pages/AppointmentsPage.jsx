@@ -87,8 +87,9 @@ function BookingFlow() {
     setFailure(null);
     setAttempt((n) => n + 1);
   };
+  // A gym's session, a clinic's appointment, a garage's service: booked online.
   useEffect(() => {
-    if (page) document.title = `Book an appointment · ${page.card.name}`;
+    if (page) document.title = `Book online · ${page.card.name}`;
   }, [page]);
 
   const steps = page ? stepsFor(page.kind) : [];
@@ -333,7 +334,7 @@ function PersonStep({ page, people, any, chosen, onPick }) {
       {any && (
         <li>
           <button type="button" className={`ap-option ${chosen === "any" ? "is-on" : ""}`} aria-pressed={chosen === "any"} onClick={() => onPick("any")}>
-            <span className="ap-avatar is-any" aria-hidden="true"><Icon name="sparkles" size={18} /></span>
+            <span className="ap-avatar is-any" aria-hidden="true"><Icon name="users" size={18} /></span>
             <span className="ap-option-main"><strong>Any {personWord(page.type)}</strong><span className="ap-option-meta">The first free, so you get the most times</span></span>
           </button>
         </li>

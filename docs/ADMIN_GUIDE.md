@@ -2071,9 +2071,9 @@ and a guest never reaches a staff screen.
 | The booking link | `<guest web address>/book/<link>` | Ask for a table and follow the request on its status page |
 
 - The site's own address, or a link with part of it missing, never says "Page
-  not found": it asks the guest to scan the table's QR code or open the
-  restaurant's link again (*Order or book from your link*, *This link isn't
-  complete*).
+  not found": it asks the guest to open the business's link again or scan its
+  QR code (*Order or book from your link*, *This link isn't complete*); only a
+  table's QR code link asks them to scan the code on their table.
 - The guest pages still to come (`/appointments`, `/account`)
   answer with *Coming soon* and what to do until then ([Part
   6](#not-built-yet-what-to-do-meanwhile)). A shop's own link opens its

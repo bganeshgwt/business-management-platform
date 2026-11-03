@@ -76,7 +76,7 @@ test("a salon client books a haircut at once, changes its time, then cancels it"
 
   try {
     await page.goto(`/appointments/${salon.onlineBooking.token}`);
-    await expect(page).toHaveTitle(`Book an appointment · ${salon.name}`);
+    await expect(page).toHaveTitle(`Book online · ${salon.name}`);
     await expect(page.getByRole("banner")).toContainText(salon.name);
     await expect(page.getByRole("heading", { level: 1, name: "Choose a service" })).toBeVisible();
     // The haircut, with its time and its price with 18% GST.

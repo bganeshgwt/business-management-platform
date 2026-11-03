@@ -36,6 +36,12 @@
   padding-bottom: 8px;
 }
 
+/* A business with no logo: its mark, white on its accent (the band's colour
+   when it has none). */
+.g-monogram.gs-mark {
+  background: var(--gs-mark, var(--g-hero));
+}
+
 .gs-logo {
   width: 36px;
   height: 36px;

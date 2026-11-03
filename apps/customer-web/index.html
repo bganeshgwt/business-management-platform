@@ -3,10 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <!-- From src/ so the build puts it under guest-assets/ with the rest:
-         nothing of this site lands at the root next to the staff app's files. -->
+         nothing of this site lands at the root next to the staff app's files.
+         A business's page shows its own mark in the tab (shared/GuestShell.jsx). -->
     <link rel="icon" type="image/svg+xml" href="/src/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Order and book</title>
+    <!-- What a link shows before its page opens, and in a preview where the
+         link is shared: true of every business's link, whatever its trade.
+         Each page names its business in the tab once it opens. -->
+    <title>Book or order online</title>
+    <meta name="description" content="A business's own page: book a time, order, and follow it here." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Book or order online" />
+    <meta property="og:description" content="A business's own page: book a time, order, and follow it here." />
   </head>
   <body>
     <div id="root"></div>
