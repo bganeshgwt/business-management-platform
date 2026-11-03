@@ -248,6 +248,8 @@ test("the handover of a self-drive car: the hirer register with the licence clas
   // The hirer signs on the screen.
   await hand.getByRole("button", { name: "Hirer signs" }).click();
   const pad = hand.getByLabel("Sign here");
+  // On screen first: the mouse draws at the pad's place in the window.
+  await pad.scrollIntoViewIfNeeded();
   const box = await pad.boundingBox();
   await page.mouse.move(box.x + 20, box.y + 40);
   await page.mouse.down();

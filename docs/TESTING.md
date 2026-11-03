@@ -1016,7 +1016,9 @@ on every push to `main` and every pull request: the same `npm run test:browser`
 run, split into four parts that run side by side
 (`npx playwright test --config e2e/playwright.config.mjs --shard=<n>/4`), each
 on Ubuntu with Node.js 24, a PostgreSQL 17 service and Playwright's Chromium
-(`npx playwright install --with-deps chromium`). Each part makes its own test
+(`npx playwright install --with-deps chromium`), run whole in headless mode
+(`E2E_BROWSER_CHANNEL=chromium`, not the slimmed headless shell, which blocks
+notifications). Each part makes its own test
 database and test data, as a run on a developer's computer does; the job's
 environment holds only where PostgreSQL is (`DB_HOST`, `DB_PORT`, `DB_USER`,
 `DB_PASSWORD`) and `TZ=Asia/Kolkata`, so the browser and the servers keep

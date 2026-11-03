@@ -42,6 +42,10 @@ jobs:
       # India's clock for the browser and the servers, as at a counter in India:
       # the specs' dates are the businesses' own.
       TZ: Asia/Kolkata
+      # The whole Chromium in headless mode, not Playwright's slimmed headless
+      # shell: it treats notifications as a real browser does (and as Edge, which
+      # runs the tests on Windows), so the captain's alerts can be switched on.
+      E2E_BROWSER_CHANNEL: chromium
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

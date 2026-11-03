@@ -199,6 +199,8 @@ test("classes, an enquiry with a trial pass, the trainer's pay and the policy si
   // The member signs the refund policy on the screen.
   await page.getByRole("button", { name: "The member signs the policy" }).first().click();
   const pad = page.getByLabel("Sign here");
+  // On screen first: the mouse draws at the pad's place in the window.
+  await pad.scrollIntoViewIfNeeded();
   const box = await pad.boundingBox();
   await page.mouse.move(box.x + 20, box.y + 30);
   await page.mouse.down();

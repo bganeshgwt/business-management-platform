@@ -138,6 +138,8 @@ test("the counter: a carpet by the square foot, a bundle paid by the customer's 
   // The customer signs on the screen.
   await page.getByRole("button", { name: "Customer signs on the screen" }).click();
   const pad = page.getByLabel("Sign here");
+  // On screen first: the mouse draws at the pad's place in the window.
+  await pad.scrollIntoViewIfNeeded();
   const box = await pad.boundingBox();
   await page.mouse.move(box.x + 20, box.y + 40);
   await page.mouse.down();

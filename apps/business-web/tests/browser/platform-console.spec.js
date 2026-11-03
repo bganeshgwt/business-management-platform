@@ -142,7 +142,8 @@ test("a hardware shop set up for a customer with time given until a date", async
   await page.getByLabel("Free until", { exact: true }).fill(localDate(shop.days));
   await page.getByLabel("Reason", { exact: true }).fill(shop.reason);
   await page.getByRole("button", { name: "Create business" }).click();
-  await expect(page).toHaveURL(/\/platform\/businesses\/\d+$/);
+  // Making a business (its owner's login, roles and modules) takes a slower machine a while.
+  await expect(page).toHaveURL(/\/platform\/businesses\/\d+$/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { level: 1, name: SHOP })).toBeVisible();
   await expect(page.getByText(`Given until ${dayWords(localDate(shop.days))}`)).toBeVisible();
   await expect(page.getByText("Given time", { exact: true }).first()).toBeVisible();
