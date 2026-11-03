@@ -7,6 +7,7 @@ const numbering = require('../../core/services/businessNumbering');
 const { decimal, uuid, dateText, recordPayment } = require('../../core/services/business.service');
 const paymentMethods = require('../../core/services/businessPaymentMethods.service');
 const consents = require('../../../personal-data/services/consents');
+const { termsOf } = require('../../core/services/businessWords.service');
 
 // Shared receivables (retail udhaar and wholesale outstanding are the same
 // thing): collections from customers, advances, outstanding balances with
@@ -27,6 +28,8 @@ const consents = require('../../../personal-data/services/consents');
 
 const fail = (message, status = 400) => { throw new AppError(status, message); };
 const id = (value, name = 'Record ID') => v.requiredId(value, name);
+// What the refusals call the people a business serves (a gym's members, a clinic's patients).
+const customerNotFound = async (business) => fail(`${(await termsOf(business))('customer')} not found`, 404);
 const paise = (value) => Math.round(Number(value) * 100);
 const rupees = (p) => (p / 100).toFixed(2);
 const METHODS = ['cash', 'upi', 'bank', 'cheque', 'card'];
@@ -200,7 +203,7 @@ async function outstanding(business, query, { contactIds = null } = {}) {
 async function customerAccount(business, contactId) {
   await access.require(business, 'receivables.view');
   const contact = await repo.one(repo.pool, "SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer'", [business.id, id(contactId, 'Customer')]);
-  if (!contact) fail('Customer not found', 404);
+  if (!contact) await customerNotFound(business);
   const [summary, items, advances, cheques, reminders] = await Promise.all([
     repo.one(repo.pool, ageingSql, [business.id, contact.id]),
     repo.all(repo.pool, `${openItemsSql} ORDER BY bill_date, document_id NULLS FIRST, reference`, [business.id, contact.id]),
@@ -252,7 +255,10 @@ async function allocate(db, business, user, collection, available, plan, keyBase
   }
   for (const entry of plan) {
     const doc = await repo.one(db, "SELECT * FROM business_documents WHERE business_id=$1 AND id=$2 AND kind='sale' FOR UPDATE", [business.id, entry.documentId]);
-    if (!doc || doc.contact_id !== collection.contact_id) fail('That bill is not one of this customer\'s sales', 404);
+    if (!doc || doc.contact_id !== collection.contact_id) {
+      const t = await termsOf(business);
+      fail(`That ${t.lower('bill')} is not one of this ${t.lower('customer')}'s`, 404);
+    }
     if (entry.amount > left) fail('The bills chosen add up to more than the amount collected');
     made.push(await recordPayment(db, business, user, doc, { amount: rupees(entry.amount), method: collection.method, reference: collection.collection_no, key: derivedKey(keyBase, n), collectionId: collection.id }));
     n += 1; left -= entry.amount;
@@ -314,7 +320,7 @@ async function createCollection(business, user, body, { extend } = {}) {
     const location = await repo.one(db, 'SELECT * FROM business_locations WHERE business_id=$1 AND id=$2 AND active', [business.id, id(body.locationId, 'Location')]);
     if (!location) fail('Location not found', 404);
     const contact = await repo.one(db, "SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer' FOR UPDATE", [business.id, id(body.contactId, 'Customer')]);
-    if (!contact) fail('Customer not found', 404);
+    if (!contact) await customerNotFound(business);
     // Oldest first: an opening balance not yet covered by earlier advances is
     // older than any bill, so automatic allocation leaves that much on account
     // against it before settling bills.
@@ -352,7 +358,7 @@ async function applyAdvance(business, user, contactId, body) {
   return repo.transaction(async (db) => {
     await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
     const contact = await repo.one(db, "SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer' FOR UPDATE", [business.id, id(contactId, 'Customer')]);
-    if (!contact) fail('Customer not found', 404);
+    if (!contact) await customerNotFound(business);
     const done = await repo.one(db, 'SELECT id FROM business_payments WHERE business_id=$1 AND request_key=$2', [business.id, derivedKey(requestKey, 0)]);
     if (done) return { applied: '0.00', repeated: true };
     let receipts = await repo.all(db, `SELECT k.*,k.amount-${collectionAllocatedSql} AS free FROM business_collections k
@@ -530,7 +536,7 @@ async function addFollowUp(business, user, contactId, body) {
   return repo.transaction(async (db) => {
     const contact = await repo.one(db, `SELECT c.id,c.name,${repo.contactBalanceSql('c')} AS balance FROM business_contacts c WHERE c.business_id=$1 AND c.id=$2 AND c.kind='customer'`,
       [business.id, id(contactId, 'Customer')]);
-    if (!contact) fail('Customer not found', 404);
+    if (!contact) await customerNotFound(business);
     const today = (await repo.one(db, 'SELECT (now() AT TIME ZONE $1)::date::text AS day', [business.timezone])).day;
     if (promisedOn && promisedOn < today) fail('The promised date is already past');
     // A reminder on WhatsApp, by SMS or by a call needs their consent to reminders; a visit does not.
@@ -556,7 +562,7 @@ async function statement(business, contactId, query) {
   const from = dateText(query.from, 'Statement start date'), to = dateText(query.to, 'Statement end date');
   if (to < from) fail('The end date is before the start date');
   const contact = await repo.one(repo.pool, "SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer'", [business.id, id(contactId, 'Customer')]);
-  if (!contact) fail('Customer not found', 404);
+  if (!contact) await customerNotFound(business);
   const entries = await repo.all(repo.pool, `WITH b AS (SELECT timezone FROM businesses WHERE id=$1), e AS (
       SELECT d.created_at AS at, 'sale' AS kind, d.document_no AS reference, d.total AS debit, 0::numeric AS credit, d.id AS document_id
         FROM business_documents d WHERE d.business_id=$1 AND d.kind='sale' AND d.contact_id=$2

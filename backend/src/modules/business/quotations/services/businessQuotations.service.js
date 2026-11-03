@@ -6,6 +6,7 @@ const access = require('../../core/services/businessAccess.service');
 const numbering = require('../../core/services/businessNumbering');
 const core = require('../../core/services/business.service');
 const { GOODS_TYPES } = require('../../core/services/businessTypes');
+const { termsOf } = require('../../core/services/businessWords.service');
 
 // Quotations (module "quotations", every type but a restaurant).
 //
@@ -114,13 +115,14 @@ function readPhone(value) {
 
 // A saved customer, or the name (and phone) of someone who is not one yet.
 async function readCustomer(db, business, body) {
+  const t = await termsOf(business);
   if (body.contactId !== undefined && body.contactId !== null && body.contactId !== '') {
-    const contact = await repo.one(db, "SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer' AND active", [business.id, id(body.contactId, 'Customer')]);
-    if (!contact) fail('Customer not found', 404);
+    const contact = await repo.one(db, "SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer' AND active", [business.id, id(body.contactId, t('customer'))]);
+    if (!contact) fail(`${t('customer')} not found`, 404);
     return { contact, name: contact.name, phone: readPhone(body.customerPhone) || contact.phone || null };
   }
-  const name = v.optionalString(body.customerName, 'Customer name', 150);
-  if (!name) fail('Give the customer\'s name, or choose a saved customer');
+  const name = v.optionalString(body.customerName, `${t('customer')}'s name`, 150);
+  if (!name) fail(`Give the ${t.lower('customer')}'s name, or choose one of your ${t.lower('customer_list', 'many')}`);
   return { contact: null, name, phone: readPhone(body.customerPhone) };
 }
 
@@ -401,7 +403,9 @@ async function cancel(business, user, quotationId, body) {
     // Asking again is the same cancellation.
     if (current.status === 'cancelled') return load(db, business, current.id);
     if (current.status !== 'open') {
-      fail(`Quotation ${current.quotation_no} is ${await closedWords(db, business, current)}; it cannot be cancelled. ${current.status === 'billed' ? 'To undo the sale, take the goods back on the bill.' : current.status === 'booked' ? 'Cancel the spectacle order instead.' : 'Close the sales order instead.'}`, 409);
+      const t = await termsOf(business);
+      fail(`Quotation ${current.quotation_no} is ${await closedWords(db, business, current)}; it cannot be cancelled. ${current.status === 'billed'
+        ? `To undo it, take back the ${t.lower('item', 'many')} on that ${t.lower('bill')} (a return).` : current.status === 'booked' ? 'Cancel the spectacle order instead.' : 'Close the sales order instead.'}`, 409);
     }
     const saved = await repo.one(db, "UPDATE business_quotations SET status='cancelled',closed_by=$3,closed_at=now(),cancel_reason=$4 WHERE business_id=$1 AND id=$2 RETURNING *",
       [business.id, current.id, user.id, reason]);

@@ -31,23 +31,27 @@ async function open(user, businessId) {
   return business;
 }
 
-// The module a permission belongs to must be on, and the role must hold it.
-function check(business, permission, catalogue) {
-  const moduleCode = permission.slice(0, permission.indexOf('.'));
-  if (!business.modules.includes(moduleCode)) {
-    const name = catalogue.modules.find((m) => m.code === moduleCode)?.name || moduleCode;
-    fail(`${name} is not switched on for this business. An owner can turn it on in Settings › Business tools.`, 403);
-  }
-  if (!business.permissions.includes(permission)) {
-    const name = catalogue.permissions.find((p) => p.code === permission)?.name || permission;
-    fail(`Your role (${business.role_name}) does not allow this: ${name.charAt(0).toLowerCase()}${name.slice(1)}.`, 403);
-  }
-}
+// The words of a business (loaded on use).
+const businessWords = () => require('./businessWords.service');
+
 const can = (business, permission) => {
   const moduleCode = permission.slice(0, permission.indexOf('.'));
   return business.modules.includes(moduleCode) && business.permissions.includes(permission);
 };
-async function require_(business, permission) { check(business, permission, await repo.platformCatalogue()); }
+// The module a permission belongs to must be on, and the role must hold it.
+// A refusal names them in the business's own words ("See members and suppliers").
+async function require_(business, permission) {
+  if (can(business, permission)) return;
+  const catalogue = await repo.platformCatalogue();
+  const own = await businessWords().ownWordsOf(business);
+  const moduleCode = permission.slice(0, permission.indexOf('.'));
+  if (!business.modules.includes(moduleCode)) {
+    const name = own(catalogue.modules.find((m) => m.code === moduleCode)?.name) || moduleCode;
+    fail(`${name} is not switched on for this business. An owner can turn it on in Settings › Business tools.`, 403);
+  }
+  const name = own(catalogue.permissions.find((p) => p.code === permission)?.name) || permission;
+  fail(`Your role (${business.role_name}) does not allow this: ${name.charAt(0).toLowerCase()}${name.slice(1)}.`, 403);
+}
 // One of several permissions (e.g. a document list that holds sales and purchases).
 async function requireAny(business, permissions) {
   if (!permissions.some((p) => can(business, p))) await require_(business, permissions[0]);
@@ -127,9 +131,9 @@ async function context(business) {
   // The paid plan's state and dates for everyone's banner, never prices (paid plans).
   const subscriptions = require('../../../platform/services/subscriptions.service');
   const plan = subscriptions.bannerOf(await subscriptions.planOf(business.id));
-  // What its screens call its people, things, places and money, and its icon and accent.
-  const businessWords = require('./businessWords.service');
-  const [terms, look] = await Promise.all([businessWords.wordsOf(business), businessWords.lookOf(business)]);
+  // What its screens call its people, things, places and money, and its icon and
+  // accent; the modules named in its words ("Members & suppliers").
+  const [terms, look, own] = await Promise.all([businessWords().wordsOf(business), businessWords().lookOf(business), businessWords().ownWordsOf(business)]);
   return {
     business: { id: business.id, name: business.name, code: business.code, business_type: business.business_type, type_name: look?.kindName || business.type_name,
       kind: business.kind || null, legacy_restaurant_id: business.legacy_restaurant_id, currency: business.currency, timezone: business.timezone },
@@ -139,18 +143,22 @@ async function context(business) {
       department_id: business.member_department_id || null, department_name: business.member_department_name || null },
     currentLocationId: business.location_scope || null,
     permissions, capabilities, modules,
-    moduleCatalogue: catalogue.modules, settings, locations, allLocations, privacy, plan,
+    moduleCatalogue: catalogue.modules.map((m) => ({ ...m, name: own(m.name), description: own(m.description) })), settings, locations, allLocations, privacy, plan,
   };
 }
 
 // --- Roles ---------------------------------------------------------------
 
+// The modules and permissions a role of this business may hold, named in its
+// own words ("See members and suppliers").
 async function permissionCatalogue(business) {
   const catalogue = await repo.platformCatalogue();
+  const own = await businessWords().ownWordsOf(business);
   const applicable = new Set((await repo.all(repo.pool, 'SELECT module_code FROM platform_module_business_types WHERE business_type=$1', [business.business_type])).map((r) => r.module_code));
   return {
-    modules: catalogue.modules.filter((m) => m.kind === 'core' || applicable.has(m.code)),
-    permissions: catalogue.permissions.filter((p) => catalogue.modules.find((m) => m.code === p.module_code)?.kind === 'core' || applicable.has(p.module_code)),
+    modules: catalogue.modules.filter((m) => m.kind === 'core' || applicable.has(m.code)).map((m) => ({ ...m, name: own(m.name), description: own(m.description) })),
+    permissions: catalogue.permissions.filter((p) => catalogue.modules.find((m) => m.code === p.module_code)?.kind === 'core' || applicable.has(p.module_code))
+      .map((p) => ({ ...p, name: own(p.name) })),
     templates: catalogue.templates,
   };
 }
@@ -321,13 +329,17 @@ async function setMember(business, user, body, options = {}) {
     // Someone already on the staff list is changed only by a manager of theirs:
     // the same location and department, and a role that can do no more.
     if (existing) await requireManages(db, business, existing);
-    // The role is either named, or (for an older client) one of the three template words.
+    // The role is either named, or (for an older client) one of the template
+    // words: the business's role of that template, or of its type's own
+    // template that stands in for it (a clinic's receptionist for the cashier).
     let role;
     if (body.roleId !== undefined && body.roleId !== null && body.roleId !== '') {
       role = await repo.one(db, 'SELECT * FROM business_roles WHERE business_id=$1 AND id=$2 AND active', [business.id, id(body.roleId, 'Role')]);
     } else {
       const template = v.requiredEnum(body.role, 'Role', ['manager', 'viewer', 'cashier', 'stock_keeper', 'accountant']);
-      role = await repo.one(db, 'SELECT * FROM business_roles WHERE business_id=$1 AND template_code=$2 AND active', [business.id, template]);
+      role = await repo.one(db, `SELECT * FROM business_roles WHERE business_id=$1 AND active
+          AND (template_code=$2 OR template_code IN (SELECT code FROM business_role_templates WHERE stands_for=$2))
+        ORDER BY (template_code=$2) DESC LIMIT 1`, [business.id, template]);
     }
     if (!role) fail('Role not found', 404);
     if (role.full_access) fail('The Owner role is given when a business is created and cannot be handed out here', 409);

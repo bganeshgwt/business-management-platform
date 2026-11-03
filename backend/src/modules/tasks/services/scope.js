@@ -2,6 +2,7 @@ const access = require("../../business/core/services/businessAccess.service");
 const restaurantFeatures = require("../../restaurant/setup/services/restaurantFeatures.service");
 const AppError = require("../../../utils/AppError");
 const repo = require("../repositories/tasks.repository");
+const { termsOf } = require("../../business/core/services/businessWords.service");
 
 // One module, two front doors. Both build the same `scope` and every service
 // works only from it:
@@ -12,7 +13,7 @@ const repo = require("../repositories/tasks.repository");
 //   business    /api/businesses/:businessId/tasks/…   membership → capability → permission
 //
 // scope = { world, businessId, businessType, businessName, restaurantId, userId, userName,
-//           timezone, outletScope, employeeIds, roleIds, businessRoleId,
+//           timezone, outletScope, employeeIds, roleIds, businessRoleId, t (the business's words),
 //           has(module), can(permission), require(permission), requireModule(module) }
 
 const MODULE_NAMES = { tasks: "Tasks & checklists", issues: "Issues", projects: "Projects" };
@@ -52,6 +53,7 @@ async function forRestaurant(req) {
     employeeIds: (info.employee_ids || []).map(Number),
     roleIds: (info.role_ids || []).map(Number),
     businessRoleId: null,
+    t: await termsOf(info.business_id),
     base: "/tasks",
     has: (module) => features.has(module),
     can: (permission) => features.has(permission.split(".")[0]) && permissions.has(permission),
@@ -82,6 +84,7 @@ async function forBusiness(req) {
     employeeIds: [],
     roleIds: [],
     businessRoleId: Number(business.role_id),
+    t: await termsOf(business),
     base: `/business-admin/${business.id}/tasks`,
     has: (module) => business.modules.includes(module),
     can: (permission) => access.can(business, permission),

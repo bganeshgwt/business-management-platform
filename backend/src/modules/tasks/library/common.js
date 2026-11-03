@@ -1,17 +1,18 @@
 // Templates every kind of business can use. `types: "*"` = every business type.
-// The item lines are explained in parse.js.
+// The item lines are explained in parse.js; the words in braces are the
+// business's own (index.js): {customer} a gym's member, {counter} its front desk.
 
 module.exports = [
   {
-    code: "common.opening", name: "Shop opening checklist", category: "opening_closing", types: "*", priority: "high",
+    code: "common.opening", name: "Opening checklist", category: "opening_closing", types: "*", priority: "high",
     frequency: "daily", times: ["10:00"], minutes: 15,
-    description: "Everything that must be right before the first customer walks in.",
+    description: "Everything that must be right before the first {customer} walks in.",
     items: [
-      "# Before the shutter goes up",
-      "Shutter, locks and seals checked: no sign of a break-in !",
+      "# Before opening",
+      "Shutter or doors, locks and seals checked: no sign of a break-in !",
       "Lights, fans and AC switched on",
       "Floor swept and mopped, entrance clean",
-      "# Counter",
+      "# {Counter}",
       "Billing system and printer working, paper roll loaded",
       "num: Opening cash in the drawer | ₹ | 0 |",
       "UPI QR standee in place and scanning",
@@ -22,7 +23,7 @@ module.exports = [
     ],
   },
   {
-    code: "common.closing", name: "Shop closing checklist", category: "opening_closing", types: "*", priority: "high",
+    code: "common.closing", name: "Closing checklist", category: "opening_closing", types: "*", priority: "high",
     frequency: "daily", times: ["21:30"], minutes: 20,
     description: "Close the day safely: cash, power, locks.",
     items: [
@@ -36,8 +37,8 @@ module.exports = [
       "Main switch off for non-essential circuits",
       "# Lock up",
       "Back door and windows locked",
-      "Shutter locked and checked by pulling",
-      "photo: Photo of the locked shutter",
+      "Shutter or main door locked and checked by pulling",
+      "photo: Photo of the locked front",
     ],
   },
   {
@@ -71,12 +72,12 @@ module.exports = [
   {
     code: "common.pest_control", name: "Pest control visit", category: "health_safety", types: "*", priority: "normal",
     frequency: "monthly", monthDay: 15, times: ["16:00"], minutes: 30,
-    description: "Record the pest control agency's visit (FSSAI expects a record for food businesses).",
+    description: "Record the pest control agency's visit and keep its report (a food business keeps it for FSSAI).",
     items: [
       "txt: Agency name and technician",
       "choice: Treatment done | Gel, Spray, Rodent bait, Fumigation",
       "yn-no: Any sign of rats, cockroaches or lizards found? ~high",
-      "Food and stock covered before spraying",
+      "Food, stock and equipment covered before spraying",
       "photo: Service report or job card",
       "sign: Signature of the technician",
     ],
@@ -86,7 +87,7 @@ module.exports = [
     frequency: "weekly", weekdays: [1], times: ["11:00"], minutes: 90,
     items: [
       "# Floors and walls",
-      "Corners, under racks and behind counters cleaned",
+      "Corners, under racks and behind counters and desks cleaned",
       "Cobwebs removed from ceiling and walls",
       "# Fixtures",
       "Glass doors and display glass cleaned",
@@ -120,24 +121,24 @@ module.exports = [
       "Uniform and ID card given",
       "Shown the fire exit, extinguisher and first-aid box",
       "Explained timings, leave and salary day",
-      "Trained on billing / the counter ?",
+      "Trained on billing at the {counter} ?",
       "sign: Signature of the new staff member",
     ],
   },
   {
     code: "common.festival_display", name: "Festival display set-up", category: "marketing", types: "*", priority: "normal", minutes: 120,
-    description: "Diwali, Pongal, Eid, Onam, Christmas: the shop looks ready.",
+    description: "Diwali, Pongal, Eid, Onam, Christmas: the place looks ready.",
     items: [
       "Festival offers decided and entered in the app",
       "Posters and standees printed and put up",
       "Lights / torans / rangoli at the entrance",
-      "Offer products placed at eye level and near the counter",
-      "WhatsApp status and message to regular customers sent",
-      "photo: Photo of the shop front",
+      "Offer {items} shown at eye level and near the {counter}",
+      "WhatsApp status and message to regular {customers} sent",
+      "photo: Photo of the front",
     ],
   },
   {
-    code: "common.supplier_order", name: "Supplier order placement", category: "procurement", types: "*", priority: "normal",
+    code: "common.supplier_order", name: "Supplier order placement", category: "procurement", types: "*", modules: ["inventory", "stock_recipes"], priority: "normal",
     frequency: "weekly", weekdays: [1, 4], times: ["12:00"], minutes: 30,
     items: [
       "Low-stock list checked in the app",

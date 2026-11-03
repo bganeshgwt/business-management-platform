@@ -7,6 +7,7 @@ const paymentMethods = require('../../core/services/businessPaymentMethods.servi
 const c = require('./lodgingCommon');
 const money = require('./lodgingMoney');
 const rateCards = require('./lodgingRates.service');
+const { termsOf } = require('../../core/services/businessWords.service');
 // Handing money back and a manager's PIN (shared with the salon, repairs, opticians, garages, laundries and rentals).
 const refunds = () => require('../../salon-weight/services/businessAdvanceRefunds');
 const pins = () => require('../../salon-weight/services/businessManagerPin');
@@ -481,7 +482,7 @@ async function lockStay(db, business, stayId) {
 async function billToOf(db, business, value, guestId) {
   if (!c.given(value)) return null;
   const contact = await repo.one(db, "SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer'", [business.id, id(value, 'Billed to')]);
-  if (!contact) fail('The company billed is not a customer of this business', 404);
+  if (!contact) fail(`The company billed is not on your ${(await termsOf(business))('customer_list', 'many')} list`, 404);
   if (!contact.active) fail(`${contact.name} is switched off: switch them on again first`, 409);
   if (Number(contact.id) === Number(guestId)) return null;
   return contact;

@@ -5,6 +5,7 @@ const { guestPageUrl } = require('../../../../utils/guestLinks');
 const engine = require('./onlineBookingEngine');
 const { expireDue } = require('./onlineBookingExpiry');
 const { fail, newToken } = require('./onlineBookingCommon');
+const { termsOf } = require('../../core/services/businessWords.service');
 
 // Online booking › Booking link: one booking link per location,
 // its rules, and what shows online (online_appointments.manage to change;
@@ -60,30 +61,31 @@ function whole(value, name, min, max) {
 
 const linkUrl = (token) => guestPageUrl(`/appointments/${token}`);
 
-// What stands in the way of good online bookings at a link, in words for the owner.
-function readiness(business, shown, link, privacy) {
+// What stands in the way of good online bookings at a link, in words for the
+// owner: the business's own (t, businessWords.service).
+function readiness(business, shown, link, privacy, t) {
   const notes = [];
   const people = shown.people.filter((p) => p.shown);
   if (shown.kind === 'salon') {
     if (!shown.services.some((s) => s.shown)) notes.push({ level: 'warning', text: 'No service shows online: give your services their times under Stylists & services › Service times.' });
-    if (!people.length) notes.push({ level: 'warning', text: 'No stylist shows online at this location.' });
-    if (shown.salon.depositPercent > 0 && !(link && link.upi_advance)) notes.push({ level: 'info', text: `The salon takes a ${shown.salon.depositPercent}% deposit, so online bookings come as requests: the desk takes the deposit when it confirms. Switch on the UPI advance to have guests pay it first.` });
+    if (!people.length) notes.push({ level: 'warning', text: `No ${t.lower('provider')} shows online at this location.` });
+    if (shown.salon.depositPercent > 0 && !(link && link.upi_advance)) notes.push({ level: 'info', text: `The salon takes a ${shown.salon.depositPercent}% deposit, so online bookings come as requests: the desk takes the deposit when it confirms. Switch on the UPI advance to have ${t.lower('customer', 'many')} pay it first.` });
   } else if (shown.kind === 'clinic') {
     const ready = shown.people.filter((p) => p.ready && p.shown);
-    if (!ready.length) notes.push({ level: 'warning', text: 'No doctor shows online: a doctor needs OPD timings and a consultation fee (Doctors, fees & OPD).' });
+    if (!ready.length) notes.push({ level: 'warning', text: `No ${t.lower('provider')} shows online: ${t.a('provider')} needs OPD timings and a consultation fee (Doctors, fees & OPD).` });
     for (const doctor of shown.people.filter((p) => p.shown && !p.ready)) {
       notes.push({ level: 'info', text: `${doctor.name} is not shown online: ${!doctor.sessions.length ? 'no OPD timings' : 'no consultation fee'} yet.` });
     }
     for (const doctor of ready.filter((p) => !p.registrationNo)) {
-      notes.push({ level: 'warning', text: `${doctor.name}: registration number not given. Patients should see it before they book (Doctors, fees & OPD).` });
+      notes.push({ level: 'warning', text: `${doctor.name}: registration number not given. ${t('customer', 'many')} should see it before they book (Doctors, fees & OPD).` });
     }
   } else {
-    if (!shown.services.some((s) => s.shown && s.minutes)) notes.push({ level: 'warning', text: 'No service shows online yet: tick the services guests may book and give each its length.' });
+    if (!shown.services.some((s) => s.shown && s.minutes)) notes.push({ level: 'warning', text: `No service shows online yet: tick the services ${t.lower('customer', 'many')} may book and give each its length.` });
     if (!people.length) notes.push({ level: 'warning', text: 'Nobody shows online at this location.' });
     const hours = shown.location && shown.location.opening_hours;
     if (!hours || !Object.keys(hours).length) notes.push({ level: 'warning', text: `${shown.location ? shown.location.name : 'This location'} has no opening hours, so no times can show: set them in Settings › Locations.` });
   }
-  if (!privacy) notes.push({ level: 'info', text: 'Publish your privacy notice (Settings › Personal data) so guests can agree to reminders when they book.' });
+  if (!privacy) notes.push({ level: 'info', text: `Publish your privacy notice (Settings › Personal data) so ${t.lower('customer', 'many')} can agree to reminders when they book.` });
   return notes;
 }
 
@@ -105,6 +107,7 @@ async function overview(business) {
   const links = await repo.all(repo.pool, 'SELECT * FROM business_booking_links WHERE business_id=$1', [business.id]);
   const privacy = await repo.one(repo.pool, 'SELECT id FROM business_privacy_notices WHERE business_id=$1 LIMIT 1', [business.id]);
   const salon = business.business_type === 'salon' ? await repo.one(repo.pool, 'SELECT deposit_percent FROM salon_settings WHERE business_id=$1', [business.id]) : null;
+  const t = await termsOf(business);
   const result = [];
   for (const location of locations) {
     const link = links.find((l) => Number(l.location_id) === Number(location.id)) || null;
@@ -113,7 +116,7 @@ async function overview(business) {
       services: shown.services.map((s) => ({ id: s.id, label: s.label, category: s.category, minutes: s.minutes, block: s.block, room: s.room, price: s.price, shown: s.shown })),
       people: shown.people.map((p) => ({ id: p.id, name: p.name, role: p.role, shown: p.shown,
         ...(shown.kind === 'clinic' ? { ready: p.ready, sessions: p.sessions.length, fee: p.fee, registrationNo: p.registrationNo, council: p.council, qualifications: p.qualifications } : {}) })),
-      notes: readiness(business, shown, link, privacy) });
+      notes: readiness(business, shown, link, privacy, t) });
   }
   return { kind: engine.kindOf(business), type: business.business_type, locations: result, depositPercent: salon ? Number(salon.deposit_percent || 0) : null,
     privacyNotice: Boolean(privacy), canManage: access.can(business, 'online_appointments.manage'), canApprove: access.can(business, 'online_appointments.approve') };

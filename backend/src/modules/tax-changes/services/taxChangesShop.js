@@ -6,6 +6,7 @@ const changes = require('./taxChanges.service');
 const settingChanges = require('./taxChangesSettings');
 const imports = require('./taxChangesImport');
 const money = require('./taxChangesMoney');
+const { termsOf } = require('../../business/core/services/businessWords.service');
 
 // GST rate changes for the shared core's catalogue items (every business type
 // but the restaurant): an item moves to another of the business's GST slabs
@@ -248,10 +249,12 @@ async function bell(business, base) {
     WHERE c.business_id=$1 AND c.starts_on>$2::date AND c.starts_on<=$2::date+7
     GROUP BY c.id,t.name ORDER BY c.starts_on,c.id`, [business.id, today]);
   const when = (days) => (days === 1 ? 'tomorrow' : `in ${days} days`);
+  // The items in the business's own words: "2 plans & services move to GST 5%".
+  const t = rows.length ? await termsOf(business) : null;
   const items = rows.map((row) => {
     const days = Number(row.days);
     return { id: `tax_change:${row.id}:${days <= 1 ? '1' : '7'}`, severity: days <= 1 ? 'warning' : 'info', category: 'GST rates',
-      title: `${row.items} ${row.items === 1 ? 'item moves' : 'items move'} to ${row.to_name} ${when(days)}`,
+      title: `${t.count(row.items, 'item')} ${row.items === 1 ? 'moves' : 'move'} to ${row.to_name} ${when(days)}`,
       detail: `From ${money.dateWords(row.starts_on)} · now at ${(row.sources || []).map((x) => `${x.name} (${x.n})`).join(', ')} · ${row.reason}`,
       at: `${row.starts_on}T00:00:00.000Z`, link: `${base}/tax-changes` };
   });

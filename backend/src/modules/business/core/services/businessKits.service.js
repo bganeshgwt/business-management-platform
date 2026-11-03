@@ -185,7 +185,7 @@ async function list(business, query = {}) {
 
 async function create(business, user, body) {
   await access.require(business, 'catalog.create');
-  if (!business.capabilities.includes('inventory')) fail('This business has no goods inventory capability');
+  if (!business.capabilities.includes('inventory')) fail(await require('./business.service').noStockWords(business));
   const components = readComponents(body.components);
   return repo.transaction(async (db) => {
     await checkComponents(db, business, null, components);

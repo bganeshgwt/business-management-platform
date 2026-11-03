@@ -100,7 +100,9 @@ test('laundry and dry cleaning', { timeout: 300000 }, async (t) => {
       .filter((p) => p.startsWith('laundry.'));
     assert.deepEqual(await grants(laundry, 'manager'), ['laundry.cancel', 'laundry.create', 'laundry.edit', 'laundry.print', 'laundry.refund', 'laundry.view']);
     assert.deepEqual(await grants(laundry, 'cashier'), ['laundry.create', 'laundry.edit', 'laundry.print', 'laundry.view']);
-    assert.deepEqual(await grants(laundry, 'stock_keeper'), ['laundry.edit', 'laundry.view']);
+    // A laundry keeps no stock: its washer / presser moves the garments along.
+    assert.deepEqual(await grants(laundry, 'presser'), ['laundry.edit', 'laundry.print', 'laundry.view']);
+    assert.deepEqual(await grants(laundry, 'stock_keeper'), []);
     assert.deepEqual(await grants(laundry, 'accountant'), ['laundry.print', 'laundry.view']);
     assert.deepEqual(await grants(laundry, 'viewer'), ['laundry.view']);
     assert.deepEqual(await grants(grocery, 'viewer'), ['laundry.view'], 'role copies match their templates everywhere');
@@ -225,7 +227,7 @@ test('laundry and dry cleaning', { timeout: 300000 }, async (t) => {
     return { id: user.id, call: as(token), token };
   }
   const desk = await staff('wash-desk@test.invalid', 'cashier');
-  const presser = await staff('wash-press@test.invalid', 'stock_keeper');
+  const presser = await staff('wash-press@test.invalid', 'presser');
   const viewer = await staff('wash-viewer@test.invalid', 'viewer');
   await pool.query('UPDATE users SET pin_hash=$2,pin_set_at=now() WHERE id=$1', [ownerUser.id, await bcrypt.hash('2468', 4)]);
   const approval = { approverId: ownerUser.id, pin: '2468' };
@@ -330,7 +332,7 @@ test('laundry and dry cleaning', { timeout: 300000 }, async (t) => {
     // A new customer typed at the counter is made a customer.
     const walk = await take({ customer: { name: 'Ravi Teja', phone: '9876500102' }, items: [item('Suit (2 piece)', 'Dry cleaning')] }, desk.call);
     assert.deepEqual([walk.customer_name, walk.items[0].pieces, walk.items[0].counted_as], ['Ravi Teja', 2, 'set']);
-    // The presser (a stock keeper, who does not see sales) sees orders without money, and does not take orders in.
+    // The washer / presser, who does not see sales, sees orders without money, and does not take orders in.
     const seen = await presser.call('GET', L(`laundry/orders/${taken.id}`));
     assert.deepEqual([seen.money, seen.total, seen.items[0].amount, seen.advance], [false, null, null, null]);
     assert.equal((await presser.call('GET', L('laundry/orders'))).items[0].total, null);

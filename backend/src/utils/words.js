@@ -30,4 +30,48 @@ function word(words, key, { many = false, lower: low = false } = {}) {
   return low ? lower(text) : text;
 }
 
-module.exports = { lower, a, count, word };
+// The first letter in capitals, for a word that starts a sentence.
+const capital = (text) => {
+  const value = String(text ?? '');
+  return value.charAt(0).toUpperCase() + value.slice(1);
+};
+
+// A business's words as the staff app reads them (terms.js):
+//   t('customer')              → 'Member'
+//   t('customer', 'many')      → 'Members'
+//   t.lower('customer', 'many') → 'members'      (mid-sentence)
+//   t.a('appointment')         → 'a session'
+//   t.count(3, 'customer')     → '3 members'
+//   t.ex('item_name')          → 'Monthly membership'   (an example; '' for none)
+// A key the words lack reads as the key made readable, never as nothing; an
+// example reads as empty.
+function terms(words = {}) {
+  const readable = (key) => capital(String(key).replace(/^.*\./, '').replace(/_/g, ' '));
+  const t = (key, form = 'one') => {
+    const entry = words?.[key];
+    if (!entry) return readable(key);
+    return form === 'many' ? entry.many ?? entry.one : entry.one;
+  };
+  t.lower = (key, form = 'one') => lower(t(key, form));
+  t.a = (key) => a(t.lower(key));
+  t.count = (n, key) => `${Number(n).toLocaleString('en-IN')} ${t.lower(key, Number(n) === 1 ? 'one' : 'many')}`;
+  t.ex = (key) => words?.[key.includes('.') ? key : `example.${key}`]?.one ?? '';
+  return t;
+}
+
+// Text written in one word's default ("Customers & suppliers", "refund
+// customers") in another's: `from` and `to` are { one, many }. A word in
+// capitals takes the new word as it is; one in the middle of a sentence, in
+// lower case.
+function swap(text, from, to) {
+  if (!text || !from?.one || !to?.one || (from.one === to.one && from.many === to.many)) return text;
+  const forms = [[from.many, to.many ?? to.one], [from.one, to.one]].filter(([form]) => form);
+  const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`\\b(${forms.map(([form]) => escape(form)).join('|')})\\b`, 'gi');
+  return String(text).replace(pattern, (match) => {
+    const [, replacement] = forms.find(([form]) => form.toLowerCase() === match.toLowerCase());
+    return /^[A-Z]/.test(match) ? replacement : lower(replacement);
+  });
+}
+
+module.exports = { lower, a, count, word, capital, terms, swap };

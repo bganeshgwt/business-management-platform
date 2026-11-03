@@ -1,16 +1,18 @@
 const repo = require('../repositories/business.repository');
 const access = require('./businessAccess.service');
+const { termsOf } = require('./businessWords.service');
 
 // The Business Admin bell: what needs someone's attention in
 // one business, worked out from live data when asked — nothing is stored.
 // Each alert has a stable id (kind + record), so the browser can remember
 // which ones this person has already seen. Only what this person may see is
-// included: stock alerts need inventory.view, udhaar needs receivables.view,
-// and so on.
+// included: stock alerts need inventory.view, dues need receivables.view,
+// and so on. Its words are the business's own (businessWords.service): a
+// grocer's udhaar, a gym's member dues and fees, a clinic's patient dues.
 //
 //   low stock          items at or below their reorder level
 //   expiring batches   expired (critical) or within 7 / 30 days
-//   overdue udhaar     customers with bills past their due date
+//   overdue dues       customers with bills past their due date
 //   promises           promised to pay today, or a promise broken
 //   repairs            ready to collect, or past the promised date
 //   spectacle orders   ready to collect, or past the promised day (optical shops)
@@ -34,15 +36,14 @@ const access = require('./businessAccess.service');
 //                      for whoever may see the business's money (reports.view)
 //   offline till       offline bills to review, a till whose bills have waited over an hour, numbers
 //                      of a till's series that never arrived (offline_till.review)
-//   wholesale overdue  (same overdue query, worded as invoices)
 //   online orders      new online orders waiting for an answer (warning when one is about to be declined by
 //                      itself); complaints a day unacknowledged, past their 48 hours, or near or past their month
 //   field sales        orders from the salesperson app refused on arrival and not yet let through,
 //                      and shops added in the field waiting for approval (wholesale)
 
 const LIMIT = 15;
-// Goods shops call customer credit udhaar and have its screen (businessTypes.js).
-const { GOODS_TYPES: RETAIL_WORDS } = require('./businessTypes');
+// Goods shops keep their dues on the counter's own screen (businessTypes.js); everyone else on Outstanding.
+const { GOODS_TYPES } = require('./businessTypes');
 const money = (value) => `₹${Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const qty = (value, unit) => `${Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${unit}`;
 const dayWord = (n) => (n === 0 ? 'today' : n === 1 ? 'tomorrow' : n === -1 ? 'yesterday' : n < 0 ? `${-n} days ago` : `in ${n} days`);
@@ -51,7 +52,8 @@ async function feed(business) {
   const has = (module) => business.modules.includes(module);
   const can = (permission) => access.can(business, permission);
   const base = `/business-admin/${business.id}`;
-  const goods = RETAIL_WORDS.includes(business.business_type);
+  const duesPage = GOODS_TYPES.includes(business.business_type) ? 'udhaar' : 'outstanding';
+  const t = await termsOf(business);
   const items = [];
   const nowIso = new Date().toISOString();
 
@@ -98,10 +100,10 @@ async function feed(business) {
       WHERE b.due > 0.004 GROUP BY c.id,c.name ORDER BY sum(b.due) DESC LIMIT $2`, [business.id, LIMIT]);
     for (const row of overdue) {
       const days = Number(row.days);
-      items.push({ id: `overdue:${row.id}:${row.oldest}`, severity: days > 30 ? 'critical' : 'warning', category: goods ? 'Udhaar' : 'Outstanding',
-        title: goods ? `${row.name}: ${money(row.overdue)} udhaar overdue` : `${row.name}: ${money(row.overdue)} overdue`,
-        detail: `${row.bills} ${row.bills === 1 ? (goods ? 'bill' : 'invoice') : (goods ? 'bills' : 'invoices')} · oldest due ${days} ${days === 1 ? 'day' : 'days'} ago`,
-        at: `${row.oldest}T00:00:00.000Z`, link: `${base}/${goods ? 'udhaar' : 'outstanding'}` });
+      items.push({ id: `overdue:${row.id}:${row.oldest}`, severity: days > 30 ? 'critical' : 'warning', category: t('dues_list'),
+        title: `${row.name}: ${money(row.overdue)} ${t.lower('dues')} overdue`,
+        detail: `${t.count(row.bills, 'bill')} · oldest due ${days} ${days === 1 ? 'day' : 'days'} ago`,
+        at: `${row.oldest}T00:00:00.000Z`, link: `${base}/${duesPage}` });
     }
     if (has('sales')) {
       const promises = await repo.all(repo.pool, `WITH today AS (SELECT (now() AT TIME ZONE timezone)::date AS d FROM businesses WHERE id=$1),
@@ -112,10 +114,10 @@ async function feed(business) {
         ORDER BY l.promised_on DESC LIMIT $2`, [business.id, LIMIT]);
       for (const row of promises) {
         const today = Number(row.days) === 0;
-        items.push({ id: `promise:${row.id}`, severity: today ? 'info' : 'warning', category: goods ? 'Udhaar' : 'Outstanding',
+        items.push({ id: `promise:${row.id}`, severity: today ? 'info' : 'warning', category: t('dues_list'),
           title: today ? `${row.name} promised to pay today` : `${row.name} broke a promise to pay`,
           detail: `Owes ${money(row.balance)}${today ? '' : ` · promised ${dayWord(Number(row.days))}`}`,
-          at: `${row.promised_on}T00:00:00.000Z`, link: `${base}/${goods ? 'udhaar' : 'outstanding'}` });
+          at: `${row.promised_on}T00:00:00.000Z`, link: `${base}/${duesPage}` });
       }
     }
   }
@@ -137,8 +139,8 @@ async function feed(business) {
     const left = await repo.one(repo.pool, `SELECT count(*)::int AS n, min(starts_at) AS next FROM business_appointments a JOIN businesses b ON b.id=a.business_id
       WHERE a.business_id=$1 AND a.status='booked' AND a.starts_at>=now() AND (a.starts_at AT TIME ZONE b.timezone)::date=(now() AT TIME ZONE b.timezone)::date`, [business.id]);
     if (left.n > 0) {
-      items.push({ id: `appointments:${new Date(left.next).toISOString().slice(0, 10)}`, severity: 'info', category: 'Appointments',
-        title: `${left.n} ${left.n === 1 ? 'appointment' : 'appointments'} still to come today`,
+      items.push({ id: `appointments:${new Date(left.next).toISOString().slice(0, 10)}`, severity: 'info', category: t('appointment', 'many'),
+        title: `${t.count(left.n, 'appointment')} still to come today`,
         detail: `Next at ${new Date(left.next).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', timeZone: business.timezone || 'Asia/Kolkata' })}`,
         at: new Date(left.next).toISOString(), link: `${base}/${business.business_type === 'salon' ? 'salon-calendar' : 'appointments'}` });
     }
@@ -196,7 +198,7 @@ async function feed(business) {
   // Personal data: requests nearing their 90 days, a breach's report to the Board, a notice not yet published.
   // (A restaurant's are on the restaurant's own bell.)
   if (can('privacy.view') && business.business_type !== 'restaurant') {
-    const world = require('../../../personal-data/services/personalDataShop').world(business, { id: business.member_user_id });
+    const world = await require('../../../personal-data/services/personalDataShop').world(business, { id: business.member_user_id });
     const link = (tab, id) => `${base}/privacy?tab=${tab}${id ? `&${tab === 'requests' ? 'request' : 'breach'}=${id}` : ''}`;
     items.push(...await require('../../../personal-data/services/privacyRegister.service').bell(world, link));
   }

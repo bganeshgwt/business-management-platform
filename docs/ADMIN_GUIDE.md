@@ -1074,14 +1074,22 @@ business's activity (`settings.words_updated`).
    reception) says them (PhonePe, Paytm, the bank account), add your own and
    switch off the ones you do not take.
 4. **Settings › Tax rates.** A new business starts with GST nil / exempt,
-   5 %, 18 % (the slab a new item gets unless you choose another) and 40 %.
-   *Add slab* for any other rate your goods need.
+   5 %, 18 % and 40 %. The slab a new item gets unless you choose another is
+   the one its trade's own supplies take: nil for a clinic (health care
+   services are exempt), 5 % for a salon and for a gym or yoga studio (beauty
+   and physical well-being services, 5 % without input tax credit from 22
+   September 2025), 18 % for every other type (a jeweller starts with its own
+   slabs). *Add slab* for any other rate your goods need, and have an
+   accountant confirm the slabs before trading.
 5. **Settings › Business tools.** Switch on what the business needs; the
    *Recommended* ones are marked, with the reason.
 6. **Staff & access.** *New staff login* for each person, with their role
    and, when they work at one branch, *Works at* that branch (and their
    department, in a store with departments). Someone who already has a login
-   gets *Give access*.
+   gets *Give access*. The roles a business starts with fit its trade: a
+   salon's receptionist and stylists, a clinic's receptionist and nurses, a
+   gym's front desk and trainers, a garage's service advisor
+   ([Business Admin roles](#business-admin-roles)).
 7. **The people who sign.** A pharmacy (*Pharmacy settings*): its drug
    licence numbers, *Licences by branch* for a branch with its own, and the
    **registered pharmacists**, chosen from the staff logins. A clinic
@@ -1092,7 +1100,10 @@ business's activity (`settings.words_updated`).
    own: one someone else set is *PIN not their own yet* and signs nothing
    until they choose their own.
 8. **Products.** Add each item with its price, GST slab, HSN code and MRP
-   ([Products, prices and opening stock](#products-prices-and-opening-stock)),
+   ([Products, prices and opening stock](#products-prices-and-opening-stock));
+   a service is counted in its trade's own units, which a new business starts
+   with (a gym's month, session and class, a clinic's visit and test, a
+   salon's session, a kirana's bag and packet besides its packs),
    or import the catalogue from an Excel or CSV file
    ([Products, customers and suppliers from Excel or CSV](#products-customers-and-suppliers-from-excel-or-csv)).
    Then the type's own set-up, described with each type in Part 3: a
@@ -1175,11 +1186,15 @@ business*, by name, type or code) and pick from **Restaurants & food** and
   *Clients* and *Services & products*, a grocery says *Udhaar*. Inside
   another business the outlet picker gives way to that business's
   **location picker**, and the bell and Quick access are its own: the bell
-  warns about low stock, expiring batches, overdue udhaar (outstanding) and
-  promises to pay, repairs, appointments, licences running out, tasks
-  and issues, and, for whoever may see the business's money, its PAN's
-  turnover nearing or past a GST threshold
+  warns about low stock, expiring batches, overdue dues and promises to pay,
+  repairs, appointments, licences running out, tasks and issues, and, for
+  whoever may see the business's money, its PAN's turnover nearing or past a
+  GST threshold
   ([GST thresholds across your businesses](#gst-thresholds-across-your-businesses)).
+  It speaks the business's words: a kirana's *Udhaar* ("Kiran: ₹500.00
+  udhaar overdue"), a gym's *Member dues* ("₹1,575.00 fees overdue · 1
+  bill"), a wholesaler's invoices, a physiotherapy centre's "1 session still
+  to come today".
 - **Another restaurant** is greyed out ("This restaurant opens when you sign
   in to it"): sign in to that restaurant to manage it.
 - The last business you opened is **remembered on the server**, so your next
@@ -3415,7 +3430,14 @@ on.
 
 1. **Download sample file** gives the template: its headings are exactly the
    columns the import reads, and *What each column means* explains each,
-   with this business's own units, GST slabs and locations. Headings are
+   with this business's own units, GST slabs and locations and its own
+   example item (a gym's *Monthly membership* counted by the month at its
+   5% slab with SAC 999723, a clinic's consultation by the visit, exempt, a
+   kirana's *Toor dal 1 kg* with HSN 0713). A business that keeps no stock
+   gets no columns about stock (kind, barcode, stock tracking, MRP, purchase
+   price, reorder level, opening stock, location, batch, expiry): every item
+   it adds is a service. The customers' template names them as the business
+   does (a gym's *Example member*, a clinic's *Example patient*). Headings are
    matched whatever their case, spaces or punctuation, and the usual ones of
    other systems are understood (*Item name*, *SKU*, *GST %*, *Party name*,
    *Mobile No.*); a heading it does not know is listed as ignored.
@@ -5024,7 +5046,7 @@ While a parameter's latest QC today is failed, its patient reports cannot be app
 - **Patients** — *Patients* and each patient's page.
 - **Visits** — *Visits & follow-ups*.
 
-**Who opens it.** Anyone whose role in the clinic sees patients (`patients.view`): the front desk (Cashier / sales), doctors, the lab, the manager and the owner; the menu link shows only to them, and anyone else who opens the address is told their role does not include it. Each does there what their role allows in Business Admin. The front desk never sees clinical data: a consultation shows them who, when, the bill and whether the report is ready, and no history.
+**Who opens it.** Anyone whose role in the clinic sees patients (`patients.view`): the front desk (Receptionist), nurses, doctors, the lab, the manager and the owner; the menu link shows only to them, and anyone else who opens the address is told their role does not include it. Each does there what their role allows in Business Admin. The front desk never sees clinical data: a consultation shows them who, when, the bill and whether the report is ready, and no history.
 
 ### Lab workspace
 
@@ -5991,7 +6013,9 @@ behind them (*Member contacts*) and the **Enquiries**; the plans are under
    music and art classes (999291) stay at 18%. Each plan is sold as a service
    item with its own slab and SAC, so a studio that sells yoga and dance gives
    each plan its own. Credit on what is bought only for the 5% services is not
-   taken. Have an accountant confirm the slabs before trading.
+   taken. A new gym or yoga studio starts with GST 5% as its default slab; a
+   coaching centre, dance studio or sports academy with GST 18%. Have an
+   accountant confirm the slabs before trading.
 2. **The joining fee** — a service item (*Joining fee*, with its price and
    slab) in *Products & services*, named on the plans that charge it.
 3. **The plans** — *Settings › Membership plans*, *Add a plan*: see the
@@ -7563,7 +7587,7 @@ night, and the departure date is the morning the guest leaves.
    *Front desk*, and for each housekeeper with *Housekeeping* (*Staff &
    access*); the payment methods advances and bills are taken by (*Settings ›
    Payment methods*); a company that pays for its staff's stays is a customer
-   with its GSTIN. Stays are numbered *ST/2627/0001* (*Settings › Number
+   with its GSTIN. Stays are numbered *RS/2627/0001* (*Settings › Number
    series*, *Stays*) and group bookings *GB/2627/0001* (*Group bookings*);
    the bills are numbered as the business's sales are.
 7. **The check-in and check-out times** — with the slabs (*GST slabs, nights
@@ -8049,7 +8073,8 @@ erasure until it is done or cancelled; an erasure then clears them from the
 booking ([Personal data](#personal-data)).
 
 **Who does what.** Answering requests needs `online_appointments.approve`
-(the Cashier / sales and Optometrist roles, a manager and the owner).
+(the Cashier / sales, Receptionist, Front desk, Service advisor and
+Optometrist roles, a manager and the owner).
 Setting up the link and its rules needs `online_appointments.manage` (a
 manager and the owner). Seeing the online bookings needs
 `online_appointments.view` (also the accountant, the viewer, a doctor, a
@@ -8186,10 +8211,12 @@ per entry).
 
 ## Projects
 
-Blank, or from a plan: **New outlet opening**, **Festival sale set-up**,
-**Annual stock audit**, **Shop renovation**, **Staff hiring drive**, **New menu /
-product range launch** — each with milestones (dated from the start), task
-lists and tasks. A project has an owner, members, start and end dates, a status
+Blank, or from a plan: **New location opening**, **Festival offers set-up**,
+**Annual stock audit** (where stock is kept), **Renovation**, **Staff hiring
+drive**, **Launch of new products** — each with milestones (dated from the
+start), task lists and tasks, in the business's own words (a restaurant's *New
+outlet opening* and *Launch of new dishes*, a hotel's *New property opening*,
+a gym's *Launch of new plans & services*). A project has an owner, members, start and end dates, a status
 (planning, active, on hold, completed, cancelled) and progress (done tasks of
 all tasks not cancelled). Tick milestones as they are reached; add tasks to a
 list; comments and history at the bottom.
@@ -8286,9 +8313,16 @@ use two-step sign-in.
 
 Each business has its own copies of the standard roles — Owner, Manager,
 Cashier / sales, Stock keeper, Accountant and Viewer; a pharmacy also gets
-**Pharmacist**, a clinic **Doctor**, **Lab technician** and **Pathologist**,
-an optical shop **Optometrist**, a garage **Mechanic**, a gym, studio or coaching centre **Trainer**, a jeweller **Karigar / goldsmith**, a fuel station **Pump attendant (DSM)**, and a hotel, lodge or guest house **Front desk** and **Housekeeping** — plus any roles
-its owner makes, edited on a module × action grid. You cannot give what you
+**Pharmacist**, a clinic **Doctor**, **Lab technician**, **Pathologist**,
+**Receptionist** and **Nurse**, a salon **Receptionist** and **Stylist**, an
+optical shop **Optometrist**, a garage **Mechanic** and **Service advisor**, a gym, studio or coaching centre **Front desk** and **Trainer**, a jeweller **Karigar / goldsmith**, a fuel station **Pump attendant (DSM)**, a laundry **Washer / presser**, a rental business **Yard hand**, and a hotel, lodge or guest house **Front desk** and **Housekeeping** — plus any roles
+its owner makes, edited on a module × action grid. A trade's own desk role
+stands in for Cashier / sales: a salon, a clinic, a gym and a hotel start with
+their Receptionist or Front desk, which may do all a cashier may and a little
+more, and no Cashier / sales beside it. A business that keeps no stock from
+the start (a gym, a clinic, a laundry, a rental business, a hotel) starts with
+no Stock keeper. Each business keeps the roles it started with; the owner adds
+or changes roles in *Staff & access*. You cannot give what you
 do not have, nor change, or set a new password for, someone whose role can
 do more than yours; the Owner role cannot be handed out or changed. A
 business's owner is the login that signs it up on the public site, adds it
@@ -8303,8 +8337,15 @@ never the admin application.
 | Owner | Everything, including staff access (and every future permission) |
 | Manager | Everything except staff access and, in a clinic, the clinical notes and printed prescriptions and the lab's results, approval and printed reports (those belong to the doctors, the lab technicians and the pathologist); the personal data registers and a person's whole data included |
 | Cashier / sales | Sales, collections, printing; add customers; book and complete appointments, and answer online booking requests; see products, stock and price lists |
-| Stock keeper | Products, receiving purchases, stock corrections, counts (not approving them), transfers |
-| Accountant | See everything but the personal data registers, record payments and collections, export and print; no stock changes |
+| Stock keeper (businesses that keep stock) | Products, receiving purchases, stock corrections, counts (not approving them), transfers |
+| Accountant | See everything but the personal data registers, record payments, collections and expenses, export and print; no stock changes |
+| Receptionist (salons and clinics) | All a Cashier / sales may, at reception: bills and payments, booking and completing appointments, answering online booking requests, registering patients; and changing a client's or patient's details and cancelling appointments |
+| Front desk (gyms, studios & coaching) | All a Cashier / sales may, at the front desk: checking members in, selling and renewing plans, fees; and changing a member's details and cancelling sessions |
+| Stylist (salons only) | See the day's appointments, the services and products and the packages a client holds; mark appointments done; no money |
+| Nurse (clinics only) | Call patients in by token, register patients, see appointments and mark them done, collect lab samples; no clinical notes and no money |
+| Service advisor (garages only) | Receive vehicles and open job cards, make estimates and quotations, book services, bill the job and record its payment; see products and stock |
+| Washer / presser (laundries only) | Move garments through the work and onto the racks, hand them over, record damage claims, print tags; see orders without their money |
+| Yard hand (rental businesses only) | Hand items over and take them back with their condition and charges, send units for maintenance, print slips |
 | Viewer | See and export everything but the personal data registers; change nothing |
 | Pharmacist (pharmacy only) | Sell and refund at the counter, prescriptions and the H1 / Schedule X registers, the sign-off for Schedule X, recalls and expiry returns, the drug master; see stock and purchases |
 | Doctor (clinic only) | Patients with their clinical records (see and write), appointments, lab orders; see bills; their own queue and the consultation in the clinic workspace |
@@ -8315,7 +8356,7 @@ never the admin application.
 | Trainer (gyms, studios & coaching only) | See members, their plans and check-ins; check members in; see personal-training sessions and mark them done or missed; no prices and no money |
 | Karigar / goldsmith (jewellery shops only) | See the pieces with their weights, stones and HUIDs; tag pieces already in stock, record their weights, stones and HUIDs, and send them on approval or to the karigar and take them back; see products and stock; no prices and no money |
 | Pump attendant (DSM) (fuel stations only) | Open and close their own shift: the nozzle readings, the 5-litre test, the credit slips, the UPI, card and fleet-card takings and the cash; take the morning dips; see the tanks, the tanker loads and the registers, and only their own shifts and money; no settings |
-| Front desk (hotels, lodges & guest houses only) | Take reservations and advances; check guests in with every occupant and their photo ID, and out with the bill; post charges on the folio; run the night audit; mark the Form-III reports; print registration cards and the guest register; mark rooms; cancel reservations and mark no-shows; add customers and take their payments; no settings, and no money handed back |
+| Front desk (hotels, lodges & guest houses only) | All a Cashier / sales may, and: take reservations and advances; check guests in with every occupant and their photo ID, and out with the bill; post charges on the folio; run the night audit; mark the Form-III reports; print registration cards and the guest register; mark rooms; cancel reservations and mark no-shows; add guests and take their payments; no settings, and no money handed back |
 | Housekeeping (hotels, lodges & guest houses only) | See the rooms and mark them clean or dirty, out of order and back in order; see the reservations and stays without money or the guests' IDs |
 
 A permission also needs its **module** switched on for the business

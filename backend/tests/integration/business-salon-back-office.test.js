@@ -72,15 +72,15 @@ test('salon, weight shops and repairs', { timeout: 300000 }, async (t) => {
   const M = (suffix) => `/businesses/${meat.id}/${suffix}`;
   const E = (suffix) => `/businesses/${electronics.id}/${suffix}`;
 
-  // A manager (with a PIN) and a cashier in the salon and the electronics shop.
+  // A manager (with a PIN) and someone at the counter in the salon (its receptionist) and the electronics shop (its cashier).
   const people = {};
   for (const business of [salon, electronics]) {
     const roles = (await request('GET', `/businesses/${business.id}/roles`)).items;
-    for (const template of ['manager', 'cashier']) {
-      const email = `${business.business_type}-${template}@test.invalid`;
-      const person = await one('INSERT INTO users(restaurant_id,name,email,password_hash) VALUES($1,$2,$3,$4) RETURNING id', [ownerUser.restaurant_id, `${business.business_type} ${template}`, email, hash]);
+    for (const [role, template] of [['manager', 'manager'], ['cashier', business.business_type === 'salon' ? 'receptionist' : 'cashier']]) {
+      const email = `${business.business_type}-${role}@test.invalid`;
+      const person = await one('INSERT INTO users(restaurant_id,name,email,password_hash) VALUES($1,$2,$3,$4) RETURNING id', [ownerUser.restaurant_id, `${business.business_type} ${role}`, email, hash]);
       await request('POST', `/businesses/${business.id}/members`, { userId: person.id, roleId: roles.find((r) => r.template_code === template).id }, 201);
-      people[`${business.business_type}_${template}`] = { id: person.id, call: as(await login(email)) };
+      people[`${business.business_type}_${role}`] = { id: person.id, call: as(await login(email)) };
     }
   }
   await pool.query('UPDATE users SET pin_hash=$2,pin_set_at=now() WHERE id=ANY($1::bigint[])', [[people.salon_manager.id, people.electronics_manager.id], await bcrypt.hash('2468', 4)]);

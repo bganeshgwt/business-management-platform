@@ -128,8 +128,8 @@ test('gyms, studios and coaching: classes, pay, plan options, fees, changes, stu
     const token = await login(email);
     return { id: user.id, call: as(token), token };
   }
-  const desk = await staff('club-desk@test.invalid', 'cashier');
-  const seller = await staff('club-seller@test.invalid', 'cashier');
+  const desk = await staff('club-desk@test.invalid', 'member_desk');
+  const seller = await staff('club-seller@test.invalid', 'member_desk');
   const trainer = await staff('club-trainer@test.invalid', 'trainer');
   const viewer = await staff('club-viewer@test.invalid', 'viewer');
   await pool.query('UPDATE users SET pin_hash=$2,pin_set_at=now() WHERE id=$1', [ownerUser.id, await bcrypt.hash('2468', 4)]);

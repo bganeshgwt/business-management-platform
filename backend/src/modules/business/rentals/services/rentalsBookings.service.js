@@ -237,7 +237,7 @@ async function priceBooking(db, business, input, times, existing = null, discoun
       if (line.unitId) fail(item.kind === 'kit' ? `${item.name} is a kit: give how many kits, not a unit` : `${item.name} is hired from a pool: give how many, not a unit`);
       if (!line.quantity) fail(`Give how many ${item.name} are hired`);
       quantity = line.quantity;
-      if (item.kind === 'pool' && quantity > Number(item.pool_quantity)) fail(`The shop has ${item.pool_quantity} of ${item.name}`, 409);
+      if (item.kind === 'pool' && quantity > Number(item.pool_quantity)) fail(`You have ${item.pool_quantity} of ${item.name}`, 409);
       if (seen.has(`p${item.id}`)) fail(`${item.name} is on the booking twice: give the total once`);
       seen.add(`p${item.id}`);
     }
@@ -255,7 +255,7 @@ async function priceBooking(db, business, input, times, existing = null, discoun
         const part = itemOf(r.partId);
         if (!part.active) fail(`${part.name}, a part of ${item.name}, is switched off: switch it on to book the kit`, 409);
         const partQuantity = quantity * r.each;
-        if (partQuantity > Number(part.pool_quantity)) fail(`The shop has ${part.pool_quantity} of ${part.name}: ${quantity} × ${item.name} take ${partQuantity}`, 409);
+        if (partQuantity > Number(part.pool_quantity)) fail(`You have ${part.pool_quantity} of ${part.name}: ${quantity} × ${item.name} take ${partQuantity}`, 409);
         const partTerms = r.row ? termsKept(r.row) : { ...termsOf(part), deposit: 0 };
         entry.parts.push({ item: part, unit: null, quantity: partQuantity, each: r.each, terms: partTerms, kept: r.row, billed: !billed,
           ...priceOf(part, partTerms, partQuantity, !billed), taxRate: Number(part.tax_rate), deposit: 0 });
@@ -774,7 +774,7 @@ async function cancel(business, user, bookingId, body) {
     const lines = await cancelLines(db, business, booking);
     // With the shop's slabs, the charge of a reserved booking is worked out, never typed; a manager may waive it.
     const worked = await workOut(db, business, booking, lines, await c.settingsOf(db, business.id));
-    if (worked && typed.length) fail('The cancellation charge is worked out from the shop\'s cancellation slabs: it is not typed. A manager may waive it.', 409);
+    if (worked && typed.length) fail('The cancellation charge is worked out from your cancellation slabs: it is not typed. A manager may waive it.', 409);
     if (waiver && !worked?.total) fail('There is no cancellation charge worked out to waive', 409);
     const charges = worked ? (waiver ? [] : worked.charges) : typed;
     if (charges.length) await access.require(business, 'sales.create');

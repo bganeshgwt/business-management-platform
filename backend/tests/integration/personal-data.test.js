@@ -194,7 +194,8 @@ test('personal data', { timeout: 900000 }, async (t) => {
     assert.equal(fresh.current, null);
     const { starter } = fresh;
     assert.match(starter.notice, /^Sri Ganesh Kirana Stores: how we use your personal data/);
-    assert.match(starter.notice, /never a condition of a sale/);
+    assert.match(starter.notice, /never a condition of being served/);
+    assert.match(starter.notice, /tell us at the counter or on the phone/);
     assert.match(starter.notice, /within 90 days/);
     assert.match(starter.notice, /Data Protection Board/);
     assert.doesNotMatch(starter.notice, /\d+\s*(years?|months?)/i, 'no period of keeping is stated');

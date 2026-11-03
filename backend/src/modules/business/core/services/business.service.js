@@ -12,6 +12,9 @@ const books = require('../../retail/services/businessBooks');
 // Salon packages, memberships and staff on a bill.
 const salonSales = require('../../salon-weight/services/businessSalonSales');
 const paymentMethods = require('./businessPaymentMethods.service');
+// What its messages call the business's people, things and places (a gym's members, a clinic's patients).
+const { termsOf } = require('./businessWords.service');
+const { capital } = require('../../../../utils/words');
 
 const fail = (message, status = 400) => { throw new AppError(status, message); };
 function decimal(value, name, places = 2, min = 0, max = 100000000) {
@@ -159,19 +162,21 @@ function readOpeningHours(value) {
 
 async function createLocation(business, user, body) {
   await access.require(business, 'settings.edit');
+  const t = await termsOf(business);
   return repo.transaction(async (db) => {
     const f = locationFields(body);
     const hours = readOpeningHours(body.openingHours);
     const row = await repo.one(db, `INSERT INTO business_locations(business_id,name,code,sells_at_counter,address_line1,address_line2,city,postal_code,state_code,gstin,phone,opening_hours)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
       [business.id, v.requiredString(body.name, 'Location name', 150), v.requiredString(body.code, 'Location code', 30).toUpperCase(),
-        v.requiredBoolean(body.sellsAtCounter, 'Sells at the counter', true), ...(f || [null, null, null, null, null, null, null]), hours ? JSON.stringify(hours) : null]);
+        v.requiredBoolean(body.sellsAtCounter, `Sells at the ${t.lower('counter')}`, true), ...(f || [null, null, null, null, null, null, null]), hours ? JSON.stringify(hours) : null]);
     await repo.audit(db, business.id, user.id, 'location.created', row.id);
     return row;
   });
 }
 async function updateLocation(business, user, locationId, body) {
   await access.require(business, 'settings.edit');
+  const t = await termsOf(business);
   return repo.transaction(async (db) => {
     const active = v.requiredBoolean(body.active, 'Active', true);
     if (!active) {
@@ -182,7 +187,7 @@ async function updateLocation(business, user, locationId, body) {
       if (open.stock || open.transfers) fail('This location still holds stock or has transfers in transit. Move or correct them before closing it.', 409);
     }
     // Older clients send no counter flag: the location keeps what it has.
-    const counter = body.sellsAtCounter === undefined ? null : v.requiredBoolean(body.sellsAtCounter, 'Sells at the counter');
+    const counter = body.sellsAtCounter === undefined ? null : v.requiredBoolean(body.sellsAtCounter, `Sells at the ${t.lower('counter')}`);
     // Address and GSTIN: older clients send none of them and the location keeps what it has.
     const f = locationFields(body);
     // Opening hours: older clients send none and the location keeps its own.
@@ -208,12 +213,12 @@ function readPan(value, name = 'PAN') {
   if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) fail(`${name} must look like ABCDE1234F: five letters, four digits and a letter`);
   return pan;
 }
-function contactFields(body, kind) {
+function contactFields(body, kind, t) {
   const creditLimit = body.creditLimit === undefined || body.creditLimit === null || body.creditLimit === '' ? null : decimal(body.creditLimit, 'Credit limit');
   const opening = body.openingBalance === undefined || body.openingBalance === null || body.openingBalance === '' ? 0 : signedDecimal(body.openingBalance, 'Opening balance');
   const openingOn = opening ? dateText(body.openingBalanceOn, 'Opening balance date') : null;
   const creditDays = body.creditDays === undefined || body.creditDays === null || body.creditDays === '' ? 0 : decimal(body.creditDays, 'Credit days', 0, 0, 365);
-  if (kind === 'supplier' && creditLimit !== null) fail('A credit limit applies to customers; for suppliers record their credit days instead');
+  if (kind === 'supplier' && creditLimit !== null) fail(`A credit limit applies to ${t.lower('customer', 'many')}; for suppliers record their credit days instead`);
   return {
     name: v.requiredString(body.name, 'Name', 150), phone: v.optionalString(body.phone, 'Phone', 30),
     email: v.optionalString(body.email, 'Email', 150), address: v.optionalString(body.address, 'Address', 500),
@@ -233,7 +238,7 @@ async function applyConsents(db, business, user, contact, choices) {
 async function createContact(business, user, body, inTransaction = null) {
   await access.require(business, 'contacts.create');
   const kind = v.requiredEnum(body.kind, 'Contact type', ['customer', 'supplier']);
-  const f = contactFields(body, kind);
+  const f = contactFields(body, kind, await termsOf(business));
   const choices = personalConsents().readChoices(body.consents);
   const run = inTransaction ? (work) => work(inTransaction) : repo.transaction;
   return run(async (db) => {
@@ -249,15 +254,16 @@ async function createContact(business, user, body, inTransaction = null) {
 async function updateContact(business, user, contactId, body, inTransaction = null) {
   await access.require(business, 'contacts.edit');
   const choices = personalConsents().readChoices(body.consents);
+  const t = await termsOf(business);
   const run = inTransaction ? (work) => work(inTransaction) : repo.transaction;
   return run(async (db) => {
     const current = await repo.one(db, 'SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, id(contactId)]);
     if (!current) fail('Contact not found', 404);
-    if (current.erased_at) fail('This customer\'s data was erased at their request: the record is kept nameless and no longer changes', 409);
+    if (current.erased_at) fail(`This ${t.lower('customer')}'s data was erased at their request: the record is kept nameless and no longer changes`, 409);
     // Older clients send only name/phone/email/address/active: keep the credit terms then.
     const merged = { creditLimit: current.credit_limit, creditDays: current.credit_days, openingBalance: current.opening_balance,
       openingBalanceOn: current.opening_balance_on, gstin: current.gstin, pan: current.pan, ...body };
-    const f = contactFields(merged, current.kind);
+    const f = contactFields(merged, current.kind, t);
     const row = await repo.one(db, `UPDATE business_contacts SET name=$3,phone=$4,email=$5,address=$6,active=$7,gstin=$8,credit_limit=$9,
       credit_days=$10,opening_balance=$11,opening_balance_on=$12,pan=$13,updated_at=now() WHERE business_id=$1 AND id=$2 RETURNING *`,
     [business.id, current.id, f.name, f.phone, f.email, f.address, v.requiredBoolean(body.active, 'Active', true), f.gstin, f.creditLimit, f.creditDays, f.opening, f.openingOn, f.pan]);
@@ -366,6 +372,13 @@ function readMemberPrice(value, price, label) {
   return member;
 }
 
+// Why goods cannot be added where no stock is kept: "Products for sale are
+// not kept here…" (a gym), "Medicines & consumables…" (a clinic).
+async function noStockWords(business) {
+  const t = await termsOf(business);
+  return `${t('goods', 'many')} are not kept here: switch on Stock in Settings › Business tools to add them`;
+}
+
 // extend(db, sku): a type module's own rows for the new item (book details),
 // written in the same transaction. `inTransaction`: the caller's own
 // transaction (a CSV import makes many items at once).
@@ -373,7 +386,7 @@ async function createCatalog(business, user, body, extend, inTransaction = null)
   await access.require(business, 'catalog.create');
   const caps = business.capabilities;
   const kind = v.requiredEnum(body.kind, 'Item kind', ['goods', 'service']);
-  if (kind === 'goods' && !caps.includes('inventory')) fail('This business has no goods inventory capability');
+  if (kind === 'goods' && !caps.includes('inventory')) fail(await noStockWords(business));
   const tracking = kind === 'service' ? 'none' : v.requiredEnum(body.tracking, 'Stock tracking', ['quantity', 'batch', 'serial']);
   if (tracking === 'batch' && !caps.includes('batches')) fail('Batch tracking is not enabled');
   if (tracking === 'serial' && !caps.includes('serials')) fail('Serial tracking is not enabled');
@@ -526,7 +539,7 @@ async function createPriceRule(business, user, body) {
     let contact = null;
     if (body.contactId) {
       contact = await repo.one(db, "SELECT id FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer' AND active", [business.id, id(body.contactId)]);
-      if (!contact) fail('Customer not found', 404);
+      if (!contact) fail(`${(await termsOf(business))('customer')} not found`, 404);
     }
     // A slab may be set per pack ("5 cases or more"): minimum and price then count packs.
     let unitCode = null;
@@ -1013,7 +1026,10 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     if (walkInPays && !settings?.walk_in_credit && !contact && rounded > 0 && paidPaise + prepaid + financed < rounded) {
       // An offline till allowed it under the setting it held: noted.
       if (offline) offlineNotes.credit = { walkIn: true, unpaid: money(rounded - paidPaise - prepaid - financed) };
-      else fail('A walk-in customer pays the whole bill now. To give udhaar, choose the customer first.', 409);
+      else {
+        const t = await termsOf(business);
+        fail(`${capital(t.a('walk_in'))} pays the whole bill now. To leave any of it unpaid (${t.lower('on_account')}), choose the ${t.lower('customer')} first.`, 409);
+      }
     }
     // Season credit (a farm-input shop): a named customer's bill left on credit, within the season's limit.
     if (agri) await agriSales().checkCredit(db, business, agri, { contact, unpaid: rounded - paidPaise - prepaid - financed });
@@ -1060,7 +1076,8 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
       }
       panDeclaration = !buyerPan && typed.declaration;
       if (!fuel && rounded > PAN_ABOVE_PAISE && !buyerPan && !panDeclaration) {
-        fail('A bill over ₹2,00,000 needs the buyer\'s PAN: type it on the bill, or choose the customer with their PAN or GSTIN saved. A buyer who has no PAN signs a declaration (Form 97): record it on the bill instead.');
+        const t = await termsOf(business);
+        fail(`A bill over ₹2,00,000 needs the buyer's PAN: type it on the bill, or choose the ${t.lower('customer')} with their PAN or GSTIN saved. A buyer who has no PAN signs a declaration (Form 97): record it on the bill instead.`);
       }
     }
     // An offline bill has its till's number and its own time.
@@ -1347,24 +1364,25 @@ async function appointment(business, user, body) {
   if (salonRules(business)) {
     return salonRules(business).book(business, user, { ...body, endsAt: undefined, requestKey: body.requestKey || crypto.randomUUID() });
   }
+  const t = await termsOf(business);
   const starts = new Date(body.startsAt), ends = new Date(body.endsAt);
-  if (!Number.isFinite(starts.getTime()) || !Number.isFinite(ends.getTime()) || ends <= starts || ends - starts > 86400000) fail('Provide a valid appointment of up to 24 hours');
+  if (!Number.isFinite(starts.getTime()) || !Number.isFinite(ends.getTime()) || ends <= starts || ends - starts > 86400000) fail(`Provide a valid ${t.lower('appointment')} of up to 24 hours`);
   return repo.transaction(async (db) => {
     const staff = await repo.one(db, 'SELECT * FROM business_resources WHERE business_id=$1 AND id=$2 AND active FOR UPDATE', [business.id, id(body.resourceId)]);
-    if (!staff) fail('Staff / resource not found', 404);
+    if (!staff) fail(`${t('resource')} not found`, 404);
     access.requireLocation(business, staff.location_id);
     const contact = await repo.one(db, 'SELECT id FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind=\'customer\' AND active', [business.id, id(body.contactId)]);
     const sku = await repo.one(db, `SELECT s.id FROM catalog_skus s JOIN catalog_products p ON p.business_id=s.business_id AND p.id=s.product_id
       WHERE s.business_id=$1 AND s.id=$2 AND s.active AND p.active AND p.kind='service'`, [business.id, id(body.skuId)]);
-    if (!contact || !sku) fail('Customer or service not found', 404);
+    if (!contact || !sku) fail(`${t('customer')} or ${t.lower('service')} not found`, 404);
     // A clinic doctor is booked within their OPD sessions and not on leave.
     if (business.business_type === 'healthcare') {
       const problem = await require('../../health/services/businessClinicDesk.service').availabilityProblem(db, business, staff.id, starts, ends);
       if (problem) fail(problem, 409, { reason: 'doctor_unavailable' });
     }
     const overlap = await appointmentClash(db, business.id, staff.id, starts, ends);
-    if (overlap) fail(overlap.status === 'requested' ? 'This staff member has an online booking request waiting for that time: answer it in Online booking first'
-      : 'This staff member already has an appointment at that time', 409);
+    if (overlap) fail(overlap.status === 'requested' ? `${staff.name} has an online booking request waiting for that time: answer it in Online booking first`
+      : `${staff.name} already has ${t.a('appointment')} at that time`, 409);
     const result = await repo.one(db, `INSERT INTO business_appointments(business_id,resource_id,contact_id,sku_id,starts_at,ends_at,created_by)
      VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [business.id, staff.id, contact.id, sku.id, starts, ends, user.id]);
     await repo.audit(db, business.id, user.id, 'appointment.booked', result.id);
@@ -1457,5 +1475,6 @@ module.exports = { statusAllowed, list, linkRestaurant, createLocation, updateLo
   createPriceRule, disablePriceRule, document, detail, payment, resource, appointment, appointmentStatus, decimal, dateText, uuid,
   lineNet, lineTax, inclusiveNet, kindPermission, readUnit, postDocument, recordPayment, conversion, requiredDecimals, readPayments,
   readMrp, checkMrp, branchSeller, requireDepartmentItem, deliverLine, readHsn, readBarcode, readPan, signedDecimal, postOpeningStock, takeStock,
+  noStockWords,
   // Online booking (modules/business/online-booking) books through the same clash check.
   appointmentClash };

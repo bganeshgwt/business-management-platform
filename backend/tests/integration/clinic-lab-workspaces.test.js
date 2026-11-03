@@ -181,19 +181,23 @@ test('the clinic and lab workspaces', { timeout: 600000 }, async (t) => {
   const main = (await request('GET', C('locations'))).items[0];
   const kondapur = await request('POST', C('locations'), { name: 'Kondapur clinic', code: 'KDP' }, 201);
   const roles = (await request('GET', C('roles?limit=100'))).items;
-  async function staff(email, template, workLocationId) {
+  // `role`: a template's code, or a role of the clinic's own.
+  async function staff(email, role, workLocationId) {
     const user = await one('INSERT INTO users(restaurant_id,name,email,password_hash,pin_hash,pin_set_at) VALUES($1,$2,$3,$4,$5,now()) RETURNING id',
       [ownerUser.restaurant_id, email.split('@')[0], email, hash, pinHash]);
-    await request('POST', C('members'), { userId: user.id, roleId: roles.find((r) => r.template_code === template).id, ...(workLocationId ? { workLocationId } : {}) }, 201);
+    await request('POST', C('members'), { userId: user.id, roleId: (typeof role === 'string' ? roles.find((r) => r.template_code === role) : role).id,
+      ...(workLocationId ? { workLocationId } : {}) }, 201);
     const token = await login(email);
     return { id: user.id, token, call: as(token) };
   }
-  const desk = await staff('desk@test.invalid', 'cashier');
+  const desk = await staff('desk@test.invalid', 'receptionist');
   const doctor = await staff('doctor@test.invalid', 'doctor');
   const tech = await staff('tech@test.invalid', 'lab_technician');
   const patho = await staff('patho@test.invalid', 'pathologist');
-  const keeper = await staff('keeper@test.invalid', 'stock_keeper');
-  const kdp = await staff('kdp@test.invalid', 'cashier', kondapur.id);
+  // A clinic keeps no stock from the start, so it has no stock keeper: its owner makes a store role that sees no lab.
+  const store = await request('POST', C('roles'), { name: 'Dispensary store', permissions: ['catalog.view', 'contacts.view'] }, 201);
+  const keeper = await staff('keeper@test.invalid', store);
+  const kdp = await staff('kdp@test.invalid', 'receptionist', kondapur.id);
   const ravi = await request('POST', C('resources'), { name: 'Dr. Ravi', locationId: main.id }, 201);
   await request('POST', C('health/signatories'), { kind: 'doctor', userId: doctor.id, name: 'Dr. Ravi Kumar', registrationNo: 'TSMC 31248', resourceId: ravi.id }, 201);
   const pathologist = await request('POST', C('health/signatories'), { kind: 'pathologist', userId: patho.id, name: 'Dr. Anitha', registrationNo: 'TSMC 40266' }, 201);

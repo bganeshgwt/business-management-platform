@@ -1,6 +1,8 @@
 const repo = require('../../core/repositories/business.repository');
 const AppError = require('../../../../utils/AppError');
 const access = require('../../core/services/businessAccess.service');
+// What the refusals call the people a business serves (a salon's clients, a gym's members).
+const words = () => require('../../core/services/businessWords.service');
 
 // Offers and loyalty points on a sale, worked out by the server inside the
 // posting transaction (business.service.js › document). Retail modules
@@ -211,7 +213,10 @@ async function couponOffer(db, business, code, contact, grossBill, running) {
   const live = running.find((o) => Number(o.id) === Number(offer.id));
   if (!live) fail(`Coupon ${code} cannot be used now (switched off, outside its dates or hours)`, 409);
   if (grossBill < paise(offer.min_bill_amount)) fail(`Coupon ${code} needs a bill of at least ${money(paise(offer.min_bill_amount))}`, 409);
-  if (offer.per_customer_limit && !contact) fail(`Coupon ${code} is limited per customer: choose the customer first`, 409);
+  if (offer.per_customer_limit && !contact) {
+    const t = await words().termsOf(business);
+    fail(`Coupon ${code} is limited per ${t.lower('customer')}: choose the ${t.lower('customer')} first`, 409);
+  }
   if (offer.usage_limit || offer.per_customer_limit) {
     const used = await repo.one(db, `SELECT count(DISTINCT x.document_id)::int AS total,
         count(DISTINCT x.document_id) FILTER (WHERE d.contact_id=$3)::int AS mine
@@ -348,7 +353,7 @@ async function priceSale(db, business, { contact, lines, body, taxMode, given = 
   if (redeemPoints) {
     if (!caps.includes('loyalty')) fail('Loyalty points are not switched on for this business');
     await access.require(business, 'loyalty.create');
-    if (!contact) fail('Choose the customer whose points are being redeemed');
+    if (!contact) fail(`Choose the ${(await words().termsOf(business)).lower('customer')} whose points are being redeemed`);
     if (!loyalty) fail('Loyalty points are switched off in the loyalty rules', 409);
     const { settings, balance } = loyalty;
     if (redeemPoints < Number(settings.min_redeem_points)) fail(`At least ${settings.min_redeem_points} points must be redeemed at a time`);

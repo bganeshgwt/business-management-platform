@@ -103,7 +103,9 @@ test('rentals and hire', { timeout: 300000 }, async (t) => {
       .filter((p) => p.startsWith('rentals.'));
     assert.deepEqual(await grants(rentals, 'manager'), ['rentals.approve', 'rentals.cancel', 'rentals.create', 'rentals.edit', 'rentals.print', 'rentals.refund', 'rentals.view']);
     assert.deepEqual(await grants(rentals, 'cashier'), ['rentals.create', 'rentals.edit', 'rentals.print', 'rentals.view']);
-    assert.deepEqual(await grants(rentals, 'stock_keeper'), ['rentals.edit', 'rentals.print', 'rentals.view']);
+    // A rental yard keeps no stock: its yard hand hands items over and takes them back.
+    assert.deepEqual(await grants(rentals, 'yard_hand'), ['rentals.edit', 'rentals.print', 'rentals.view']);
+    assert.deepEqual(await grants(rentals, 'stock_keeper'), []);
     assert.deepEqual(await grants(rentals, 'accountant'), ['rentals.print', 'rentals.view']);
     assert.deepEqual(await grants(rentals, 'viewer'), ['rentals.view']);
     assert.deepEqual(await grants(grocery, 'viewer'), ['rentals.view'], 'role copies match their templates everywhere');
@@ -166,7 +168,7 @@ test('rentals and hire', { timeout: 300000 }, async (t) => {
         deposit_due,request_key,request_hash,created_by) VALUES($1,$2,$3,$4,'Rule Hirer',$5,now()+make_interval(mins=>$6::int),now()+make_interval(mins=>$7::int),'exclusive',0,0,0,$8,$9,$10,$11) RETURNING *`,
     [rentals.id, yard.id, `RULE-${crypto.randomBytes(3).toString('hex')}`, extra.contactId || hirer.id, extra.status || 'reserved', extra.from ?? 60, extra.until ?? 180,
       extra.deposit || 0, key(), 'x'.repeat(64), ownerUser.id]);
-    await assert.rejects(booking({ contactId: supplier.id }), /Choose a customer/);
+    await assert.rejects(booking({ contactId: supplier.id }), /Choose a hirer of this business/);
     await assert.rejects(booking({ status: 'out' }), /starts as a quote or reserved/);
     await assert.rejects(booking({ from: -60 * 30, until: -60 * 28 }), /starts today or later/);
     await assert.rejects(booking({ from: 60, until: 60 }), /check/);
@@ -313,7 +315,7 @@ test('rentals and hire', { timeout: 300000 }, async (t) => {
     return { id: user.id, call: as(token), token };
   }
   const desk = await staff('hire-desk@test.invalid', 'cashier');
-  const yardHand = await staff('hire-yard@test.invalid', 'stock_keeper');
+  const yardHand = await staff('hire-yard@test.invalid', 'yard_hand');
   const viewer = await staff('hire-viewer@test.invalid', 'viewer');
   await pool.query('UPDATE users SET pin_hash=$2,pin_set_at=now() WHERE id=$1', [ownerUser.id, await bcrypt.hash('2468', 4)]);
   const approval = { approverId: ownerUser.id, pin: '2468' };
@@ -425,7 +427,7 @@ test('rentals and hire', { timeout: 300000 }, async (t) => {
     assert.match((await bad(`${addDays(today, -1)}T10:00`, `${tomorrow}T10:00`, [{ itemId: gen.id, unitId: genA.id }])).message, /starts today or later/);
     const retired = gen.units.find((u) => u.label === 'Gen C') || (await request('GET', R('rentals/items'))).items.find((i) => i.id === gen.id).units.find((u) => u.label === 'Gen C');
     assert.match((await bad(`${tomorrow}T10:00`, `${tomorrow}T14:00`, [{ itemId: gen.id, unitId: retired.id }])).message, /retired and is not booked/);
-    assert.match((await bad(`${tomorrow}T10:00`, `${tomorrow}T14:00`, [{ itemId: chairs.id, quantity: '201' }])).message, /The shop has 200 of Plastic chair/);
+    assert.match((await bad(`${tomorrow}T10:00`, `${tomorrow}T14:00`, [{ itemId: chairs.id, quantity: '201' }])).message, /You have 200 of Plastic chair/);
     assert.match((await bad(`${tomorrow}T10:00`, `${tomorrow}T14:00`, [{ itemId: gen.id, unitId: genA.id }, { itemId: gen.id, unitId: genA.id }])).message, /on the booking twice/);
     assert.match((await bad('tomorrow', `${tomorrow}T14:00`, [{ itemId: gen.id, unitId: genA.id }])).message, /date and time/);
   });

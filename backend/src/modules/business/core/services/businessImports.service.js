@@ -7,6 +7,7 @@ const access = require('./businessAccess.service');
 const core = require('./business.service');
 const products = require('./businessImportProducts');
 const contacts = require('./businessImportContacts');
+const businessWords = require('./businessWords.service');
 
 // A shop's products, customers and suppliers from a spreadsheet, for every
 // business on the shared core (Import from Excel or CSV on its Products,
@@ -35,10 +36,17 @@ const MAX_ROWS = 5000;
 const fail = (message, status = 400) => { throw new AppError(status, message); };
 const plural = (count, one, many) => `${count.toLocaleString('en-IN')} ${count === 1 ? one : many}`;
 
+// `word`: what the rows are, a key of the business's words (a gym's plans and
+// services, its members), or the word itself.
 const KINDS = {
-  products: { one: 'product', many: 'products', create: 'catalog.create', edit: 'catalog.edit', audit: 'catalog.imported', imports: products },
-  customers: { one: 'customer', many: 'customers', create: 'contacts.create', edit: 'contacts.edit', audit: 'customers.imported', imports: contacts, contactKind: 'customer' },
+  products: { word: 'item', create: 'catalog.create', edit: 'catalog.edit', audit: 'catalog.imported', imports: products },
+  customers: { word: 'customer', create: 'contacts.create', edit: 'contacts.edit', audit: 'customers.imported', imports: contacts, contactKind: 'customer' },
   suppliers: { one: 'supplier', many: 'suppliers', create: 'contacts.create', edit: 'contacts.edit', audit: 'suppliers.imported', imports: contacts, contactKind: 'supplier' },
+};
+// The kind of import with its rows named in the business's words.
+const specOf = (kind, t) => {
+  const spec = KINDS[kind];
+  return spec.word ? { ...spec, one: t.lower(spec.word), many: t.lower(spec.word, 'many') } : spec;
 };
 // The contacts routes name a customer or a supplier.
 const contactKind = (value) => ({ customer: 'customers', supplier: 'suppliers' })[v.requiredEnum(value, 'Contact type', ['customer', 'supplier'])];
@@ -56,7 +64,7 @@ function readRequest(body) {
 // Every row planned: the shared reader's summary with the shop's counts.
 async function check(db, business, spec, request) {
   const ctx = spec.contactKind ? await contacts.context(db, business, spec.contactKind) : await products.context(db, business);
-  const planned = spec.imports.plan(request.rows, ctx, business, { update: request.update, kind: spec.contactKind });
+  const planned = spec.imports.plan(request.rows, ctx, business, { update: request.update, kind: spec.contactKind, t: spec.t });
   // Stock brought in needs the permission that brings it in by hand.
   if (planned.rows.some((row) => row.write?.opening) && !access.can(business, 'inventory.edit')) {
     fail('Your role may not bring stock in: leave the Opening stock column out of the file, or ask someone whose role corrects stock to import it.', 403);
@@ -90,7 +98,8 @@ function describe(spec, summary, dryRun) {
 // fileName?, fingerprint?, mode?: 'skip' | 'update', requestKey (the import) }.
 // Returns { message, data }.
 async function importFile(business, user, kind, body) {
-  const spec = KINDS[kind];
+  const t = await businessWords.termsOf(business);
+  const spec = { ...specOf(kind, t), t };
   await access.require(business, spec.create);
   const request = readRequest(body);
   if (request.update) await access.require(business, spec.edit);
@@ -139,17 +148,19 @@ async function importFile(business, user, kind, body) {
 }
 
 // GET …/catalog/import-guide and …/contacts/import-guide: what each column
-// means, and a template whose headings are the import's own.
+// means, and a template whose headings are the import's own, with the
+// business's own examples and words.
 async function guide(business, kind) {
   const spec = KINDS[kind];
   await access.require(business, spec.create);
-  if (spec.contactKind) return { ...sheet.guideOf(...guideParts(contacts.guide(business, spec.contactKind)), MAX_ROWS), notes: [] };
+  const t = await businessWords.termsOf(business);
+  if (spec.contactKind) return { ...sheet.guideOf(...guideParts(contacts.guide(business, spec.contactKind, t)), MAX_ROWS), notes: [] };
   const lists = {
-    units: await repo.all(repo.pool, 'SELECT code,name,kind,decimals,active FROM business_units WHERE business_id=$1 ORDER BY code', [business.id]),
+    units: await repo.all(repo.pool, 'SELECT id,code,name,kind,decimals,active FROM business_units WHERE business_id=$1 ORDER BY code', [business.id]),
     slabs: await repo.all(repo.pool, 'SELECT id,name,rate,is_default,active FROM business_tax_rates WHERE business_id=$1 ORDER BY is_default DESC,id', [business.id]),
     locations: await repo.all(repo.pool, 'SELECT id,name,code,active FROM business_locations WHERE business_id=$1 ORDER BY id', [business.id]),
   };
-  const made = products.guide(business, lists);
+  const made = products.guide(business, lists, t, await businessWords.lookOf(business));
   return { ...sheet.guideOf(...guideParts(made), MAX_ROWS), notes: made.notes };
 }
 const guideParts = (made) => [made.columns, made.sample];

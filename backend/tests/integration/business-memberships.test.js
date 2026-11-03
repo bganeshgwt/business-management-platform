@@ -122,8 +122,9 @@ test('gyms, studios and coaching', { timeout: 600000 }, async (t) => {
     assert.ok(!(await grants(gym, 'trainer')).some((p) => /^(sales|receivables|purchasing|contacts)\./.test(p)), 'the trainer sees no money');
     assert.deepEqual(await own(gym, 'manager'), ['member_plans.approve', 'member_plans.cancel', 'member_plans.create', 'member_plans.edit', 'member_plans.export',
       'member_plans.manage', 'member_plans.refund', 'member_plans.view']);
-    assert.deepEqual(await own(gym, 'cashier'), ['member_plans.create', 'member_plans.edit', 'member_plans.view']);
-    assert.deepEqual(await own(gym, 'stock_keeper'), ['member_plans.view']);
+    // The front desk stands in for the cashier; a gym keeps no stock, so it starts with no stock keeper.
+    assert.deepEqual(await own(gym, 'member_desk'), ['member_plans.create', 'member_plans.edit', 'member_plans.view']);
+    assert.deepEqual(await own(gym, 'stock_keeper'), []);
     assert.deepEqual(await own(gym, 'accountant'), ['member_plans.export', 'member_plans.view']);
     assert.deepEqual(await own(gym, 'viewer'), ['member_plans.export', 'member_plans.view']);
     assert.deepEqual(await own(grocery, 'viewer'), ['member_plans.export', 'member_plans.view'], 'role copies match their templates everywhere');
@@ -186,7 +187,7 @@ test('gyms, studios and coaching', { timeout: 600000 }, async (t) => {
       bill.id, values.lineId || line.id, values.joiningLineId === undefined ? joiningLine.id : values.joiningLineId, key(), 'x'.repeat(64), ownerUser.id]);
     await assert.rejects(membership({ lineId: joiningLine.id, joiningLineId: null }), /bill line of its plan's item/);
     await assert.rejects(membership({ contactId: stranger.id }), /member's own bill/);
-    await assert.rejects(membership({ contactId: supplier.id }), /Choose a customer/);
+    await assert.rejects(membership({ contactId: supplier.id }), /Choose a member of this business/);
     const m = await membership({ start: addDays(today, -5) });
     await assert.rejects(membership({ no: 'RULE-AGAIN' }), /unique|duplicate/);
     await assert.rejects(pool.query("UPDATE member_memberships SET plan_name='Gold' WHERE id=$1", [m.id]), /keeps its member, plan, terms, start and bill/);
@@ -246,7 +247,7 @@ test('gyms, studios and coaching', { timeout: 600000 }, async (t) => {
     const token = await login(email);
     return { id: user.id, call: as(token), token };
   }
-  const desk = await staff('gym-desk@test.invalid', 'cashier');
+  const desk = await staff('gym-desk@test.invalid', 'member_desk');
   const trainer = await staff('gym-trainer@test.invalid', 'trainer');
   const viewer = await staff('gym-viewer@test.invalid', 'viewer');
   await pool.query('UPDATE users SET pin_hash=$2,pin_set_at=now() WHERE id=$1', [ownerUser.id, await bcrypt.hash('2468', 4)]);

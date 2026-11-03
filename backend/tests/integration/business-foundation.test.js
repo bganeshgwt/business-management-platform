@@ -83,11 +83,17 @@ test('business platform foundation: access, numbering, stock control and events'
         (SELECT count(*)::int FROM business_settings WHERE business_id=$1) AS settings,
         (SELECT count(*)::int FROM business_tax_rates WHERE business_id=$1) AS taxes,
         (SELECT count(*)::int FROM business_units WHERE business_id=$1) AS units`, [business.id]);
-      // The six shared roles, plus the type's own (pharmacist; doctor, lab technician, pathologist).
-      const ownRoles = (await one('SELECT count(*)::int AS n FROM business_role_templates WHERE $1 = ANY(business_types)', [business.business_type])).n;
+      // The shared roles and the type's own (pharmacist; doctor, lab technician, pathologist…), less a
+      // shared role the type's own stands in for (a clinic's receptionist for the cashier) and the
+      // stock keeper where no stock is kept from the start.
+      const ownRoles = (await one(`SELECT count(*)::int AS n FROM business_role_templates t
+        WHERE (t.business_types IS NULL OR $1 = ANY(t.business_types))
+          AND (t.needs_modules IS NULL OR EXISTS (SELECT 1 FROM platform_module_business_types m
+            WHERE m.business_type=$1 AND m.module_code = ANY(t.needs_modules) AND m.enabled_by_default))
+          AND NOT EXISTS (SELECT 1 FROM business_role_templates o WHERE o.stands_for = t.code AND $1 = ANY(o.business_types))`, [business.business_type])).n;
       // GST nil, 5, 18 and 40; a jeweller nil, 0.25, 1.5, 3, 5 and 18.
       const slabs = business.business_type === 'jewellery' ? 6 : 4;
-      assert.deepEqual([counts.roles, counts.settings, counts.taxes], [6 + ownRoles, 1, slabs], business.business_type);
+      assert.deepEqual([counts.roles, counts.settings, counts.taxes], [ownRoles, 1, slabs], business.business_type);
       assert.ok(counts.units >= 8, `${business.business_type} has its units`);
       const expected = (await rows(`SELECT module_code FROM platform_module_business_types WHERE business_type=$1 AND enabled_by_default ORDER BY 1`, [business.business_type])).map((r) => r.module_code);
       assert.deepEqual([...business.capabilities].sort(), expected, business.business_type);

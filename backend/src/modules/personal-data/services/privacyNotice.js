@@ -8,7 +8,7 @@
 // What each kind of business also keeps, beyond a name and a number.
 const KEPT = {
   restaurant: 'Your address and landmark when you order for delivery, and what you tell us about allergies, so the kitchen knows.',
-  healthcare: 'Your health information, under the clinic\'s own consent for treatment and medical records, which the front desk takes with its notice.',
+  healthcare: 'Your health information, under the clinic\'s own consent for treatment and medical records, taken with its own notice.',
   pharmacy: 'The prescription for a medicine that needs one, as the pharmacy registers ask.',
   memberships: 'Your membership, your fees and the days you check in.',
   laundry: 'Your garment orders, with what we noted on each garment.',
@@ -26,13 +26,16 @@ const KEPT = {
 const contactLine = ({ contactName, contactPhone, contactEmail }) => [contactName, contactPhone, contactEmail].filter(Boolean).join(', ');
 
 // The starter text for a business: { notice, billsText, remindersText, offersText }.
-function starter({ name, type, contactName, contactPhone, contactEmail }) {
+// `t`: the business's words (where people tell it: the counter, the front
+// desk, reception); none for a restaurant, whose words are the defaults.
+function starter({ name, type, contactName, contactPhone, contactEmail, t = null }) {
   const extra = KEPT[type];
+  const counter = t ? t.lower('counter') : 'counter';
   const notice = [
     `${name}: how we use your personal data`,
     '',
     'What we collect, and why',
-    '- Your name and mobile number: to make your bill, keep your account with us (dues, advances, points) and reach you about what you ask us for. Giving a mobile number is never a condition of a sale.',
+    '- Your name and mobile number: to make your bill, keep your account with us (dues, advances, points) and reach you about what you ask us for. Giving a mobile number is never a condition of being served.',
     '- Your address, when you give it: for a delivery, or a tax invoice that needs it.',
     ...(extra ? [`- ${extra}`] : []),
     '- Your bills: kept as tax law requires.',
@@ -41,7 +44,7 @@ function starter({ name, type, contactName, contactPhone, contactEmail }) {
     '- Your bills on WhatsApp or SMS.',
     '- Reminders of dues, appointments, renewals and service due, on WhatsApp, SMS or a call.',
     '- Offers. We never send offers to a child.',
-    'You can say yes or no to each one, and change your mind at any time: tell us at the counter or on the phone.',
+    `You can say yes or no to each one, and change your mind at any time: tell us at the ${counter} or on the phone.`,
     '',
     'Children',
     '- For a child, a parent or guardian gives consent for them.',

@@ -31,7 +31,7 @@ export const LOGINS = [
   // The clinic's people (clinic-lab.spec.js): the front desk, a doctor with
   // their own queue, the lab technician and the pathologist who signs with a
   // PIN of their own.
-  { role: "RECEPTION", name: "Divya Menon", email: "desk@clinic.e2e.invalid", businesses: ["healthcare"], businessRole: "cashier" },
+  { role: "RECEPTION", name: "Divya Menon", email: "desk@clinic.e2e.invalid", businesses: ["healthcare"], businessRole: "receptionist" },
   { role: "DOCTOR", name: "Ravi Shankar", email: "doctor@clinic.e2e.invalid", businesses: ["healthcare"], businessRole: "doctor" },
   { role: "LAB_TECH", name: "Imran Sheikh", email: "lab@clinic.e2e.invalid", businesses: ["healthcare"], businessRole: "lab_technician" },
   { role: "PATHOLOGIST", name: "Anitha Rao", email: "pathologist@clinic.e2e.invalid", businesses: ["healthcare"], businessRole: "pathologist" },

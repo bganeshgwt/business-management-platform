@@ -99,7 +99,7 @@ module.exports = {
 
   // Projects.
   projects: async (req, res) => send(res, await projects.list(req.scope, req.query)),
-  projectTemplates: async (req, res) => send(res, projects.templatesList()),
+  projectTemplates: async (req, res) => send(res, projects.templatesList(req.scope)),
   project: async (req, res) => send(res, await projects.detail(req.scope, req.params.projectId)),
   createProject: async (req, res) => send(res, await projects.create(req.scope, body(req)), 201),
   updateProject: async (req, res) => send(res, await projects.update(req.scope, req.params.projectId, body(req))),

@@ -799,42 +799,72 @@ async function apply(db, business, user, planned) {
   }
 }
 
-const guide = (business, ctx) => {
+// What a file of a business that keeps no stock leaves out: every item of its
+// is a service, so the kind and everything about stock (barcode, MRP,
+// purchase price, reorder level, opening stock, where it is and its batch).
+const STOCK_ONLY = new Set(['barcode', 'kind', 'tracking', 'mrp', 'cost', 'reorderLevel', 'openingStock', 'location', 'batch', 'expiry']);
+// An example item's code, from its name: "Monthly membership" → "MONTHLY-MEMBERSHIP".
+const codeOf = (name) => String(name).toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim().split(' ').slice(0, 3).join('-').slice(0, 20).replace(/-+$/, '');
+
+// The guide and template of a business's product file, in its words and with
+// its examples (t: its words, businessWords.service; look: what a new item
+// starts as): a gym's "Monthly membership" at its 5% slab counted by the
+// month, a clinic's consultation, a grocer's goods with their MRP and stock.
+const guide = (business, ctx, t, look) => {
   const units = ctx.units.filter((u) => u.active);
   const slabs = ctx.slabs.filter((s) => s.active);
   const locations = ctx.locations.filter((l) => l.active);
   const goods = business.capabilities.includes('inventory');
-  const columns = columnsOf(business).map((column) => {
-    if (column.key === 'unit') return { ...column, help: `${column.help} Yours: ${units.map((u) => u.code).join(', ')}.` };
-    if (column.key === 'gst') return { ...column, help: `${column.help} Yours: ${slabs.map((s) => s.name).join(', ')}.` };
+  const serviceFirst = look?.defaultItemKind === 'service' || !goods;
+  const slab = (rate) => slabs.find((s) => Number(s.rate) === rate)?.name || slabs[0]?.name || '';
+  const standard = slabs.find((s) => s.is_default) || slabs[0];
+  const each = units.find((u) => u.code === 'each')?.code || units[0]?.code;
+  // A service is counted in the trade's own unit where it has one: the first
+  // it was given (a gym's month, a clinic's visit, a salon's session).
+  const made = [...units].sort((x, y) => Number(x.id) - Number(y.id));
+  const serviceUnit = made.find((u) => u.kind === 'service' && u.code !== 'service') || made.find((u) => u.kind === 'service');
+  const place = locations[0]?.name || '';
+  // The business's own examples: its item, the path of a category, an HSN or SAC.
+  const itemName = t.ex('item_name') || 'Example product';
+  const path = (t.ex('category') || 'Example category').split(PATH).filter(Boolean);
+  const listed = columnsOf(business).filter((column) => goods || !STOCK_ONLY.has(column.key));
+  const columns = listed.map((column) => {
+    if (column.key === 'name') return { ...column, example: itemName };
+    if (column.key === 'code') return { ...column, example: codeOf(itemName) || column.example };
+    if (column.key === 'category') return { ...column, help: `A category by its name, or by its path (${path.slice(0, 2).join(' › ')}). One that does not exist yet is made.`, example: path[0] };
+    if (column.key === 'kind') return { ...column, example: serviceFirst ? 'Service' : 'Goods' };
+    if (column.key === 'unit') return { ...column, help: `${column.help} Yours: ${units.map((u) => u.code).join(', ')}.`, example: (serviceFirst ? serviceUnit?.code : each) || column.example };
+    if (column.key === 'hsn') return { ...column, example: t.ex('hsn') || column.example };
+    if (column.key === 'gst') return { ...column, help: `${column.help} Yours: ${slabs.map((s) => s.name).join(', ')}.`, example: standard ? (Number(standard.rate) ? `${Number(standard.rate)}%` : 'Nil') : column.example };
     if (column.key === 'location') return { ...column, help: `${column.help} Yours: ${locations.map((l) => l.name).join(', ')}. Empty: ${locations[0]?.name || 'your first location'}.` };
     return column;
   });
-  const slab = (rate) => slabs.find((s) => Number(s.rate) === rate)?.name || slabs[0]?.name || '';
   const batch = ['pharmacy', 'agri_inputs'].includes(business.business_type) && business.capabilities.includes('batches');
-  const each = units.find((u) => u.code === 'each')?.code || units[0]?.code;
-  const place = locations[0]?.name || '';
-  // A sample row by column; the template's rows are in its columns' order.
+  // A sample row by column; the template's rows are in its columns' order. The
+  // business's own example item leads, as goods or as a service by what its
+  // items start as; an HSN or SAC goes only with the item it belongs to.
   const sample = [];
+  const service = serviceUnit ? { name: serviceFirst ? itemName : 'Example service', code: serviceFirst ? codeOf(itemName) || 'EXAMPLE-S1' : 'EXAMPLE-S1', category: path[0],
+    kind: 'Service', unit: serviceUnit.code, hsn: serviceFirst ? t.ex('hsn') : '', gst: standard?.name || '', price: '300' } : null;
+  if (service && serviceFirst) sample.push(service);
   if (goods) {
     const pack = ['box', 'pack', 'case'].map((code) => units.find((u) => u.code === code)).find((u) => u && u.code !== each);
-    sample.push({ name: 'Example product one', code: 'EXAMPLE-1', barcode: '8901234567894', category: 'Example category', kind: 'Goods', unit: each, tracking: batch ? 'Batch' : 'Quantity',
-      hsn: '0713', gst: slab(5), mrp: '175', price: '160', cost: '130', reorderLevel: '10', openingStock: '24', location: place, batch: batch ? 'B-1001' : '', expiry: batch ? '31-12-2027' : '',
-      ...(pack ? { packUnit: pack.code, packQuantity: '12' } : {}) });
-    sample.push({ name: 'Example product two', code: 'EXAMPLE-2', category: 'Example category', kind: 'Goods', unit: units.find((u) => u.code === 'kg')?.code || units[0]?.code,
-      tracking: batch ? 'Batch' : 'Quantity', hsn: '1006', gst: slab(5), price: '90', cost: '75', reorderLevel: '5', openingStock: '50', location: place,
+    sample.push({ name: serviceFirst ? 'Example product one' : itemName, code: serviceFirst ? 'EXAMPLE-1' : codeOf(itemName) || 'EXAMPLE-1', barcode: '8901234567894', category: path[0], kind: 'Goods',
+      unit: each, tracking: batch ? 'Batch' : 'Quantity', hsn: serviceFirst ? '' : t.ex('hsn'), gst: slab(5), mrp: '175', price: '160', cost: '130', reorderLevel: '10', openingStock: '24',
+      location: place, batch: batch ? 'B-1001' : '', expiry: batch ? '31-12-2027' : '', ...(pack ? { packUnit: pack.code, packQuantity: '12' } : {}) });
+    sample.push({ name: 'Example product two', code: 'EXAMPLE-2', category: path[0], kind: 'Goods', unit: units.find((u) => u.code === 'kg')?.code || each,
+      tracking: batch ? 'Batch' : 'Quantity', gst: slab(5), price: '90', cost: '75', reorderLevel: '5', openingStock: '50', location: place,
       batch: batch ? 'B-1002' : '', expiry: batch ? '30-06-2027' : '' });
     // A style with two sizes: one product, each size its own item (named for its style, colour and size).
     if (variantsOn(business)) {
       for (const size of ['S', 'M']) {
-        sample.push({ code: `EXAMPLE-3-${size}`, category: 'Example category', kind: 'Goods', unit: each, tracking: 'Quantity', hsn: '6109', gst: slab(5), price: '499', cost: '300',
+        sample.push({ code: `EXAMPLE-3-${size}`, category: path[0], kind: 'Goods', unit: each, tracking: 'Quantity', hsn: '6109', gst: slab(5), price: '499', cost: '300',
           openingStock: '5', location: place, style: 'Example style', size, color: 'Blue' });
       }
     }
   }
-  const service = units.find((u) => u.code === 'service') || units.find((u) => u.kind === 'service');
-  if (service) sample.push({ name: 'Example service', code: 'EXAMPLE-S1', category: 'Example category', kind: 'Service', unit: service.code, hsn: '999799', gst: slab(18), price: '300' });
-  const shown = columnsOf(business).filter((c) => c.key !== 'purity');
+  if (service && !serviceFirst) sample.push(service);
+  const shown = listed.filter((c) => c.key !== 'purity');
   return { columns, sample: { columns: shown.map((c) => c.label), rows: sample.map((row) => shown.map((c) => row[c.key] ?? '')) }, notes: notesOf(business) };
 };
 

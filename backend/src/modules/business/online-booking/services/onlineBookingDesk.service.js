@@ -8,6 +8,7 @@ const engine = require('./onlineBookingEngine');
 const rules = require('./onlineBookingRules');
 const writes = require('./onlineBookingWrites');
 const links = require('./onlineBookingLinks.service');
+const { termsOf } = require('../../core/services/businessWords.service');
 const { expireDue } = require('./onlineBookingExpiry');
 const common = require('./onlineBookingCommon');
 
@@ -250,7 +251,7 @@ async function bell(business, base) {
   [business.id, scope, tz]);
   if (today && today.n > 0) {
     items.push({ id: `online-today:${today.latest}`, severity: 'info', category: 'Online booking',
-      title: `${today.n} new online ${today.n === 1 ? 'booking' : 'bookings'} today`, detail: 'Booked by guests from your booking link', at: new Date(today.at).toISOString(),
+      title: `${today.n} new online ${today.n === 1 ? 'booking' : 'bookings'} today`, detail: `Booked by ${(await termsOf(business)).lower('customer', 'many')} from your booking link`, at: new Date(today.at).toISOString(),
       link: `${base}/online-booking?tab=bookings` });
   }
   const lapsed = await repo.all(repo.pool, `${BOOKINGS_SQL} WHERE y.status='expired' AND y.answered_at IS NULL AND y.request_expires_at>now()-interval '1 day'

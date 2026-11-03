@@ -5,11 +5,13 @@ const { STATES, readGstin, gstinCheckCharacter } = require('../../../../utils/gs
 const { normaliseMobile, formatMobile } = require('../../../../utils/phone');
 const core = require('./business.service');
 const { attempt, plainAmount, plainSigned, tidy, nameKey, moneyWords, samePaise, plainNumber, dayWords } = require('./businessImportCells');
+const { a } = require('../../../../utils/words');
 
-// Customers or suppliers from a spreadsheet: a shop's udhaar book or its list of
-// parties from another system, with GSTINs, credit terms and what each owed
-// when the shop started, planned row by row against the contacts already here
-// (businessImports.service.js runs the check and the import).
+// Customers (as the business calls them: a gym's members, a clinic's
+// patients) or suppliers from a spreadsheet: a shop's udhaar book or its list
+// of parties from another system, with GSTINs, credit terms and what each
+// owed when the shop started, planned row by row against the contacts already
+// here (businessImports.service.js runs the check and the import).
 //
 //   * A contact is found by its GSTIN, then by its phone (a mobile in any of
 //     the ways people write one), and a row with neither by its name. A phone
@@ -30,33 +32,39 @@ const { attempt, plainAmount, plainSigned, tidy, nameKey, moneyWords, samePaise,
 //     keeps what the contact has. An erased customer is never found or brought
 //     back.
 
-const WORDS = { customer: { one: 'customer', many: 'customers' }, supplier: { one: 'supplier', many: 'suppliers' } };
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function columnsOf(kind) {
+// What a file's rows are: the people the business serves, in its words (a
+// gym's members, a clinic's patients), or its suppliers. `t`: the business's
+// words (businessWords.service).
+const wordsOf = (kind, t) => (kind === 'customer'
+  ? { one: t.lower('customer'), many: t.lower('customer', 'many'), own: sheet.normalise(t('customer')) }
+  : { one: 'supplier', many: 'suppliers', own: null });
+
+function columnsOf(kind, t) {
   const customer = kind === 'customer';
-  const { one } = WORDS[kind];
+  const { one, own } = wordsOf(kind, t);
   return [
-    { key: 'name', label: 'Name', need: 'new', aliases: ['name', 'fullname', 'partyname', 'party', 'ledgername', 'ledger', 'accountname',
-      ...(customer ? ['customername', 'customer', 'clientname', 'client'] : ['suppliername', 'supplier', 'vendorname', 'vendor', 'firmname', 'firm'])],
-      help: `The name as it prints on bills. A new ${one} needs one; it finds a ${one} here when the row has no phone or GSTIN.`, example: customer ? 'Example customer' : 'Example supplier' },
+    { key: 'name', label: 'Name', need: 'new', aliases: [...new Set(['name', 'fullname', 'partyname', 'party', 'ledgername', 'ledger', 'accountname',
+      ...(customer ? ['customername', 'customer', 'clientname', 'client', `${own}name`, own] : ['suppliername', 'supplier', 'vendorname', 'vendor', 'firmname', 'firm'])])],
+      help: `The name as it prints on bills. A new ${one} needs one; it finds ${a(one)} here when the row has no phone or GSTIN.`, example: `Example ${one}` },
     { key: 'phone', label: 'Phone', need: 'optional', aliases: ['phone', 'phoneno', 'phonenumber', 'mobile', 'mobileno', 'mobilenumber', 'contact', 'contactno', 'contactnumber', 'whatsapp', 'cell'],
-      help: `Optional${customer ? ', never needed for a sale' : ''}. A mobile is kept as its 10 digits (+91, a leading 0 and spaces are fine); a landline as written. It finds a ${one} here.`, example: '98765 43210' },
+      help: `Optional${customer ? `, never needed for ${t.a('sale')}` : ''}. A mobile is kept as its 10 digits (+91, a leading 0 and spaces are fine); a landline as written. It finds ${a(one)} here.`, example: '98765 43210' },
     { key: 'email', label: 'Email', need: 'optional', aliases: ['email', 'emailid', 'emailaddress', 'mail'], help: 'Optional.', example: '' },
     { key: 'gstin', label: 'GSTIN', need: 'optional', aliases: ['gstin', 'gst', 'gstno', 'gstnumber', 'gstinno', 'gstinuin', 'gstregno'],
-      help: `15 characters, checked character by character; its first two digits are the state. It finds a ${one} here.`, example: '' },
+      help: `15 characters, checked character by character; its first two digits are the state. It finds ${a(one)} here.`, example: '' },
     { key: 'state', label: 'State', need: 'optional', aliases: ['state', 'statename', 'statecode', 'placeofsupply', 'pos'],
       help: 'Its name or its two-digit GST code. With a GSTIN it must be the GSTIN\'s own state; without one it ends the address.', example: 'Telangana' },
     { key: 'address', label: 'Address', need: 'optional', aliases: ['address', 'billingaddress', 'fulladdress', 'address1', 'addressline1'], help: 'Printed on bills.', example: 'Main Road, Example Town' },
     { key: 'pan', label: 'PAN', need: 'optional', aliases: ['pan', 'panno', 'pannumber'],
       help: `Like ABCDE1234F. With a GSTIN it must be the PAN inside it.${customer ? ' A bill over ₹2,00,000 prints it.' : ''}`, example: '' },
     ...(customer ? [{ key: 'creditLimit', label: 'Credit limit', need: 'optional', aliases: ['creditlimit', 'limit', 'maxcredit', 'creditlimitrs'],
-      help: 'The most they may owe. Empty: no limit for a new customer; a customer already here keeps theirs.', example: '5000' }] : []),
+      help: `The most they may owe. Empty: no limit for a new ${one}; ${a(one)} already here keeps theirs.`, example: '5000' }] : []),
     { key: 'creditDays', label: 'Credit days', need: 'optional', aliases: ['creditdays', 'creditperiod', 'paymentdays', 'duedays', 'credit', 'days'],
       help: 'Days until an unpaid bill is due: 0 to 365.', example: customer ? '15' : '30' },
     { key: 'openingBalance', label: 'Opening balance', need: 'optional',
       aliases: ['openingbalance', 'opening', 'openingdue', 'balance', 'balancedue', 'outstanding', 'amountdue', 'due', 'dues', ...(customer ? ['udhaar', 'receivable'] : ['payable'])],
-      help: customer ? 'What they owed you when you started: 1,200 or 1,200 Dr. Negative (or Cr) if you owed them. Set once: a customer who already has one keeps it.'
+      help: customer ? `What they owed you when you started: 1,200 or 1,200 Dr. Negative (or Cr) if you owed them. Set once: ${a(one)} who already has one keeps it.`
         : 'What you owed them when you started: 1,200 or 1,200 Cr. Negative (or Dr) if they owed you. Set once: a supplier who already has one keeps it.',
       example: customer ? '1200' : '8500' },
     { key: 'openingOn', label: 'Opening balance as of', need: 'optional',
@@ -125,10 +133,10 @@ async function context(db, business, kind) {
   };
 }
 
-function plan(rawRows, ctx, business, { update, kind }) {
-  const { one, many } = WORDS[kind];
+function plan(rawRows, ctx, business, { update, kind, t }) {
+  const { one, many } = wordsOf(kind, t);
   const customer = kind === 'customer';
-  const columns = sheet.resolveColumns(rawRows, columnsOf(kind));
+  const columns = sheet.resolveColumns(rawRows, columnsOf(kind, t));
   const problems = [];
   const rows = [];
   const money = moneyWords(business.currency);
@@ -334,16 +342,17 @@ async function apply(db, business, user, planned) {
 // The sample's GSTIN: a made-up registration that passes the check.
 const SAMPLE_GSTIN = `36AAACE1234F1Z${gstinCheckCharacter('36AAACE1234F1Z')}`;
 
-function guide(business, kind) {
+function guide(business, kind, t) {
   const customer = kind === 'customer';
-  const columns = columnsOf(kind);
+  const { one } = wordsOf(kind, t);
+  const columns = columnsOf(kind, t);
   const sample = customer
-    ? [['Example customer one', '98765 43210', '', '', 'Telangana', 'Main Road, Example Town', '', '5000', '15', '1200', '31-03-2026'],
-      ['Example customer two', '', '', '', '', '', '', '', '0', '', ''],
+    ? [[`Example ${one} one`, '98765 43210', '', '', 'Telangana', 'Main Road, Example Town', '', '5000', '15', '1200', '31-03-2026'],
+      [`Example ${one} two`, '', '', '', '', '', '', '', '0', '', ''],
       ['Example company', '040 2345 6789', 'accounts@example.com', SAMPLE_GSTIN, '', 'Industrial Estate, Example City', '', '50000', '30', '18500 Dr', '31-03-2026']]
     : [['Example supplier one', '98480 12345', 'orders@example.com', '', 'Andhra Pradesh', 'Market Yard, Example Town', '', '30', '8500', '31-03-2026'],
       ['Example supplier two', '', '', '', '', '', '', '7', '', '']];
   return { columns, sample: { columns: columns.map((c) => c.label), rows: sample }, notes: [] };
 }
 
-module.exports = { context, plan, apply, guide, columnsOf, WORDS };
+module.exports = { context, plan, apply, guide, columnsOf };

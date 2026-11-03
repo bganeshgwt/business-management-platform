@@ -110,15 +110,19 @@ test('hotels, lodges and guest houses: housekeeping, maintenance, the night audi
   const slabs = await slabsOf(L);
   const gst5 = slabs.find((r) => Number(r.rate) === 5), gst18 = slabs.find((r) => Number(r.rate) === 18);
   const roles = (await request('GET', L('roles?limit=100'))).items;
-  async function staff(email, template) {
+  // `role`: a template's code, or a role of the business's own.
+  async function staff(email, role) {
     const user = await one('INSERT INTO users(restaurant_id,name,email,password_hash) VALUES($1,$2,$3,$4) RETURNING id', [ownerUser.restaurant_id, email.split('@')[0], email, hash]);
-    await request('POST', L('members'), { userId: user.id, roleId: roles.find((r) => r.template_code === template).id }, 201);
+    await request('POST', L('members'), { userId: user.id, roleId: (typeof role === 'string' ? roles.find((r) => r.template_code === role) : role).id }, 201);
     const token = await login(email);
     return { id: user.id, call: as(token), token };
   }
   const desk = await staff('house-desk@test.invalid', 'front_desk');
   const keeper = await staff('house-keeping@test.invalid', 'housekeeping');
-  const cashier = await staff('house-cashier@test.invalid', 'cashier');
+  // A lodge's front desk stands in for the cashier: the owner makes a cashier of their own, as the shared template has it.
+  const cashierRole = await request('POST', L('roles'), { name: 'Cashier',
+    permissions: (await one("SELECT array_agg(permission_code ORDER BY permission_code) AS p FROM business_role_template_permissions WHERE template_code='cashier'")).p }, 201);
+  const cashier = await staff('house-cashier@test.invalid', cashierRole);
   const manager = await staff('house-manager@test.invalid', 'manager');
   const occupant = (fullName, extra = {}) => ({ fullName, idKind: 'voter_id', idRef: `HSV${crypto.randomBytes(3).toString('hex').toUpperCase()}`, ...extra });
 

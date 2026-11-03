@@ -193,7 +193,7 @@ test('online appointments', { timeout: 900000 }, async (t) => {
     assert.equal(gone.data.reason, 'not_available');
     assert.equal((await audits(salon.id, 'online_booking.link_replaced')).length, 1);
     // The front desk answers requests but does not change the link.
-    const desk = await staff(salon, 'salon-desk@test.invalid', 'cashier');
+    const desk = await staff(salon, 'salon-desk@test.invalid', 'receptionist');
     await desk.call('PATCH', S(`online-booking/links/${salonLink.id}`), { daysAhead: 10 }, 403);
     await desk.call('GET', S('online-booking'));
   });
@@ -463,7 +463,7 @@ test('online appointments', { timeout: 900000 }, async (t) => {
   });
 
   await t.test('a clinic: the desk accepts one request and declines another; a request not answered in time expires and frees its slot; the bell', async () => {
-    const desk = await staff(clinic, 'clinic-desk@test.invalid', 'cashier');
+    const desk = await staff(clinic, 'clinic-desk@test.invalid', 'receptionist');
     const waiting = await desk.call('GET', C('online-booking/requests'));
     assert.equal(waiting.requests.length, 2);
     assert.deepEqual(waiting.requests.map((r) => [r.status, r.services, r.resource_name]), [['requested', 'Consultation - Dr Anjali Rao', 'Dr Anjali Rao'], ['requested', 'Consultation - Dr Anjali Rao', 'Dr Anjali Rao']]);
@@ -791,9 +791,10 @@ test('online appointments', { timeout: 900000 }, async (t) => {
     await guest('POST', `/status/${request.data.guestToken}/cancel`, {});
     await A('POST', P(`requests/${asked.id}/erase`), { requestKey: key() });
     const erased = await one('SELECT * FROM business_online_bookings WHERE id=$1', [booking.id]);
-    assert.deepEqual([erased.booker_name, erased.mobile, erased.note], [`Erased customer #${booking.contact_id}`, null, null]);
+    // A salon's erased client is named as one.
+    assert.deepEqual([erased.booker_name, erased.mobile, erased.note], [`Erased client #${booking.contact_id}`, null, null]);
     const page = (await guest('GET', `/status/${request.data.guestToken}`)).data;
-    assert.deepEqual([page.name, page.mobile, page.note], [`Erased customer #${booking.contact_id}`, null, null]);
+    assert.deepEqual([page.name, page.mobile, page.note], [`Erased client #${booking.contact_id}`, null, null]);
     const again = await salonBook({ services: [beard.id], person: priya.id, time: '19:30', mobile: '9877788899', name: 'Divya' });
     assert.notEqual(Number((await bookingOf(again.data.guestToken)).contact_id), Number(booking.contact_id));
   });

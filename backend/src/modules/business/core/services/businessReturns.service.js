@@ -7,6 +7,7 @@ const numbering = require('./businessNumbering');
 const { decimal, kindPermission, recordPayment } = require('./business.service');
 const retailOffers = require('../../retail/services/businessOffers');
 const paymentMethods = require('./businessPaymentMethods.service');
+const { termsOf } = require('./businessWords.service');
 // Free goods kept on a return of a dispatched order's invoice, and a garage's
 // mechanic's commission on labour credited (loaded on use: they need this module).
 const freeGoods = () => require('../../wholesale/services/businessWholesaleFreeGoods.service');
@@ -238,7 +239,10 @@ async function postRefund(db, business, user, doc, { amount, choice, reason, req
 // At most what is free on the first and due on the second; returns the paise
 // moved. The caller checks permissions and locks both bills.
 async function moveCredit(db, business, user, from, to, { reason, requestKey }) {
-  if (from.kind !== 'sale' || to.kind !== 'sale' || String(from.contact_id) !== String(to.contact_id)) fail('Credit moves between sale bills of the same customer');
+  if (from.kind !== 'sale' || to.kind !== 'sale' || String(from.contact_id) !== String(to.contact_id)) {
+    const t = await termsOf(business);
+    fail(`Credit moves between ${t.lower('bill', 'many')} of the same ${t.lower('customer')}`);
+  }
   const sums = async (doc) => repo.one(db, `SELECT
     COALESCE((SELECT sum(amount) FROM business_payments WHERE business_id=$1 AND document_id=$2),0) AS paid,
     COALESCE((SELECT sum(total) FROM business_returns WHERE business_id=$1 AND document_id=$2),0) AS returned,

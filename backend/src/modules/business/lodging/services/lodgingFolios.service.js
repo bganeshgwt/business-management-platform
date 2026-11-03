@@ -4,6 +4,7 @@ const access = require('../../core/services/businessAccess.service');
 const core = require('../../core/services/business.service');
 const c = require('./lodgingCommon');
 const stays = require('./lodgingStays.service');
+const { termsOf } = require('../../core/services/businessWords.service');
 
 // A stay's folios beyond its main one, and the routing of its charges (module "lodging").
 //
@@ -24,7 +25,7 @@ const KINDS = { room: ['room_night', 'day_use', 'early_check_in', 'late_check_ou
 // A customer of this business, in use, to bill a folio to.
 async function customerOf(db, business, value) {
   const contact = await repo.one(db, "SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer'", [business.id, id(value, 'Billed to')]);
-  if (!contact) fail('Whom the folio is billed to is not a customer of this business', 404);
+  if (!contact) fail(`Whom the folio is billed to is not on your ${(await termsOf(business))('customer_list', 'many')} list`, 404);
   if (!contact.active) fail(`${contact.name} is switched off: switch them on again first`, 409);
   return contact;
 }

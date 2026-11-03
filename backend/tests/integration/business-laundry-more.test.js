@@ -94,7 +94,7 @@ test('laundry: prices of their own, packages, checks and changes', { timeout: 30
     return { id: user.id, call: as(token), token };
   }
   const desk = await staff('press-desk@test.invalid', 'cashier');
-  const presser = await staff('press-work@test.invalid', 'stock_keeper');
+  const presser = await staff('press-work@test.invalid', 'presser');
   const manager = await staff('press-manager@test.invalid', 'manager');
   await pool.query('UPDATE users SET pin_hash=$2,pin_set_at=now() WHERE id=$1', [ownerUser.id, await bcrypt.hash('2468', 4)]);
   const approval = { approverId: ownerUser.id, pin: '2468' };

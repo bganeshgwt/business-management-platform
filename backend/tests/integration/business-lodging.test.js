@@ -110,18 +110,23 @@ test('hotels, lodges and guest houses', { timeout: 300000 }, async (t) => {
     const grants = async (business, template, prefix = 'lodging.') => (await one(`SELECT COALESCE(array_agg(rp.permission_code ORDER BY rp.permission_code),'{}') AS p FROM business_role_permissions rp
       JOIN business_roles r ON r.business_id=rp.business_id AND r.id=rp.role_id WHERE r.business_id=$1 AND r.template_code=$2`, [business.id, template])).p.filter((p) => p.startsWith(prefix));
     assert.deepEqual(await grants(lodge, 'manager'), ['lodging.approve', 'lodging.cancel', 'lodging.create', 'lodging.edit', 'lodging.print', 'lodging.refund', 'lodging.view']);
-    assert.deepEqual(await grants(lodge, 'cashier'), ['lodging.create', 'lodging.edit', 'lodging.print', 'lodging.view']);
-    assert.deepEqual(await grants(lodge, 'stock_keeper'), ['lodging.view']);
+    // A lodge's front desk stands in for the cashier, and a lodge keeps no stock from the start.
+    assert.deepEqual(await grants(lodge, 'cashier'), []);
+    assert.deepEqual(await grants(lodge, 'stock_keeper'), []);
     assert.deepEqual(await grants(lodge, 'accountant'), ['lodging.print', 'lodging.view']);
     assert.deepEqual(await grants(lodge, 'viewer'), ['lodging.view']);
     assert.deepEqual(await grants(lodge, 'front_desk'), ['lodging.cancel', 'lodging.create', 'lodging.edit', 'lodging.print', 'lodging.view']);
-    assert.deepEqual(await grants(lodge, 'front_desk', ''), ['catalog.view', 'contacts.create', 'contacts.view', 'lodging.cancel', 'lodging.create', 'lodging.edit', 'lodging.print',
-      'lodging.view', 'receivables.create', 'receivables.print', 'receivables.view', 'sales.create', 'sales.edit', 'sales.print', 'sales.view'], 'the front desk: no settings, no money handed back');
+    // The front desk holds the cashier's permissions and its own: no settings, no money handed back.
+    const desk = await grants(lodge, 'front_desk', '');
+    assert.deepEqual(desk, (await one(`SELECT array_agg(DISTINCT permission_code ORDER BY permission_code) AS p FROM business_role_template_permissions
+      WHERE template_code IN ('cashier','front_desk')`)).p);
+    assert.ok(['catalog.view', 'contacts.create', 'lodging.cancel', 'lodging.create', 'receivables.create', 'sales.create'].every((code) => desk.includes(code)));
+    assert.ok(!desk.some((code) => /\.refund$|^settings\.|^access\./.test(code)), 'the front desk: no settings, no money handed back');
     assert.deepEqual(await grants(lodge, 'housekeeping', ''), ['lodging.edit', 'lodging.view'], 'housekeeping: the rooms only');
     assert.deepEqual(await grants(grocery, 'viewer'), ['lodging.view'], 'role copies match their templates everywhere');
     const templates = (await request('GET', L('roles?limit=100'))).items.map((r) => r.template_code);
     assert.ok(templates.includes('front_desk') && templates.includes('housekeeping'), 'a lodging business has the front desk and housekeeping roles');
-    assert.equal(templates.length, 8);
+    assert.deepEqual(templates.sort(), ['accountant', 'front_desk', 'housekeeping', 'manager', 'owner', 'viewer']);
     const groceryTemplates = (await request('GET', `/businesses/${grocery.id}/roles?limit=100`)).items.map((r) => r.template_code);
     assert.ok(!groceryTemplates.includes('front_desk') && !groceryTemplates.includes('housekeeping'), 'other types have no lodging roles');
     assert.ok((await one("SELECT pg_get_constraintdef(oid) AS d FROM pg_constraint WHERE conname='business_number_series_document_kind_check'")).d.includes("'stay'"));
@@ -268,10 +273,11 @@ test('hotels, lodges and guest houses', { timeout: 300000 }, async (t) => {
     const both = await Promise.all([call('POST', L('lodging/stays'), body('Guest One'), ownerToken), call('POST', L('lodging/stays'), body('Guest Two'), ownerToken)]);
     assert.deepEqual(both.map((r) => r.status).sort(), [201, 409]);
     const lost = both.find((r) => r.status === 409);
-    assert.match(lost.body.message, /Room 101 is booked by ST\/.+ for the night of/);
+    assert.match(lost.body.message, /Room 101 is booked by RS\/.+ for the night of/);
     const won = both.find((r) => r.status === 201).body.data;
     assert.equal(won.status, 'reserved');
-    assert.match(won.stay_no, /^ST\//);
+    // Stays are numbered RS: ST is a stock transfer's.
+    assert.match(won.stay_no, /^RS\//);
     // The same night in room 102 is free; a third Deluxe that night is refused: every Deluxe room is taken.
     const second = await request('POST', L('lodging/stays'), { ...body('Guest Three'), roomId: undefined }, 201);
     const third = await refused('POST', L('lodging/stays'), { ...body('Guest Four'), roomId: undefined });
@@ -328,7 +334,7 @@ test('hotels, lodges and guest houses', { timeout: 300000 }, async (t) => {
     assert.equal((await one('SELECT status FROM lodging_rooms WHERE id=$1', [roomId('102')])).status, 'occupied');
     const log = await rows('SELECT from_status,to_status,note FROM lodging_room_status_log WHERE room_id=$1 ORDER BY id', [roomId('102')]);
     assert.deepEqual(log.map((l) => [l.from_status, l.to_status]), [[null, 'vacant_clean'], ['vacant_clean', 'vacant_dirty'], ['vacant_dirty', 'vacant_clean'], ['vacant_clean', 'occupied']]);
-    assert.match(log.at(-1).note, /^Checked in: ST\//);
+    assert.match(log.at(-1).note, /^Checked in: RS\//);
     // A reservation for a day still to come does not check in today.
     const later = await request('POST', L('lodging/stays'), { requestKey: key(), locationId: hotel.id, contactId: asha.id, arrival: addDays(thursday, 21), departure: addDays(thursday, 22),
       roomTypeId: suite.id, adults: 1 }, 201);
@@ -543,7 +549,7 @@ test('hotels, lodges and guest houses', { timeout: 300000 }, async (t) => {
     assert.equal(deluxeRow.left[0].left, 0, 'both Deluxe rooms are taken on that Thursday');
     assert.equal(deluxeRow.rooms.find((r) => r.roomNo === '101').nights[0].stay.status, 'reserved');
     const free = await request('GET', L(`lodging/free?arrival=${thursday}&departure=${addDays(thursday, 1)}&roomType=${deluxe.id}`));
-    assert.match(free.rooms.find((r) => r.roomNo === '101').clash.words, /^Room 101 is booked by ST\//);
+    assert.match(free.rooms.find((r) => r.roomNo === '101').clash.words, /^Room 101 is booked by RS\//);
     // A foreign guest whose arrival report is a day late: the bell rings.
     const late = await request('POST', L('lodging/stays'), { requestKey: key(), locationId: hotel.id, guest: { name: 'Anna Muller' }, arrival: today, departure: addDays(today, 2),
       roomTypeId: deluxe.id, adults: 1 }, 201);

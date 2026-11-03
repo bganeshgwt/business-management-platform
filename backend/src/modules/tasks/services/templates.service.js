@@ -67,17 +67,19 @@ const shapeLibrary = (t, withItems = false) => ({
   source: "library",
 });
 
+// The library as this business reads it: its type's templates and the shared
+// ones, in its words, those about stock only where stock is kept.
 function libraryList(scope, query = {}) {
   const q = search(query.q)?.toLowerCase();
   const cat = query.category ? category(query.category) : null;
-  return library.forType(scope.businessType)
+  return library.forType(scope)
     .filter((t) => (!cat || t.category === cat) && (!q || `${t.name} ${t.description || ""}`.toLowerCase().includes(q)))
     .map((t) => shapeLibrary(t));
 }
 
 function libraryOne(scope, code) {
-  const t = library.get(String(code || ""));
-  if (!t || !t.types.includes(scope.businessType)) fail(404, "Template not found");
+  const t = library.get(String(code || ""), scope);
+  if (!t) fail(404, "Template not found");
   return shapeLibrary(t, true);
 }
 

@@ -116,7 +116,7 @@ test('rentals: kits, registers, fleet, fees, locations, condition and reports', 
     return { id: user.id, call: as(token), token };
   }
   const desk = await staff('more-desk@test.invalid', 'cashier');
-  const yardHand = await staff('more-yard@test.invalid', 'stock_keeper');
+  const yardHand = await staff('more-yard@test.invalid', 'yard_hand');
   const viewer = await staff('more-viewer@test.invalid', 'viewer');
   const manager = await staff('more-manager@test.invalid', 'manager');
   await pool.query('UPDATE users SET pin_hash=$2,pin_set_at=now() WHERE id=$1', [ownerUser.id, await bcrypt.hash('2468', 4)]);
@@ -405,7 +405,7 @@ test('rentals: kits, registers, fleet, fees, locations, condition and reports', 
     assert.deepEqual([preview.worked, preview.percent, preview.charge, preview.total, preview.noShow], [true, '25.00', '300.00', '354.00', false]);
     assert.ok(preview.hoursBefore > 29.9 && preview.hoursBefore <= 30, `${preview.hoursBefore} hours before the out time`);
     assert.match((await refused('POST', R(`rentals/bookings/${x.id}/cancel`), { requestKey: key(), reason: 'Trip off', charges: [{ lineId: x.lines[0].id, amount: '10' }] })).message,
-      /worked out from the shop's cancellation slabs: it is not typed/);
+      /worked out from your cancellation slabs: it is not typed/);
     const body = { requestKey: key(), reason: 'Trip off' };
     let now = await request('POST', R(`rentals/bookings/${x.id}/cancel`), body);
     assert.equal((await request('POST', R(`rentals/bookings/${x.id}/cancel`), body)).document_id, now.document_id, 'asking again is the same cancellation');

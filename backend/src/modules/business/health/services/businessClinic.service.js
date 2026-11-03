@@ -3,6 +3,7 @@ const v = require('../../../../utils/validate');
 const access = require('../../core/services/businessAccess.service');
 const core = require('../../core/services/business.service');
 const paymentMethods = require('../../core/services/businessPaymentMethods.service');
+const { termsOf } = require('../../core/services/businessWords.service');
 const consents = require('../../../personal-data/services/consents');
 const h = require('./healthCommon');
 const drugs = require('./businessClinicDrugs.service');
@@ -119,8 +120,9 @@ async function register(business, user, body) {
     const f = patientFields(body, await h.today(db, business));
     let contact;
     if (body.contactId) {
-      contact = await repo.one(db, "SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer'", [business.id, id(body.contactId, 'Customer')]);
-      if (!contact) fail('Customer not found', 404);
+      const t = await termsOf(business);
+      contact = await repo.one(db, "SELECT * FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer'", [business.id, id(body.contactId, t('customer'))]);
+      if (!contact) fail(`${t('customer')} not found`, 404);
       if (await repo.one(db, 'SELECT 1 FROM health_patients WHERE business_id=$1 AND contact_id=$2', [business.id, contact.id])) fail(`${contact.name} is already registered as a patient`, 409);
     } else {
       const phone = text(body.phone, 'Phone', 30);

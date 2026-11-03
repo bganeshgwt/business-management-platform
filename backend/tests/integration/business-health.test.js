@@ -234,7 +234,7 @@ test('pharmacy and clinic / lab rules', { timeout: 300000 }, async (t) => {
   });
 
   // --- Clinic and lab ---------------------------------------------------------------------
-  const desk = await staff(clinic, 'desk@test.invalid', 'cashier');
+  const desk = await staff(clinic, 'desk@test.invalid', 'receptionist');
   const doctor = await staff(clinic, 'doctor@test.invalid', 'doctor');
   const tech = await staff(clinic, 'tech@test.invalid', 'lab_technician');
   const patho = await staff(clinic, 'patho@test.invalid', 'pathologist');
@@ -527,7 +527,7 @@ test('pharmacy and clinic / lab rules', { timeout: 300000 }, async (t) => {
     // A receptionist tied to Kondapur.
     const user = await one('INSERT INTO users(restaurant_id,name,email,password_hash) VALUES($1,$2,$3,$4) RETURNING id', [ownerUser.restaurant_id, 'kdp desk', 'kdp-desk@test.invalid', hash]);
     const roles = (await request('GET', C('roles?limit=100'))).items;
-    await request('POST', C('members'), { userId: user.id, roleId: roles.find((r) => r.template_code === 'cashier').id, workLocationId: kondapur.id }, 201);
+    await request('POST', C('members'), { userId: user.id, roleId: roles.find((r) => r.template_code === 'receptionist').id, workLocationId: kondapur.id }, 201);
     const kdp = as(await login('kdp-desk@test.invalid'));
     // Their lists are Kondapur's: doctors, appointments and visits.
     assert.deepEqual((await kdp('GET', C('resources'))).items.map((r) => r.id), [asha.id]);

@@ -20,10 +20,10 @@ const restaurant = require('../services/personalDataRestaurant');
 // patients.create or patients.edit; a restaurant's customers.manage), checked
 // in the service. The notice and the consent lookup are read by any member.
 
-// The handlers, given the request's world.
+// The handlers, given the request's world (a business's is read with its words).
 function handlers(worldOf) {
   const send = (res, data, status = 200) => res.status(status).json({ success: true, data });
-  const on = (work, status = 200) => async (req, res) => send(res, await work(worldOf(req), req), status);
+  const on = (work, status = 200) => async (req, res) => send(res, await work(await worldOf(req), req), status);
   return {
     notice: on((world) => pd.notice(world)),
     notices: on((world) => pd.notices(world)),

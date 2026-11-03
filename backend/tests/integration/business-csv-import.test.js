@@ -156,7 +156,7 @@ test('a shop imports its products, customers and suppliers from a CSV file', { t
       ['Toor dal 1 kg', 'toor-1kg', '8901234567894', 'Pulses', 'Goods', 'pcs', '0713', '5%', '₹175', '160', '130.50', '10', '24', ''],
       ['Basmati rice', 'RICE-BAS', '', 'Grains › Rice', '', 'kgs', '1006', 'GST 5%', '', 'Rs. 1,250.00', '96', '25', '50.5', 'gdn'],
       ['Home delivery', 'SVC-DEL', '', '', 'Service', 'service', '996812', '18', '', '30', '', '', '', ''],
-      ['Sugar 1 kg', 'SUGAR-1', '', 'Pulses', 'Goods', 'bags', '1701', '5%', '', '48', '', '', '', ''],
+      ['Sugar 1 kg', 'SUGAR-1', '', 'Pulses', 'Goods', 'quintals', '1701', '5%', '', '48', '', '', '', ''],
       ['Jaggery', 'JAG-1', '', '', 'Goods', 'each', '17019', '12%', '', '60', '', '', '', ''],
       ['Ghee 500 ml', 'GHEE-500', '', '', 'Goods', 'each', '0405', '5%', '28', '30', '', '', '', ''],
       ['Toor dal again', 'TOOR-1KG', '', '', 'Goods', 'each', '', '5%', '', '150', '', '', '', ''],
@@ -180,7 +180,7 @@ test('a shop imports its products, customers and suppliers from a CSV file', { t
     assert.equal(byLine[4].details.kind, 'Service');
     // Each refusal, in the words the item form uses.
     const reasons = (line) => byLine[line].reasons.map((r) => `${r.column}: ${r.message}`);
-    assert.deepEqual(reasons(5), [`unit: "bags" is not one of your units (${units}). Add it in Settings › Units & pack sizes first`]);
+    assert.deepEqual(reasons(5), [`unit: "quintals" is not one of your units (${units}). Add it in Settings › Units & pack sizes first`]);
     assert.deepEqual(reasons(6), ['hsn: HSN / SAC code must be 4, 6 or 8 digits', `gst: "12%" is not one of your GST slabs (${slabNames}). Add it in Settings › Tax rates first`]);
     assert.deepEqual(reasons(7), ['mrp: Ghee 500 ml would sell at 30.00, above its MRP of 28.00. Lower the price or correct the MRP.']);
     assert.deepEqual(reasons(8), ['code: Row 2 is the same item']);
@@ -200,7 +200,7 @@ test('a shop imports its products, customers and suppliers from a CSV file', { t
       ['Toor dal 1 kg', 'toor-1kg', '8901234567894', 'Pulses', 'Goods', 'pcs', '0713', '5%', '₹175', '160', '130.50', '10', '24', ''],
       ['Basmati rice', 'RICE-BAS', '', 'Grains › Rice', '', 'kgs', '1006', 'GST 5%', '', 'Rs. 1,250.00', '96', '25', '50.5', 'gdn'],
       ['Home delivery', 'SVC-DEL', '', '', 'Service', 'service', '996812', '18', '', '30', '', '', '', ''],
-      ['Sugar 1 kg', 'SUGAR-1', '', 'Pulses', 'Goods', 'bags', '1701', '5%', '', '48', '', '', '', ''],
+      ['Sugar 1 kg', 'SUGAR-1', '', 'Pulses', 'Goods', 'quintals', '1701', '5%', '', '48', '', '', '', ''],
     );
     const checked = await request('POST', G('catalog/import'), importing('catalog', sheetRows));
     const requestKey = key();

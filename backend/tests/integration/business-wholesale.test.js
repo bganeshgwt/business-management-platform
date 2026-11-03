@@ -359,7 +359,7 @@ test('wholesale: orders, dispatch, back-orders, collections and ageing', { timeo
     await assert.rejects(pool.query('DELETE FROM business_collections WHERE id=$1', [receipt.id]), /cannot be changed/);
     const hotelBill = await one("SELECT id FROM business_documents WHERE business_id=$1 AND contact_id=$2 LIMIT 1", [ws.id, hotel.id]);
     await assert.rejects(pool.query("INSERT INTO business_payments(business_id,document_id,amount,method,request_key,created_by,collection_id) VALUES($1,$2,1,'cash',$3,$4,$5)",
-      [ws.id, hotelBill.id, key(), ownerUser.id, receipt.id]), /only settle bills of the customer/);
+      [ws.id, hotelBill.id, key(), ownerUser.id, receipt.id]), /only settle invoices of the customer/);
     const kiranaBill = await one("SELECT id FROM business_documents WHERE business_id=$1 AND contact_id=$2 AND id<>$3 ORDER BY id DESC LIMIT 1", [ws.id, kirana.id, firstInvoice.id]);
     await assert.rejects(pool.query("INSERT INTO business_payments(business_id,document_id,amount,method,request_key,created_by,collection_id) VALUES($1,$2,99999,'cash',$3,$4,$5)",
       [ws.id, kiranaBill.id, key(), ownerUser.id, receipt.id]), /has only/);

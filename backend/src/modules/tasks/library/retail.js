@@ -59,14 +59,14 @@ module.exports = [
     ],
   },
   {
-    code: "grocery.udhaar_followup", name: "Udhaar follow-up", category: "day_to_day", types: ["grocery", "supermarket", "pharmacy", "meat"], priority: "normal",
+    code: "grocery.udhaar_followup", name: "{Dues} follow-up", category: "day_to_day", types: ["grocery", "supermarket", "pharmacy", "meat"], priority: "normal",
     frequency: "weekly", weekdays: [6], times: ["18:00"], minutes: 30,
     items: [
-      "Udhaar list opened in the app, sorted by oldest",
-      "Reminders sent on WhatsApp to customers over 30 days",
-      "num: Customers called | customers | 0 |",
+      "{Dues} list opened in the app, sorted by oldest",
+      "Reminders sent on WhatsApp to {customers} over 30 days",
+      "num: {Customers} called | {customers} | 0 |",
       "num: Collected today | ₹ | 0 |",
-      "txt: Customers who promised a date ?",
+      "txt: {Customers} who promised a date ?",
     ],
   },
   {

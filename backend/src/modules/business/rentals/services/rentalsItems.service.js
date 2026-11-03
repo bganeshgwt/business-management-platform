@@ -404,7 +404,7 @@ async function addUnit(business, user, itemId, body) {
     const item = await repo.one(db, `SELECT i.*,s.label AS name FROM rental_items i JOIN catalog_skus s ON s.business_id=i.business_id AND s.id=i.sku_id
       WHERE i.business_id=$1 AND i.id=$2`, [business.id, id(itemId, 'Rental item')]);
     if (!item) fail('Rental item not found', 404);
-    if (item.kind !== 'unit') fail(`${item.name} is ${item.kind === 'kit' ? 'a kit, made of its parts' : 'hired from a pool: change how many the shop has instead'}`);
+    if (item.kind !== 'unit') fail(`${item.name} is ${item.kind === 'kit' ? 'a kit, made of its parts' : 'hired from a pool: change how many you have instead'}`);
     await insertUnit(db, business, user, item, readUnit(body, item.vehicle, item.meter));
     return load(db, business);
   });

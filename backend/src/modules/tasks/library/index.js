@@ -1,6 +1,14 @@
 // The built-in template library: read-only, versioned with the app, the same
-// for every business. A business "uses" a template (a task is made from it,
-// the items copied) or copies it into its own templates to change it.
+// for every business, read in each business's own words. A business "uses" a
+// template (a task is made from it, the items copied) or copies it into its
+// own templates to change it.
+//
+// A template's text names the business's people, places and things by a
+// placeholder: {customer} "member", {customers} "members", {counter} "front
+// desk", {items} "plans & services", {location} "branch", {dues} "fees",
+// capitalised as written ({Counter} "Front desk"). `modules`: the template
+// shows only to a business using one of them (a stock check where stock is
+// kept).
 
 const { parseItems } = require("./parse");
 
@@ -9,12 +17,27 @@ const RAW = [...require("./common"), ...require("./restaurant"), ...require("./r
 const ALL_TYPES = ["restaurant", "grocery", "supermarket", "wholesale", "fashion", "electronics", "pharmacy", "books", "salon", "healthcare", "meat", "weight_retail",
   "general_retail", "hardware", "agri_inputs", "optical", "garage", "jewellery", "fuel_station", "memberships", "laundry", "rentals", "lodging"];
 
+// The words a placeholder names: the key of the business's words and its form.
+const PLACEHOLDERS = { customer: ["customer", "one"], customers: ["customer", "many"], counter: ["counter", "one"], items: ["item", "many"],
+  location: ["location", "one"], dues: ["dues", "one"] };
+// Text with its placeholders in the business's words (t: utils/words.js terms).
+const inWords = (text, t) => (typeof text !== "string" || !text.includes("{") ? text : text.replace(/\{([A-Za-z]+)\}/g, (match, name) => {
+  const word = PLACEHOLDERS[name.toLowerCase()];
+  if (!word) return match;
+  return /^[A-Z]/.test(name) ? t(word[0], word[1]) : t.lower(word[0], word[1]);
+}));
+const itemsInWords = (items, t) => items.map((item) => ({ ...item, label: inWords(item.label, t), help: inWords(item.help, t), unit: inWords(item.unit, t),
+  options: item.options ? item.options.map((option) => ({ ...option, label: inWords(option.label, t) })) : item.options }));
+// Whether a business with these modules sees a template (has: scope.has).
+const shownTo = (template, has) => !template.modules || template.modules.some((module) => has(module));
+
 const TEMPLATES = RAW.map((raw) => ({
   code: raw.code,
   name: raw.name,
   description: raw.description || null,
   category: raw.category,
   types: raw.types === "*" ? ALL_TYPES : raw.types,
+  modules: raw.modules || null,
   common: raw.types === "*",
   priority: raw.priority || "normal",
   requiresReview: Boolean(raw.review),
@@ -32,30 +55,30 @@ const byCode = new Map(TEMPLATES.map((t) => [t.code, t]));
 // Project templates: milestones (days after the start), task lists and their tasks.
 const PROJECT_TEMPLATES = [
   {
-    code: "project.new_outlet", name: "New outlet opening", category: "project_management", days: 60,
+    code: "project.new_outlet", name: "New {location} opening", category: "project_management", days: 60,
     description: "From signing the lease to the opening day.",
     milestones: [["Lease signed and licences applied", 7], ["Fit-out complete", 35], ["Staff hired and trained", 50], ["Opening day", 60]],
     lists: {
       "Licences & legal": ["Rent agreement registered", "FSSAI / drug / trade licence applied", "GST address added", "Shops & establishment registration", "Fire NOC (if needed)"],
       "Fit-out": ["Layout finalised", "Electrical and plumbing done", "Furniture and racks installed", "Signboard put up", "CCTV and internet installed"],
-      "Systems": ["Outlet / location added in the app", "Billing counter and printer set up", "Prices and stock moved in"],
+      "Systems": ["{Location} added in the app", "{Counter}, billing and printer set up", "Prices and stock moved in"],
       "People": ["Staff hiring drive", "Induction and training", "Uniforms ordered"],
       "Launch": ["Opening offer decided", "Local promotion / pamphlets", "Puja and opening arrangements"],
     },
   },
   {
-    code: "project.festival_sale", name: "Festival sale set-up", category: "marketing", days: 21,
-    description: "Diwali, Pongal, Onam, Eid or a year-end sale.",
-    milestones: [["Offers finalised", 5], ["Stock in", 14], ["Sale starts", 21]],
+    code: "project.festival_sale", name: "Festival offers set-up", category: "marketing", days: 21,
+    description: "Diwali, Pongal, Onam, Eid or the year end.",
+    milestones: [["Offers finalised", 5], ["Supplies in", 14], ["Offers start", 21]],
     lists: {
-      "Planning": ["Last year's festival sales reviewed", "Offers and combos decided", "Budget agreed"],
-      "Stock": ["Extra stock ordered from suppliers", "Gift packs / hampers prepared", "Storage space made"],
-      "Shop": ["Decoration and lights", "Posters and standees", "Offer prices entered in the app"],
-      "Customers": ["WhatsApp broadcast to regular customers", "Instagram / Google Business post", "Extra staff for the rush days"],
+      "Planning": ["Last year's festival takings reviewed", "Offers and combos decided", "Budget agreed"],
+      "Supplies": ["Extra stock or supplies ordered", "Gift packs / hampers prepared (where sold)", "Space made for the rush"],
+      "Display": ["Decoration and lights", "Posters and standees", "Offer prices entered in the app"],
+      "{Customers}": ["WhatsApp broadcast to regular {customers}", "Instagram / Google Business post", "Extra staff for the rush days"],
     },
   },
   {
-    code: "project.annual_audit", name: "Annual stock audit", category: "stock_check", days: 10,
+    code: "project.annual_audit", name: "Annual stock audit", category: "stock_check", days: 10, modules: ["inventory", "stock_recipes"],
     description: "The year-end physical stock count and reconciliation for the books.",
     milestones: [["Count sheets ready", 2], ["Physical count done", 6], ["Differences reconciled", 9], ["Signed off by the accountant", 10]],
     lists: {
@@ -65,12 +88,12 @@ const PROJECT_TEMPLATES = [
     },
   },
   {
-    code: "project.renovation", name: "Shop renovation", category: "maintenance", days: 30,
+    code: "project.renovation", name: "Renovation", category: "maintenance", days: 30,
     milestones: [["Contractor fixed", 5], ["Work complete", 25], ["Reopened", 30]],
     lists: {
-      "Plan": ["Quotes from 3 contractors", "Design and colours agreed", "Customers told about the closure dates"],
+      "Plan": ["Quotes from 3 contractors", "Design and colours agreed", "{Customers} told about the closure dates"],
       "Work": ["Old fixtures removed", "Civil and painting work", "Electrical work", "Cleaning after work"],
-      "Reopen": ["Stock moved back and arranged", "Reopening offer"],
+      "Reopen": ["Everything moved back and arranged", "Reopening offer"],
     },
   },
   {
@@ -83,11 +106,11 @@ const PROJECT_TEMPLATES = [
     },
   },
   {
-    code: "project.range_launch", name: "New menu / product range launch", category: "marketing", days: 30,
+    code: "project.range_launch", name: "Launch of new {items}", category: "marketing", days: 30,
     milestones: [["Range decided", 7], ["Trials done", 18], ["Launched", 30]],
     lists: {
-      "Develop": ["Items and suppliers shortlisted", "Costing and selling price", "Trials / samples"],
-      "Set up": ["Items added in the app with tax and HSN", "Photos taken", "Staff briefed"],
+      "Develop": ["{Items} and suppliers shortlisted", "Costing and selling price", "Trials / samples"],
+      "Set up": ["{Items} added in the app with tax and HSN or SAC", "Photos taken", "Staff briefed"],
       "Launch": ["Launch offer", "Social media and WhatsApp post", "Feedback after 2 weeks"],
     },
   },
@@ -95,7 +118,25 @@ const PROJECT_TEMPLATES = [
 
 const projectByCode = new Map(PROJECT_TEMPLATES.map((t) => [t.code, t]));
 
-// The templates a business of this type sees, its own type's first.
-const forType = (type) => TEMPLATES.filter((t) => t.types.includes(type)).sort((a, b) => Number(a.common) - Number(b.common));
+// A template, or a project template, as a business reads it (t: its words).
+const templateIn = (template, t) => ({ ...template, name: inWords(template.name, t), description: inWords(template.description, t), items: itemsInWords(template.items, t) });
+const projectIn = (template, t) => ({ ...template, name: inWords(template.name, t), description: inWords(template.description, t),
+  milestones: template.milestones.map(([name, days]) => [inWords(name, t), days]),
+  lists: Object.fromEntries(Object.entries(template.lists).map(([name, tasks]) => [inWords(name, t), tasks.map((task) => inWords(task, t))])) });
 
-module.exports = { PROJECT_TEMPLATES, forType, get: (code) => byCode.get(code) || null, getProject: (code) => projectByCode.get(code) || null };
+// The templates a business sees (its type's own first), in its words. `scope`:
+// { businessType, t (its words), has(module) }.
+const forType = (scope) => TEMPLATES.filter((t) => t.types.includes(scope.businessType) && shownTo(t, scope.has))
+  .sort((a, b) => Number(a.common) - Number(b.common)).map((t) => templateIn(t, scope.t));
+// One template, whether this business sees it, in its words; null for none.
+const get = (code, scope) => {
+  const template = byCode.get(code);
+  return template && template.types.includes(scope.businessType) && shownTo(template, scope.has) ? templateIn(template, scope.t) : null;
+};
+const projects = (scope) => PROJECT_TEMPLATES.filter((t) => shownTo(t, scope.has)).map((t) => projectIn(t, scope.t));
+const getProject = (code, scope) => {
+  const template = projectByCode.get(code);
+  return template && shownTo(template, scope.has) ? projectIn(template, scope.t) : null;
+};
+
+module.exports = { PROJECT_TEMPLATES, forType, get, projects, getProject, inWords };

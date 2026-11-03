@@ -4,14 +4,17 @@ const access = require('../../business/core/services/businessAccess.service');
 const AppError = require('../../../utils/AppError');
 const registry = require('./personalDataRegistry');
 const consents = require('./consents');
+const { termsOf } = require('../../business/core/services/businessWords.service');
 
 // Personal data for a business on the shared core: a person is a customer
-// contact (business_contacts, kind customer). See personalData.service.js for
+// contact (business_contacts, kind customer), named in the business's own
+// words (a gym's member, a clinic's patient). See personalData.service.js for
 // the flows each world serves.
 
 const fail = (message, status = 400, details) => { throw new AppError(status, message, details); };
 const quote = (name) => `"${String(name).replace(/"/g, '""')}"`;
-const erasedName = (id) => `Erased customer #${id}`;
+// The name an erased person's records keep: "Erased member #12".
+const erasedName = (id, person = 'customer') => `Erased ${person} #${id}`;
 
 // Every column in the database that points at a customer contact, read from
 // its own list of foreign keys: a module added later is exported (and its
@@ -29,7 +32,8 @@ async function contactReferences(db) {
 }
 
 // What still ties the person to the business: an erasure waits for each.
-async function openItems(db, business, contactId) {
+// `t`: the business's words.
+async function openItems(db, business, contactId, t) {
   const b = business.id;
   const items = [];
   const balance = await repo.one(db, `SELECT ${repo.contactBalanceSql('c')} AS balance FROM business_contacts c WHERE c.business_id=$1 AND c.id=$2`, [b, contactId]);
@@ -57,7 +61,7 @@ async function openItems(db, business, contactId) {
        WHERE v.business_id=$1 AND v.contact_id=$2 AND v.amount > v.used AND v.expires_on >= (now() AT TIME ZONE x.timezone)::date`, 'credit voucher with money left on it'],
     [`SELECT count(*)::int AS n FROM salon_client_plans s JOIN businesses x ON x.id=s.business_id
        WHERE s.business_id=$1 AND s.contact_id=$2 AND s.status = 'active' AND (s.ends_on IS NULL OR s.ends_on >= (now() AT TIME ZONE x.timezone)::date)`, 'salon package or membership still running'],
-    ["SELECT count(*)::int AS n FROM business_appointments WHERE business_id=$1 AND contact_id=$2 AND business_appointment_holds(status,request_expires_at) AND starts_at > now()", 'appointment still to come'],
+    ["SELECT count(*)::int AS n FROM business_appointments WHERE business_id=$1 AND contact_id=$2 AND business_appointment_holds(status,request_expires_at) AND starts_at > now()", `${t.lower('appointment')} still to come`],
     ["SELECT count(*)::int AS n FROM business_quotations WHERE business_id=$1 AND contact_id=$2 AND status = 'open'", 'quotation still open'],
     ["SELECT count(*)::int AS n FROM wholesale_orders WHERE business_id=$1 AND contact_id=$2 AND status IN ('open','part_dispatched','dispatched')", 'sales order not closed'],
     ["SELECT count(*)::int AS n FROM jewellery_orders WHERE business_id=$1 AND contact_id=$2 AND status NOT IN ('delivered','cancelled')", 'custom order not delivered'],
@@ -102,13 +106,14 @@ async function exportOf(db, business, contactId) {
 
 // Erases the person's personal details wherever no legal reason keeps them,
 // inside the caller's transaction (the business is locked). Returns
-// { erased: [{ heading, rows }], kept: [sentences] }.
-async function erase(db, business, user, contactId) {
+// { erased: [{ heading, rows }], kept: [sentences] }. `words`: the world's
+// words for a person ({ person, Person }).
+async function erase(db, business, user, contactId, words) {
   const b = business.id;
   const contact = await repo.one(db, 'UPDATE business_contacts SET name=$3,phone=NULL,email=NULL,address=NULL,gstin=NULL,pan=NULL,active=FALSE,erased_at=now(),erased_by=$4,updated_at=now() WHERE business_id=$1 AND id=$2 RETURNING id',
-    [b, contactId, erasedName(contactId), user.id]);
-  if (!contact) fail('Customer not found', 404);
-  const erased = [{ heading: 'Customer record', rows: 1 }];
+    [b, contactId, erasedName(contactId, words.person), user.id]);
+  if (!contact) fail(`${words.Person} not found`, 404);
+  const erased = [{ heading: `${words.Person} record`, rows: 1 }];
   const kept = new Set();
   for (const ref of await contactReferences(db)) {
     const entry = registry.TABLES[ref.table_name];
@@ -117,7 +122,7 @@ async function erase(db, business, user, contactId) {
     if (!count) continue;
     if (entry.keep) { kept.add(`${entry.label}: ${entry.keep}`); continue; }
     if (entry.also) kept.add(entry.also);
-    const sets = Object.entries(entry.erase).map(([column, value], index) => [column, value === registry.ERASED_NAME ? erasedName(contactId) : value, index]);
+    const sets = Object.entries(entry.erase).map(([column, value], index) => [column, value === registry.ERASED_NAME ? erasedName(contactId, words.person) : value, index]);
     const assignments = sets.map(([column, , index]) => `${quote(column)}=$${index + 3}`).join(',');
     const result = await db.query(`UPDATE ${quote(ref.table_name)} SET ${assignments} WHERE business_id=$1 AND ${quote(ref.column_name)}=$2`, [b, contactId, ...sets.map(([, value]) => value)]);
     if (result.rowCount) erased.push({ heading: entry.label, rows: result.rowCount });
@@ -126,25 +131,30 @@ async function erase(db, business, user, contactId) {
   const points = Number((await repo.one(db, 'SELECT COALESCE(sum(points),0)::int AS points FROM retail_loyalty_entries WHERE business_id=$1 AND contact_id=$2', [b, contactId])).points);
   if (points > 0) {
     await repo.one(db, `INSERT INTO retail_loyalty_entries(business_id,contact_id,kind,points,reason,request_key,created_by) VALUES($1,$2,'adjust',$3,$4,$5,$6) RETURNING id`,
-      [b, contactId, -points, 'Cancelled: the customer\'s data was erased at their request', crypto.randomUUID(), user.id]);
+      [b, contactId, -points, `Cancelled: the ${words.person}'s data was erased at their request`, crypto.randomUUID(), user.id]);
     erased.push({ heading: `Loyalty points cancelled (${points})`, rows: 1 });
   }
   // Their consents stop and a child's mark ends, kept as the record.
   await consents.stopAll(db, { businessId: b, person: consents.personOf('contact_id', contactId), userId: user.id,
-    reason: 'The customer\'s data was erased at their request', audit: (dbx, action, entityId, details) => repo.audit(dbx, b, user.id, action, entityId, details) });
+    reason: `The ${words.person}'s data was erased at their request`, audit: (dbx, action, entityId, details) => repo.audit(dbx, b, user.id, action, entityId, details) });
   for (const line of registry.ALWAYS_KEPT) kept.add(line);
   return { erased, kept: [...kept] };
 }
 
-// The world of a business on the shared core, for personalData.service.js.
-function world(business, user) {
+// The world of a business on the shared core, for personalData.service.js,
+// its people named in the business's words ("member", "members", "Member").
+async function world(business, user) {
+  const t = await termsOf(business);
+  const words = { person: t.lower('customer'), people: t.lower('customer', 'many'), Person: t('customer') };
   return {
     kind: 'shop',
     businessId: business.id,
     business,
     user,
     column: 'contact_id',
-    words: { person: 'customer', people: 'customers', Person: 'Customer' },
+    words,
+    // Every word of the business (the privacy notice's counter).
+    terms: t,
     // The business row's lock, the one every posting takes first.
     lock: (db) => db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]),
     ensureBusiness: async () => business.id,
@@ -164,9 +174,9 @@ function world(business, user) {
     everyone: (db, limit, offset) => repo.all(db, `SELECT id,name,phone,email FROM business_contacts WHERE business_id=$1 AND kind='customer' AND erased_at IS NULL
       ORDER BY name,id LIMIT $2 OFFSET $3`, [business.id, limit, offset]),
     countEveryone: async (db) => (await repo.one(db, "SELECT count(*)::int AS n FROM business_contacts WHERE business_id=$1 AND kind='customer' AND erased_at IS NULL", [business.id])).n,
-    openItems: (db, id) => openItems(db, business, id),
+    openItems: (db, id) => openItems(db, business, id, t),
     exportOf: (db, id) => exportOf(db, business, id),
-    erase: (db, id) => erase(db, business, user, id),
+    erase: (db, id) => erase(db, business, user, id, words),
     name: business.name,
     type: business.business_type,
     timezone: business.timezone,

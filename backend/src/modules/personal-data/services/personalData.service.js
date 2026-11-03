@@ -66,7 +66,7 @@ async function starterFacts(world) {
     const facts = await repo.one(repo.pool, `SELECT COALESCE(NULLIF(btrim(s.display_name),''),b.name) AS name,
         (SELECT phone FROM business_locations l WHERE l.business_id=b.id AND l.active AND l.phone IS NOT NULL ORDER BY l.id LIMIT 1) AS phone
       FROM businesses b LEFT JOIN business_settings s ON s.business_id=b.id WHERE b.id=$1`, [world.businessId]);
-    return { name: facts.name, type: world.type, contactName: facts.name, contactPhone: facts.phone, contactEmail: null };
+    return { name: facts.name, type: world.type, contactName: facts.name, contactPhone: facts.phone, contactEmail: null, t: world.terms };
   }
   const facts = await repo.one(repo.pool, 'SELECT name,contact AS phone,email FROM restaurants WHERE id=$1', [world.restaurantId]);
   return { name: facts?.name || 'The restaurant', type: 'restaurant', contactName: facts?.name || null, contactPhone: facts?.phone || null, contactEmail: facts?.email || null };

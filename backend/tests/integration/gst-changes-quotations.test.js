@@ -365,7 +365,7 @@ test('GST changes and quotations', { timeout: 900000 }, async (t) => {
     assert.ok(ids.includes(`tax_change:${tomorrow.id}:1`));
     assert.ok(!ids.some((id) => id.startsWith(`tax_change:${eight.id}:`)), 'eight days ahead is not shown yet');
     const one7 = bell.find((i) => i.id === `tax_change:${seven.id}:7`);
-    assert.equal(one7.title, '1 item moves to GST 12% in 7 days');
+    assert.equal(one7.title, '1 product moves to GST 12% in 7 days');
     assert.match(one7.detail, /now at GST 18% \(1\)/);
     assert.equal(bell.find((i) => i.id === `tax_change:${tomorrow.id}:1`).severity, 'warning');
     // From 7 days before it keeps the id it was first shown with (read once, it stays read); the day before it has a new one.

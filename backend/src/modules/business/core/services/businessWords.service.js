@@ -13,6 +13,7 @@
 const repo = require('../repositories/business.repository');
 const v = require('../../../../utils/validate');
 const AppError = require('../../../../utils/AppError');
+const { terms, swap } = require('../../../../utils/words');
 
 const fail = (message, status = 400) => { throw new AppError(status, message); };
 
@@ -31,6 +32,28 @@ async function wordsOf(business, db = repo.pool) {
 
 // Forget one business's words, or every business's (a type's or kind's words changed).
 const forget = (businessId) => (businessId === undefined ? kept.clear() : kept.delete(Number(businessId)));
+
+// A business's words as the staff app reads them, for what the server writes
+// itself: t(key), t(key, 'many'), t.lower, t.a, t.count, t.ex (utils/words.js).
+const termsOf = async (business, db) => terms(await wordsOf(business, db));
+
+// Every word's default, kept a minute: what text written for every business
+// (the platform's modules and permissions) says.
+let standard = null;
+async function defaultWords(db = repo.pool) {
+  if (standard && Date.now() - standard.at < KEEP_MS) return standard.words;
+  const rows = await repo.all(db, 'SELECT key,one,many FROM term_keys');
+  standard = { at: Date.now(), words: Object.fromEntries(rows.map((row) => [row.key, { one: row.one, many: row.many }])) };
+  return standard.words;
+}
+
+// Text written for every business in the default words ("Customers &
+// suppliers", "Take back sold goods and refund customers") in this
+// business's own: the people it serves ("Members & suppliers").
+async function ownWordsOf(business, db) {
+  const [own, all] = await Promise.all([wordsOf(business, db), defaultWords(db)]);
+  return (text) => swap(text, all.customer, own.customer);
+}
 
 // The look of each of these businesses, by id.
 async function looksOf(businessIds, db = repo.pool) {
@@ -150,4 +173,4 @@ async function typesForNew(db = repo.pool) {
     kinds: t.kinds.map((k) => ({ ...k, firstLocation: k.firstLocation || t.first_location })) }));
 }
 
-module.exports = { wordsOf, forget, looksOf, lookOf, ownerView, saveOwn, typesForNew };
+module.exports = { wordsOf, forget, termsOf, defaultWords, ownWordsOf, looksOf, lookOf, ownerView, saveOwn, typesForNew };

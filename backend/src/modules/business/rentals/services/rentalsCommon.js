@@ -132,7 +132,7 @@ function readMeter(value, name) {
 function readId(kind, ref) {
   const idKind = v.requiredEnum(kind, 'Photo ID', Object.keys(ID_KINDS));
   const idRef = String(ref ?? '').toUpperCase().replace(/\s+/g, '');
-  if (idKind === 'aadhaar' && !/^\d{4}$/.test(idRef)) fail('Type only the last four digits of the Aadhaar number: the shop keeps no more of it');
+  if (idKind === 'aadhaar' && !/^\d{4}$/.test(idRef)) fail('Type only the last four digits of the Aadhaar number: no more of it is kept');
   if (!/^[A-Z0-9/-]{2,30}$/.test(idRef)) fail('The photo ID\'s number is 2 to 30 letters and digits');
   return { idKind, idRef };
 }

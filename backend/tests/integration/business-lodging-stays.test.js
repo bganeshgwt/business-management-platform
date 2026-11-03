@@ -266,7 +266,7 @@ test('hotels, lodges and guest houses: rates, policies, groups and folios', { ti
     const over = await refused('POST', L('lodging/stays'), { requestKey: key(), locationId: hotel.id, guest: { name: 'Day One' }, arrival: tomorrow, roomTypeId: deluxe.id, roomId: roomId('105'),
       adults: 1, dayUse: { from: '10:00', hours: 4 } });
     assert.equal(over.status, 409);
-    assert.match(over.message, /Room 105 is booked by ST\/.+ at those hours/);
+    assert.match(over.message, /Room 105 is booked by RS\/.+ at those hours/);
     const morning = await reserve({ guest: { name: 'Day One' }, arrival: tomorrow, roomId: roomId('105'), dayUse: { from: '06:00', hours: 4 } });
     assert.deepEqual([morning.day_use, morning.departure, morning.nights[0].rate_kind, morning.nights[0].amount, morning.nights[0].tax_rate, morning.estimate_total],
       [true, addDays(tomorrow, 1), 'day_use', '1500.00', '5.00', '1575.00']);

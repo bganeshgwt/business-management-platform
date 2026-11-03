@@ -122,7 +122,7 @@ async function addMembers(db, scope, projectId, userIds, ownerId) {
 async function create(scope, body) {
   await scope.require("projects.create");
   const data = readProject(body);
-  const template = body.templateCode ? library.getProject(String(body.templateCode)) : null;
+  const template = body.templateCode ? library.getProject(String(body.templateCode), scope) : null;
   if (body.templateCode && !template) fail(400, "Project template not found");
   const projectId = await repo.transaction(async (db) => {
     const place = await people.readPlace(db, scope, body);
@@ -293,7 +293,8 @@ async function comment(scope, projectId, body) {
   return tasks.commentsOf(repo.pool, scope, { projectId: id(projectId, "Project") });
 }
 
-const templatesList = () => library.PROJECT_TEMPLATES.map((t) => ({
+// The project templates as this business reads them (in its words, the stock audit where stock is kept).
+const templatesList = (scope) => library.projects(scope).map((t) => ({
   code: t.code, name: t.name, description: t.description || null, category: t.category, days: t.days,
   milestones: t.milestones.map(([name, days]) => ({ name, days })),
   lists: Object.entries(t.lists).map(([name, tasks]) => ({ name, tasks })),

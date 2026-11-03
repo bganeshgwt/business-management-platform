@@ -20,6 +20,8 @@ const consents = require('../../../personal-data/services/consents');
 
 const fail = (message, status = 400) => { throw new AppError(status, message); };
 const id = (value, name = 'Record ID') => v.requiredId(value, name);
+// A customer asked for that is not one of the business's, in its words ("Client not found").
+const customerNotFound = async (business) => fail(`${(await require('../../core/services/businessWords.service').termsOf(business))('customer')} not found`, 404);
 const paise = (value) => Math.round(Number(value) * 100);
 
 // --- Udhaar ----------------------------------------------------------------------
@@ -74,7 +76,7 @@ async function remind(business, user, contactId, body) {
   return repo.transaction(async (db) => {
     const contact = await repo.one(db, `SELECT c.id,c.name,${repo.contactBalanceSql('c')} AS balance FROM business_contacts c
       WHERE c.business_id=$1 AND c.id=$2 AND c.kind='customer'`, [business.id, id(contactId, 'Customer')]);
-    if (!contact) fail('Customer not found', 404);
+    if (!contact) await customerNotFound(business);
     if (paise(contact.balance) <= 0) fail(`${contact.name} owes nothing, so there is nothing to remind them about`, 409);
     if (promisedOn) {
       const today = await repo.one(db, 'SELECT (now() AT TIME ZONE $1)::date::text AS day', [business.timezone]);
@@ -137,7 +139,7 @@ async function saveLoyaltyRules(business, user, body) {
 async function customerPoints(business, contactId) {
   await access.require(business, 'loyalty.view');
   const contact = await repo.one(repo.pool, "SELECT id,name,phone FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer'", [business.id, id(contactId, 'Customer')]);
-  if (!contact) fail('Customer not found', 404);
+  if (!contact) await customerNotFound(business);
   return { contact, balance: await offers.pointsBalance(repo.pool, business.id, contact.id) };
 }
 // A reasoned correction (points promised at a festival, a wrong entry…).
@@ -152,7 +154,7 @@ async function adjustPoints(business, user, contactId, body) {
   const requestKey = service.uuid(body.requestKey);
   return repo.transaction(async (db) => {
     const contact = await repo.one(db, "SELECT id,name FROM business_contacts WHERE business_id=$1 AND id=$2 AND kind='customer' FOR UPDATE", [business.id, id(contactId, 'Customer')]);
-    if (!contact) fail('Customer not found', 404);
+    if (!contact) await customerNotFound(business);
     const old = await repo.one(db, 'SELECT * FROM retail_loyalty_entries WHERE business_id=$1 AND request_key=$2', [business.id, requestKey]);
     if (old) {
       if (Number(old.contact_id) !== Number(contact.id) || old.points !== points || old.reason !== reason) fail('This request key was already used for a different correction', 409);

@@ -6,6 +6,7 @@ const access = require('./businessAccess.service');
 const numbering = require('./businessNumbering');
 const { decimal } = require('./business.service');
 const restaurantFeatures = require('../../../restaurant/setup/services/restaurantFeatures.service');
+const { termsOf, ownWordsOf } = require('./businessWords.service');
 
 // Business set-up: settings, GST slabs, number series, modules, categories,
 // units and pack sizes. Every write is audited inside its own transaction.
@@ -69,6 +70,7 @@ function readName(business, body) {
 }
 async function updateSettings(business, user, body) {
   await access.require(business, 'settings.edit');
+  const t = await termsOf(business);
   const name = readName(business, body);
   const gstin = readGstin(body.gstin);
   const stateCode = optionalPattern(body.stateCode, 'State code', /^\d{2}$/, 'must be the two-digit GST state code', 2) || (gstin ? gstin.slice(0, 2) : null);
@@ -91,7 +93,7 @@ async function updateSettings(business, user, body) {
     const current = await repo.one(db, 'SELECT fiscal_year_start_month,max_bill_discount_percent,walk_in_credit,counter_pin_every_bill FROM business_settings WHERE business_id=$1 FOR UPDATE', [business.id]);
     // Counter rules; older clients do not send them and keep what is set.
     const maxDiscount = body.maxBillDiscountPercent === undefined || body.maxBillDiscountPercent === null || body.maxBillDiscountPercent === ''
-      ? current?.max_bill_discount_percent ?? 10 : decimal(body.maxBillDiscountPercent, 'Most discount at the counter', 2, 0, 100);
+      ? current?.max_bill_discount_percent ?? 10 : decimal(body.maxBillDiscountPercent, `Most discount on ${t.a('bill')}`, 2, 0, 100);
     const walkInCredit = body.walkInCredit === undefined ? Boolean(current?.walk_in_credit) : v.requiredBoolean(body.walkInCredit, 'Unpaid walk-in bills');
     // Quick bill asks the biller's PIN for every bill (shared tills).
     const pinEveryBill = body.counterPinEveryBill === undefined ? Boolean(current?.counter_pin_every_bill) : v.requiredBoolean(body.counterPinEveryBill, 'Ask the PIN for every bill');
@@ -152,6 +154,8 @@ async function updateSettings(business, user, body) {
 
 async function modules(business) {
   const { modules: all } = await repo.platformCatalogue();
+  // Named in the business's own words ("Members & suppliers").
+  const own = await ownWordsOf(business);
   // For a restaurant business these rows ARE the restaurant's features: the
   // same business_capabilities rows Settings -> Features reads and writes.
   const rows = await repo.all(repo.pool, `SELECT t.module_code,t.enabled_by_default,t.recommended,t.recommended_note,
@@ -162,7 +166,8 @@ async function modules(business) {
     const row = rows.find((r) => r.module_code === m.code);
     // recommended: most businesses of this trade use it (with why), for an owner choosing tools.
     // in_plan: the business's plan unlocks it today; a module outside it works as if switched off.
-    return { ...m, enabled: business.modules.includes(m.code), enabled_by_default: row?.enabled_by_default ?? true, requires: row?.requires || [],
+    return { ...m, name: own(m.name), description: own(m.description),
+      enabled: business.modules.includes(m.code), enabled_by_default: row?.enabled_by_default ?? true, requires: row?.requires || [],
       recommended: Boolean(row?.recommended), recommended_note: row?.recommended_note || null, in_plan: m.kind === 'core' || entitled.includes(m.code) };
   });
 }

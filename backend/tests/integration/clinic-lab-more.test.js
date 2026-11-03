@@ -132,7 +132,7 @@ test('the lab by department, billing ordered tests later, and the clinic\'s drug
     const token = await login(email);
     return { id: user.id, token, call: as(token), refused: refused(token) };
   }
-  const desk = await staff('desk@test.invalid', 'cashier');
+  const desk = await staff('desk@test.invalid', 'receptionist');
   const doctor = await staff('doctor@test.invalid', 'doctor');
   const tech = await staff('tech@test.invalid', 'lab_technician');
   const patho = await staff('patho@test.invalid', 'pathologist');
