@@ -9,7 +9,7 @@ const rules = require('../src/modules/business/till/services/tillRules');
 // moment, the allowed window of a bill's time, the GST rate in force on a
 // day. The till keeps the same rules (apps/business-web/src/modules/business/
 // till/tillRules.js): both answer these cases alike.
-const app = () => import(pathToFileURL(path.resolve(__dirname, '../../apps/business-web/src/modules/business/till/tillRules.js')).href);
+const app = () => import(pathToFileURL(path.resolve(__dirname, '../../apps/business-web/src/modules/business/till/services/tillRules.js')).href);
 
 test('the server and the till number bills and date them alike', async () => {
   const till = await app();

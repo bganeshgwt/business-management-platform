@@ -1,6 +1,6 @@
-import api from "../../../services/api";
-import { keepStorage, store } from "../../../services/offline/idb";
-import { TILLS_KEY } from "../../../services/offline/offlineScreens";
+import api from "../../../../services/api";
+import { keepStorage, store } from "../../../../services/offline/idb";
+import { TILLS_KEY } from "../../../../services/offline/offlineScreens";
 
 // This device as an offline till (docs/ARCHITECTURE.md › How an offline bill
 // is posted). The device's record, not a person's, so signing out keeps it:

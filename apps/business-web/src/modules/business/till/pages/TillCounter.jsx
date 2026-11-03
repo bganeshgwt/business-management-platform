@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Icon from "@bmp/ui/Icon";
-import SectionCard from "../../../components/SectionCard";
-import Modal from "../../../components/Modal";
-import { ErrorMessage } from "../../../components/Feedback";
-import { Field } from "../core/pages/ui";
-import { printReceipt } from "../retail/pages/retail";
-import { qrSvg, upiPayLink } from "../../restaurant/orders/services/upi";
-import { priceBill, money } from "./tillPricing.js";
-import { dayOf } from "./tillRules.js";
-import { findCode, searchCustomers, searchItems } from "./tillSnapshot.js";
-import { snapshotAge } from "../../../services/offline/snapshots";
-import "./till.css";
+import SectionCard from "../../../../components/SectionCard";
+import Modal from "../../../../components/Modal";
+import { ErrorMessage } from "../../../../components/Feedback";
+import { Field } from "../../core/pages/ui";
+import { printReceipt } from "../../retail/pages/retail";
+import { qrSvg, upiPayLink } from "../../../restaurant/orders/services/upi";
+import { priceBill, money } from "../services/tillPricing.js";
+import { dayOf } from "../services/tillRules.js";
+import { findCode, searchCustomers, searchItems } from "../services/tillSnapshot.js";
+import { snapshotAge } from "../../../../services/offline/snapshots";
+import "../styles/till.css";
 
 // Quick bill with no network: the counter as an offline till (useTill.js).
 // Items, prices, GST rates, customers and payment methods come from what the

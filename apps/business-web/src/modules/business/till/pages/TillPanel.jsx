@@ -1,19 +1,19 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@bmp/ui/Icon";
-import SidePanel from "../../../components/SidePanel";
-import StatusBadge from "../../../components/StatusBadge";
-import { ErrorMessage } from "../../../components/Feedback";
-import { Field } from "../core/pages/ui";
-import { businessPath } from "../../../services/businessNav";
-import { outbox } from "../../../services/offline/outboxStore";
-import { snapshotAge } from "../../../services/offline/snapshots";
-import { getErrorMessage } from "../../../services/api";
-import { printReceipt } from "../retail/pages/retail";
-import { OFFLINE_TILL } from "../../../services/businessTypes";
-import { voidable } from "./tillQueue.js";
+import SidePanel from "../../../../components/SidePanel";
+import StatusBadge from "../../../../components/StatusBadge";
+import { ErrorMessage } from "../../../../components/Feedback";
+import { Field } from "../../core/pages/ui";
+import { businessPath } from "../../../../services/businessNav";
+import { outbox } from "../../../../services/offline/outboxStore";
+import { snapshotAge } from "../../../../services/offline/snapshots";
+import { getErrorMessage } from "../../../../services/api";
+import { printReceipt } from "../../retail/pages/retail";
+import { OFFLINE_TILL } from "../../../../services/businessTypes";
+import { voidable } from "../services/tillQueue.js";
 import { VoidDialog } from "./TillCounter";
-import "./till.css";
+import "../styles/till.css";
 
 // The till panel, from Quick bill's header: this computer as an offline till.
 // Set up here by a manager (its name and code, for this counter's location);

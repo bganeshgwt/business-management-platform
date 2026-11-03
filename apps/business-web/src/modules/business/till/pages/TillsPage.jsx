@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Icon from "@bmp/ui/Icon";
-import DataGrid from "../../../components/DataGrid/DataGrid";
-import SectionCard from "../../../components/SectionCard";
-import StatusBadge from "../../../components/StatusBadge";
-import LiveIndicator from "../../../components/LiveIndicator";
-import { ErrorMessage } from "../../../components/Feedback";
-import useLiveRefresh from "../../../hooks/useLiveRefresh";
-import { businessRead, businessWrite } from "../../../services/business.service";
-import { getErrorMessage } from "../../../services/api";
+import DataGrid from "../../../../components/DataGrid/DataGrid";
+import SectionCard from "../../../../components/SectionCard";
+import StatusBadge from "../../../../components/StatusBadge";
+import LiveIndicator from "../../../../components/LiveIndicator";
+import { ErrorMessage } from "../../../../components/Feedback";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
+import { businessRead, businessWrite } from "../../../../services/business.service";
+import { getErrorMessage } from "../../../../services/api";
 import { relative } from "@bmp/shared/format";
-import { toast } from "../../../services/toast";
-import FormDialog from "../core/pages/FormDialog";
-import { BusinessHeader, Field } from "../core/pages/ui";
-import { useOpenBusiness } from "../core/pages/hooks";
-import "./till.css";
+import { toast } from "../../../../services/toast";
+import FormDialog from "../../core/pages/FormDialog";
+import { BusinessHeader, Field } from "../../core/pages/ui";
+import { useOpenBusiness } from "../../core/pages/hooks";
+import "../styles/till.css";
 
 // Settings › Tills: every computer set up as an offline till, live (online
 // now, last seen, bills waiting, last sync, bills received and still to

@@ -25,7 +25,7 @@ export const STORES = {
   // Data a screen keeps to work offline, with the time it was read (snapshots.js).
   snapshots: "key",
   // This device as an offline till of a business: its code, its secret and its
-  // numbers (modules/business/till/tillStore.js). The device's, not a person's.
+  // numbers (modules/business/till/services/tillStore.js). The device's, not a person's.
   tills: "key",
 };
 

@@ -47,9 +47,9 @@ import { agriBillBody, agriNeedsOf, agriProblem, emptyAgriBill, stopOf, useCount
 // A garage's part out of stock: the parts that can be used instead.
 import { CounterSubstitutes } from "../../garage/pages/Substitutes";
 // The counter as an offline till: billing when the internet drops (modules/business/till).
-import useTill from "../../till/useTill";
-import TillCounter from "../../till/TillCounter";
-import TillPanel, { TillButton } from "../../till/TillPanel";
+import useTill from "../../till/pages/useTill";
+import TillCounter from "../../till/pages/TillCounter";
+import TillPanel, { TillButton } from "../../till/pages/TillPanel";
 
 // Quick bill: the counter of every goods shop (grocery, supermarket, books,
 // pharmacy, fashion, electronics, meat and other weight shops). Scan a

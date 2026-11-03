@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { billNumber, clockOffset, dayOf, fiscalLabel, fiscalYearOf, limitState, rateOn } from "../src/modules/business/till/tillRules.js";
-import { priceBill, money } from "../src/modules/business/till/tillPricing.js";
-import { findCode, mergeSnapshot, searchCustomers, searchItems, snapshotQuery } from "../src/modules/business/till/tillSnapshot.js";
-import { billBody, heartbeatOf, queueOf, receiptDoc, voidBody, voidable, waitingCopy } from "../src/modules/business/till/tillQueue.js";
+import { billNumber, clockOffset, dayOf, fiscalLabel, fiscalYearOf, limitState, rateOn } from "../src/modules/business/till/services/tillRules.js";
+import { priceBill, money } from "../src/modules/business/till/services/tillPricing.js";
+import { findCode, mergeSnapshot, searchCustomers, searchItems, snapshotQuery } from "../src/modules/business/till/services/tillSnapshot.js";
+import { billBody, heartbeatOf, queueOf, receiptDoc, voidBody, voidable, waitingCopy } from "../src/modules/business/till/services/tillQueue.js";
 import { createOutbox } from "../src/services/offline/outbox.js";
 
 // The offline till's own rules, pricing and queue (modules/business/till), on

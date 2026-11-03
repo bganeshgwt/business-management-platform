@@ -1,23 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import DataGrid from "../../../components/DataGrid/DataGrid";
-import SectionCard from "../../../components/SectionCard";
-import StatTile from "../../../components/StatTile";
-import StatusBadge from "../../../components/StatusBadge";
-import ContentTabs from "../../../components/ContentTabs";
-import LiveIndicator from "../../../components/LiveIndicator";
-import { ErrorMessage } from "../../../components/Feedback";
-import useLiveRefresh from "../../../hooks/useLiveRefresh";
-import { businessRead, businessWrite } from "../../../services/business.service";
-import { getErrorMessage } from "../../../services/api";
+import DataGrid from "../../../../components/DataGrid/DataGrid";
+import SectionCard from "../../../../components/SectionCard";
+import StatTile from "../../../../components/StatTile";
+import StatusBadge from "../../../../components/StatusBadge";
+import ContentTabs from "../../../../components/ContentTabs";
+import LiveIndicator from "../../../../components/LiveIndicator";
+import { ErrorMessage } from "../../../../components/Feedback";
+import useLiveRefresh from "../../../../hooks/useLiveRefresh";
+import { businessRead, businessWrite } from "../../../../services/business.service";
+import { getErrorMessage } from "../../../../services/api";
 import { dateShort, relative } from "@bmp/shared/format";
-import { toast } from "../../../services/toast";
-import FormDialog from "../core/pages/FormDialog";
-import { BusinessHeader, Field, PeriodFilter } from "../core/pages/ui";
-import { businessToday, useOpenBusiness, useServerList } from "../core/pages/hooks";
-import { DocumentDetail } from "../core/pages/DocumentsPage";
+import { toast } from "../../../../services/toast";
+import FormDialog from "../../core/pages/FormDialog";
+import { BusinessHeader, Field, PeriodFilter } from "../../core/pages/ui";
+import { businessToday, useOpenBusiness, useServerList } from "../../core/pages/hooks";
+import { DocumentDetail } from "../../core/pages/DocumentsPage";
 import { FLAG_WORDS, flagDetail } from "./tillWords";
-import "./till.css";
+import "../styles/till.css";
 
 // Daily money › Offline bills: the manager's review of what tills billed with
 // no network. Each bill was handed to a customer and is posted as it was

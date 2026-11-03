@@ -103,9 +103,9 @@ test('the offline till', { timeout: 900000 }, async (t) => {
   const key = () => crypto.randomUUID();
   const paise = (value) => Math.round(Number(value) * 100);
   const money = (value) => (value / 100).toFixed(2);
-  const pricing = await import(pathToFileURL(path.resolve(__dirname, '../../../apps/business-web/src/modules/business/till/tillPricing.js')).href);
-  const snapshots = await import(pathToFileURL(path.resolve(__dirname, '../../../apps/business-web/src/modules/business/till/tillSnapshot.js')).href);
-  const appRules = await import(pathToFileURL(path.resolve(__dirname, '../../../apps/business-web/src/modules/business/till/tillRules.js')).href);
+  const pricing = await import(pathToFileURL(path.resolve(__dirname, '../../../apps/business-web/src/modules/business/till/services/tillPricing.js')).href);
+  const snapshots = await import(pathToFileURL(path.resolve(__dirname, '../../../apps/business-web/src/modules/business/till/services/tillSnapshot.js')).href);
+  const appRules = await import(pathToFileURL(path.resolve(__dirname, '../../../apps/business-web/src/modules/business/till/services/tillRules.js')).href);
 
   const [grocery, fashion, pharmacy] = await createBusinesses(request, 'TILL', ['grocery', 'fashion', 'pharmacy']);
   const G = (route) => `/businesses/${grocery.id}/${route}`;

@@ -230,8 +230,8 @@ const OnlineShopSettingsPage = lazy(() => import("../../shop/pages/OnlineShopSet
 const FieldSalesPage = lazy(() => import("../../wholesale/pages/FieldSalesPage"));
 const SalespersonAppPage = lazy(() => import("../../wholesale/pages/SalespersonAppPage"));
 // The offline till (modules/business/till): the review of offline bills, and the tills.
-const OfflineBillsPage = lazy(() => import("../../till/OfflineBillsPage"));
-const TillsPage = lazy(() => import("../../till/TillsPage"));
+const OfflineBillsPage = lazy(() => import("../../till/pages/OfflineBillsPage"));
+const TillsPage = lazy(() => import("../../till/pages/TillsPage"));
 
 function Notice({ title, children }) {
   return (

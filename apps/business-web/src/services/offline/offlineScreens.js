@@ -18,7 +18,7 @@ const can = (user, code) => Boolean(user?.permissions?.includes(code));
 const has = (user, code) => Array.isArray(user?.features) && user.features.includes(code);
 
 // The businesses this device is an offline till of, as the till keeps a
-// mirror of them (modules/business/till/tillStore.js): no secret, only where
+// mirror of them (modules/business/till/services/tillStore.js): no secret, only where
 // the counter opens.
 export const TILLS_KEY = "bmp-offline-tills";
 export const tillsOnDevice = () => {

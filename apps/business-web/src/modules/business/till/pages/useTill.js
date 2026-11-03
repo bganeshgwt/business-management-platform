@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import useAuth from "../../../hooks/useAuth";
-import useOnline from "../../../hooks/useOnline";
-import useOutbox from "../../../hooks/useOutbox";
-import { outbox } from "../../../services/offline/outboxStore";
-import { readSnapshot, saveSnapshot, dropSnapshot } from "../../../services/offline/snapshots";
-import { getErrorMessage } from "../../../services/api";
-import { mergeSnapshot, snapshotQuery } from "./tillSnapshot.js";
-import { clockOffset, dayOf, fiscalYearOf, limitState } from "./tillRules.js";
-import { billBody, billLabel, heartbeatOf, isTillItem, queueOf, receiptDoc, voidBody, voidLabel, voidable, waitingCopy, numberFor } from "./tillQueue.js";
-import { fetchSnapshot, forgetTill, readTill, registerTill, saveTill, sendHeartbeat, takeNumber, tillHeaders, tillNow } from "./tillStore.js";
+import useAuth from "../../../../hooks/useAuth";
+import useOnline from "../../../../hooks/useOnline";
+import useOutbox from "../../../../hooks/useOutbox";
+import { outbox } from "../../../../services/offline/outboxStore";
+import { readSnapshot, saveSnapshot, dropSnapshot } from "../../../../services/offline/snapshots";
+import { getErrorMessage } from "../../../../services/api";
+import { mergeSnapshot, snapshotQuery } from "../services/tillSnapshot.js";
+import { clockOffset, dayOf, fiscalYearOf, limitState } from "../services/tillRules.js";
+import { billBody, billLabel, heartbeatOf, isTillItem, queueOf, receiptDoc, voidBody, voidLabel, voidable, waitingCopy, numberFor } from "../services/tillQueue.js";
+import { fetchSnapshot, forgetTill, readTill, registerTill, saveTill, sendHeartbeat, takeNumber, tillHeaders, tillNow } from "../services/tillStore.js";
 
 // The counter as an offline till (Quick bill, docs/ARCHITECTURE.md › How an
 // offline bill is posted): this device's till record, the snapshot it keeps,
