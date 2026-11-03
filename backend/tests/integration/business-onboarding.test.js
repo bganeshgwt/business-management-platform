@@ -65,9 +65,12 @@ test('onboarding: platform creates a business, owner signs in, staff logins, loc
     await platform('POST', '/users/platform/businesses', { ...shop, timezone: 'Mars/Olympus' }, 400);
     await platform('POST', '/users/platform/businesses', { ...shop, currency: 'XYZW' }, 400);
     await platform('POST', '/users/platform/businesses', { ...shop, owner: { email: 'owner@arogya.test' } }, 400);
-    const created = await platform('POST', '/users/platform/businesses', shop, 201);
+    // Made from a browser in India, which names India's zone by its old name
+    // (a Linux server's database may not know it): kept under the current one.
+    const created = await platform('POST', '/users/platform/businesses', { ...shop, timezone: 'Asia/Calcutta' }, 201);
     business = created.business;
     assert.equal(business.code, 'AROGYA-MED');
+    assert.equal(business.timezone, 'Asia/Kolkata');
     assert.equal(created.owner.created, true);
     await platform('POST', '/users/platform/businesses', { ...shop, name: 'Again' }, 409);
     const list = await platform('GET', '/users/platform/businesses?type=pharmacy');
@@ -169,10 +172,15 @@ test('onboarding: platform creates a business, owner signs in, staff logins, loc
     assert.equal(current.currency, 'INR');
     const body = { displayName: 'Arogya Medicals', taxMode: 'inclusive', rounding: 'nearest_rupee', fiscalYearStartMonth: 4, dateFormat: 'DD/MM/YYYY' };
     await owner('PUT', B('settings'), { ...body, timezone: 'Nowhere/Here' }, 400);
-    const saved = await owner('PUT', B('settings'), { ...body, currency: 'aed', timezone: 'Asia/Dubai' });
-    assert.equal(saved.currency, 'AED');
+    // Typed in lower case: kept as the database spells it.
+    const saved = await owner('PUT', B('settings'), { ...body, currency: 'aed', timezone: 'asia/dubai' });
+    assert.deepEqual([saved.currency, saved.timezone], ['AED', 'Asia/Dubai']);
     assert.equal((await owner('GET', B('context'))).business.timezone, 'Asia/Dubai');
-    await owner('PUT', B('settings'), { ...body, currency: 'INR', timezone: 'Asia/Kolkata' });
+    // India's old name, as its browsers report it: kept under the current one.
+    await owner('PUT', B('settings'), { ...body, currency: 'INR', timezone: 'Asia/Calcutta' });
+    assert.equal((await owner('GET', B('context'))).business.timezone, 'Asia/Kolkata');
+    // Whatever writes it, the database itself refuses a zone it does not know.
+    await assert.rejects(pool.query("UPDATE businesses SET timezone='Nowhere/Here' WHERE id=$1", [business.id]), { code: '23514' });
     // Once a bill exists, the currency stays.
     const location = (await owner('GET', B('locations'))).items[0];
     const supplier = await owner('POST', B('contacts'), { kind: 'supplier', name: 'Distributor' }, 201);

@@ -1026,6 +1026,10 @@ India's clock as the specs' dates do. A newer push to the same branch replaces
 a run still going. When a part fails, its `test-results/` (each failing test's
 screenshot and the test API's log, never the run's logins file) is kept with
 the run for a week. The fonts are Linux's, not Windows' Segoe UI, so a screen
-that only fits with Segoe UI's narrower letters shows up here.
+that only fits with Segoe UI's narrower letters shows up here. Its PostgreSQL
+knows time zones by their current names only (Asia/Kolkata, not the
+Asia/Calcutta a browser in India reports), as many Linux servers do, while the
+Windows install knows both: a zone kept as the browser named it fails here
+first.
 
 CI does not run the load test.

@@ -192,7 +192,8 @@ test('platform console: settings, prices, businesses with their time, payments t
   let cafe, cafeRestaurant;
   const cafeBody = {
     businessType: 'restaurant', format: 'cafe', name: 'Console Cafe', code: 'CONCAFE', stateCode: '29', city: 'Bengaluru', postalCode: '560034',
-    addressLine1: '80 Feet Road', phone: '08041234567', timezone: 'Asia/Kolkata',
+    // As a browser in India names India's zone (Platform › New business sends the browser's).
+    addressLine1: '80 Feet Road', phone: '08041234567', timezone: 'Asia/Calcutta',
     owner: { name: 'Meera K', email: 'owner@concafe.invalid', mobile: '9845011111', password },
     selection: { planCode: 'restaurant_basic', billingPeriod: 'month', addons: ['kitchen_display'] },
     access: { kind: 'until', endsOn: addDays(today, 30), reason: 'Pilot cafe' },
@@ -216,6 +217,8 @@ test('platform console: settings, prices, businesses with their time, payments t
     assert.deepEqual([made.owner.created, made.restaurant.id, made.restaurant.format], [true, cafeRestaurant.id, 'cafe']);
     assert.deepEqual([made.plan.state, made.plan.accessEndsOn], ['given', addDays(today, 30)]);
     assert.match(cafeRestaurant.address, /80 Feet Road/);
+    // Its clock under India's current name, which every server's database knows.
+    assert.equal((await one('SELECT timezone FROM restaurant_settings WHERE restaurant_id=$1', [cafeRestaurant.id])).timezone, 'Asia/Kolkata');
     const settings = await one('SELECT state_code,city,postal_code FROM business_settings WHERE business_id=$1', [cafe.id]);
     assert.deepEqual(settings, { state_code: '29', city: 'Bengaluru', postal_code: '560034' });
     const owner = await one("SELECT u.restaurant_id,u.mobile,r.code FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE u.email='owner@concafe.invalid'");

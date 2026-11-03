@@ -5,6 +5,7 @@ const AppError = require('../../../../utils/AppError');
 const v = require('../../../../utils/validate');
 const { readGstin, STATES } = require('../../../../utils/gstin');
 const { readMobile } = require('../../../../utils/phone');
+const { currentZone } = require('../../../../utils/timezone');
 const { logFor } = require('../../../../utils/audit');
 
 // The paid plans' services and the restaurant's own set-up, loaded when first
@@ -41,12 +42,22 @@ function readCurrency(value, fallback = 'INR') {
   try { new Intl.NumberFormat('en', { style: 'currency', currency: code }).format(1); } catch { fail(`${code} is not a currency this system knows`); }
   return code;
 }
+// A time zone as a browser names it, under its current name (an Indian
+// browser says "Asia/Calcutta": utils/timezone.js).
 function readTimezone(value, fallback = 'Asia/Kolkata') {
   if (value === undefined || value === null || value === '') return fallback;
-  const zone = String(value).trim();
+  const zone = currentZone(value);
   if (zone.length > 60) fail('Time zone is too long');
   try { new Intl.DateTimeFormat('en', { timeZone: zone }).format(new Date()); } catch { fail(`${zone} is not a time zone this system knows (for example Asia/Kolkata)`); }
   return zone;
+}
+// The database works out every date of the business in its time zone, so the
+// zone must be one this server's database knows, not only the browser; it is
+// kept as the database spells it ("asia/dubai" is Asia/Dubai).
+async function checkTimezone(db, zone) {
+  const known = await repo.one(db, 'SELECT name FROM pg_timezone_names WHERE lower(name)=lower($1) ORDER BY name=$1 DESC LIMIT 1', [zone]);
+  if (!known) fail(`${zone} is not a time zone this system knows (for example Asia/Kolkata)`);
+  return known.name;
 }
 function readCode(value, field = 'Business code') {
   const code = v.requiredString(value, field, 40).toUpperCase().replace(/\s+/g, '-');
@@ -89,7 +100,7 @@ async function createBusiness(db, actor, body, ownerId) {
   const postal = v.optionalString(body.postalCode, 'PIN code', 10);
   if (postal && !/^\d{6}$/.test(postal)) fail('PIN code must be six digits');
   const business = await repo.one(db, `INSERT INTO businesses(name,code,business_type,currency,timezone,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,
-    [name, code, type, readCurrency(body.currency), readTimezone(body.timezone), actor.id]);
+    [name, code, type, readCurrency(body.currency), await checkTimezone(db, readTimezone(body.timezone)), actor.id]);
   await db.query(`UPDATE business_settings SET legal_name=$2,gstin=$3,address_line1=$4,address_line2=$5,city=$6,state_code=$7,postal_code=$8,phone=$9,email=$10,
       updated_by=$11,updated_at=now() WHERE business_id=$1`,
   [business.id, v.optionalString(body.legalName, 'Legal name', 200), gstin, v.optionalString(body.addressLine1, 'Address line 1', 200),
@@ -413,4 +424,4 @@ async function resetStaffPassword(business, user, staffId, body) {
   });
 }
 
-module.exports = { readCurrency, readTimezone, createBusiness, platformList, platformCreate, platformSetStatus, platformResetOwnerPassword, ownerCreate, createStaffAccount, resetStaffPassword };
+module.exports = { readCurrency, readTimezone, checkTimezone, createBusiness, platformList, platformCreate, platformSetStatus, platformResetOwnerPassword, ownerCreate, createStaffAccount, resetStaffPassword };

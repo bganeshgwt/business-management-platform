@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const restaurantRepository = require("../repositories/restaurant.repository");
 const AppError = require("../../../../utils/AppError");
+const { currentZone } = require("../../../../utils/timezone");
 
 const DEFAULT_OPEN = "10:00";
 const DEFAULT_CLOSE = "23:00";
@@ -212,7 +213,8 @@ const listTimezones = async () => {
 // and an offset like "UTC+05:30" was read with its sign backwards (POSIX) and
 // moved the clock by eleven hours.
 const readTimezone = async (value) => {
-  const typed = String(value || "").trim();
+  // Under its current name: an Indian browser says "Asia/Calcutta" (utils/timezone.js).
+  const typed = currentZone(value || "");
 
   if (!typed) {
     throw new AppError(400, "Pick a time zone, such as Asia/Kolkata for India");

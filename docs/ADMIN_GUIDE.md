@@ -596,7 +596,9 @@ opens [the business's page](#a-businesss-page).
   GSTIN; the **state**, the place of supply on the platform's invoices to it
   (required for a restaurant, taken from the GSTIN otherwise); the address,
   phone and email; the currency (not for a restaurant); the time zone, which
-  decides its "today", its trial and its end date; and, for any type but a
+  decides its "today", its trial and its end date (the computer's own to
+  start with: a computer in India may show its old name, Asia/Calcutta, which
+  is saved as Asia/Kolkata, the same clock); and, for any type but a
   restaurant, its first location and code (*Main store* and MAIN when left
   empty).
 - **The owner** — for any type but a restaurant, an existing login found by

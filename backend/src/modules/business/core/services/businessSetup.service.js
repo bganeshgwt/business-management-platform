@@ -121,9 +121,9 @@ async function updateSettings(business, user, body) {
       await repo.audit(db, business.id, user.id, 'settings.rules_updated', business.id, updated);
     }
     // Currency and time zone: older clients send neither and keep them.
-    const { readCurrency, readTimezone } = require('./businessOnboarding.service');
+    const { readCurrency, readTimezone, checkTimezone } = require('./businessOnboarding.service');
     const currency = body.currency === undefined ? business.currency : readCurrency(body.currency, business.currency);
-    const timezone = body.timezone === undefined ? business.timezone : readTimezone(body.timezone, business.timezone);
+    const timezone = body.timezone === undefined ? business.timezone : await checkTimezone(db, readTimezone(body.timezone, business.timezone));
     if (currency !== business.currency) {
       // Amounts already recorded are in the old currency: they would change meaning.
       const used = await repo.one(db, 'SELECT count(*)::int AS n FROM business_documents WHERE business_id=$1', [business.id]);
