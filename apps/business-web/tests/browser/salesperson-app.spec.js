@@ -144,6 +144,8 @@ test("a salesperson's day: start, check in, an order with a scheme, collect, no 
     await expect(page.getByRole("heading", { level: 1, name: SALES_APP.newShop.name })).toBeVisible();
     await page.getByRole("button", { name: "Check out", exact: true }).click();
     await expect(page.locator(".sl-offline-pill")).toContainText("Offline · 4 waiting to send", QUICKLY);
+    // Checked out, the app goes back to Today: the page the reload opens again.
+    await expect(page.getByRole("heading", { level: 1, name: SALES_APP.beat })).toBeVisible(QUICKLY);
 
     // A reload with no network: the app opens from the phone, everything still waiting.
     await page.reload();
