@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import SearchPicker from "../../../../components/SearchPicker";
 import { businessRead, businessWrite } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
@@ -120,6 +121,13 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
   };
   const titles = { sell: "Sell a membership", renew: `Renew ${membership?.membership_no || ""}`, upgrade: `Change the plan of ${membership?.membership_no || ""}` };
   const choices = plans.filter((p) => mode !== "upgrade" || String(p.id) !== String(membership?.plan_id));
+  // No plan to choose: where the plans are made, a link for whoever may make them.
+  const noPlans = Boolean(options) && choices.length === 0;
+  const plansHint = plansError ? `The plans could not be read: ${plansError}`
+    : !noPlans ? undefined
+      : mode === "upgrade" ? "There is no other plan to change to. Plans are added in Settings › Membership plans."
+        : biz.can("member_plans.edit") ? <>There are no plans to sell yet. <Link to={biz.path("member-plans")}>Add the first in Settings › Membership plans</Link>.</>
+          : "There are no plans to sell yet. Whoever manages the plans adds them in Settings › Membership plans.";
   return (
     <FormDialog title={titles[mode]} icon="user-plus" width={760} onClose={onClose} onSaved={onSaved} onSubmit={submit}
       submitLabel={mode === "upgrade" ? "Change the plan and post the bill" : "Post the bill"}
@@ -145,11 +153,11 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
         </>
       )}
       {(member || membership) && <Field label="Member"><input readOnly value={member?.name || membership?.member_name || ""} /></Field>}
-      <Field label={mode === "upgrade" ? "New plan" : "Plan"} hint={plansError ? `The plans could not be read: ${plansError}` : undefined}>
+      <Field label={mode === "upgrade" ? "New plan" : "Plan"} hint={plansHint}>
         {/* Off until the plans have come: a renewal's plan is set already (its bill is worked
             out meanwhile), and an empty list must not stop it as "Choose plan". */}
         <select required disabled={!options} value={form.planId} onChange={(e) => setForm((f) => ({ ...f, planId: e.target.value, joining: null, instalments: [] }))}>
-          <option value="">{options ? "Choose the plan…" : plansError ? "No plans to choose from" : "Loading the plans…"}</option>
+          <option value="">{options ? (noPlans ? "No plans to choose from" : "Choose the plan…") : plansError ? "No plans to choose from" : "Loading the plans…"}</option>
           {choices.map((p) => <option key={p.id} value={p.id}>{p.name} · {termWords(p)} · {biz.exact(p.price)}{Number(p.tax_rate) ? ` + GST ${Number(p.tax_rate)}%` : ""}</option>)}
         </select>
       </Field>

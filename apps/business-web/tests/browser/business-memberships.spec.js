@@ -106,6 +106,24 @@ test("a plan made with its own item, and a new member sold it with the bill work
   expect(errors).toEqual([]);
 });
 
+test("with no plans to sell yet, Sell a membership says so and links to where plans are added", async ({ page }) => {
+  const errors = errorsOf(page);
+  // A gym that has made no plans yet: the plans on sale come back empty.
+  const plansOnSale = /\/member-plans\/plans\?/;
+  await page.route(plansOnSale, (route) => route.fulfill({ json: { success: true, data: { items: [], total: 0 } } }));
+  await page.goto(`/business-admin/${gym.id}/members?new=1`);
+  const sale = page.getByRole("dialog", { name: "Sell a membership" });
+  await expect(sale).toBeVisible({ timeout: 30_000 });
+  await expect(sale.getByLabel("Plan", { exact: true })).toContainText("No plans to choose from", { timeout: 15_000 });
+  const addPlans = sale.getByRole("link", { name: "Add the first in Settings › Membership plans" });
+  await expect(addPlans).toBeVisible();
+  await page.unroute(plansOnSale);
+  await addPlans.click();
+  await expect(page.getByRole("heading", { name: "Membership plans", level: 1 })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("table", { name: "Plans" }).getByText(MEMBERSHIPS.monthly.name)).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
 test("renewal calls: the trial ending in two days, a reminder on WhatsApp and the renewal sold from the row", async ({ page }, testInfo) => {
   const errors = errorsOf(page);
   await page.goto(`/business-admin/${gym.id}/renewals`);

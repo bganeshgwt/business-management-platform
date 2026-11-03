@@ -5995,7 +5995,9 @@ behind them (*Member contacts*) and the **Enquiries**; the plans are under
   *Cancelled*, *Transferred*, *Upgraded*), its last day or the sessions left,
   what they owe and their last check-in, with the day's figures above.
   *Sell a membership*: a member already saved, or *A new member* (name and
-  phone); the plan; the day it starts (today or later, within 180 days); who
+  phone); the plan (with none on sale yet, the list says so and links those
+  who may add plans to *Settings › Membership plans*); the day it starts
+  (today or later, within 180 days); who
   sold it (*Sold by*, for their commission) and the trainer it counts for; a
   shared plan's seats (the member holding it takes the first; *A member for a
   seat* or *A new member for a seat* for the others); add-ons (a locker with
