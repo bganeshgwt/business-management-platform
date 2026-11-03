@@ -6,37 +6,49 @@ import { businessRead } from "../../../../services/business.service";
 import { count } from "@bmp/shared/format";
 import { useOpenBusiness } from "./hooks";
 
-// A shop's products, customers or suppliers from an Excel workbook (its first
-// sheet, or the one chosen) or a CSV file: the app's one import screen with
-// the shop's rules (businessImports.service.js on the server). A row with a
-// problem is refused alone and the rest go in together;
+// A business's products, customers or suppliers from an Excel workbook (its
+// first sheet, or the one chosen) or a CSV file: the app's one import screen
+// with the business's rules (businessImports.service.js on the server). A row
+// with a problem is refused alone and the rest go in together;
 // records already here are left as they are, or updated by someone who may
 // change them and chooses to; the import carries a request key, so a retry
-// after a lost answer is done once.
-const KINDS = {
-  products: {
-    path: "catalog", one: "product", many: "products", edit: "catalog.edit", already: "Items already here",
-    sample: "products-template.csv",
-    description: "Your catalogue from another system or a spreadsheet: new items are added, and every row is checked first.",
-    lead: "An item is found by its code, then its barcode. Opening stock goes in once, for an item with no stock on record yet, at its purchase price, as “Opening stock” in the stock movements. Rows of one style become one product with its variants; a pack size goes in with its unit and how many it holds.",
-  },
-  customer: {
-    path: "contacts", one: "customer", many: "customers", edit: "contacts.edit", already: "Customers already here",
-    sample: "customers-template.csv",
-    description: "Your customers and what each owed when you started, from another system or your udhaar book: every row is checked first.",
-    lead: "A customer is found by their GSTIN, then their phone, and with neither by their name. A phone is never needed. The opening balance is what they owed you when you started; it is set once.",
-  },
-  supplier: {
-    path: "contacts", one: "supplier", many: "suppliers", edit: "contacts.edit", already: "Suppliers already here",
-    sample: "suppliers-template.csv",
-    description: "Your suppliers and what you owed each when you started, from another system or a spreadsheet: every row is checked first.",
-    lead: "A supplier is found by their GSTIN, then their phone, and with neither by their name. The opening balance is what you owed them when you started; it is set once.",
-  },
-};
+// after a lost answer is done once. It speaks the business's words (a gym
+// imports its plans and members), and tells of stock, styles and pack sizes
+// only where the business keeps them.
+const sentence = (text) => text.charAt(0).toUpperCase() + text.slice(1);
+function kindsOf({ t, has }) {
+  const stock = has("inventory");
+  const book = t.ex("customer_book");
+  return {
+    products: {
+      path: "catalog", one: t.lower("item"), many: t.lower("item", "many"), edit: "catalog.edit", already: `${t("item", "many")} already here`,
+      sample: "products-template.csv",
+      description: `Your ${t.lower("catalog")} from another system or a spreadsheet: new ${t.lower("item", "many")} are added, and every row is checked first.`,
+      lead: [
+        `${sentence(t.a("item"))} is found by its code, then its barcode.`,
+        stock && "Opening stock goes in once, for an item with no stock on record yet, at its purchase price, as “Opening stock” in the stock movements.",
+        has("variants") && `Rows of one style become one ${t.lower("item")} with its variants.`,
+        stock && "A pack size goes in with its unit and how many it holds.",
+      ].filter(Boolean).join(" "),
+    },
+    customer: {
+      path: "contacts", one: t.lower("customer"), many: t.lower("customer", "many"), edit: "contacts.edit", already: `${t("customer", "many")} already here`,
+      sample: "customers-template.csv",
+      description: `Your ${t.lower("customer", "many")} and what each owed when you started, from another system or ${book || "a spreadsheet"}: every row is checked first.`,
+      lead: `${sentence(t.a("customer"))} is found by their GSTIN, then their phone, and with neither by their name. A phone is never needed. The opening balance is what they owed you when you started; it is set once.`,
+    },
+    supplier: {
+      path: "contacts", one: "supplier", many: "suppliers", edit: "contacts.edit", already: "Suppliers already here",
+      sample: "suppliers-template.csv",
+      description: "Your suppliers and what you owed each when you started, from another system or a spreadsheet: every row is checked first.",
+      lead: "A supplier is found by their GSTIN, then their phone, and with neither by their name. The opening balance is what you owed them when you started; it is set once.",
+    },
+  };
+}
 
 export default function ImportDialog({ kind, onClose, onImported }) {
   const biz = useOpenBusiness();
-  const spec = KINDS[kind];
+  const spec = kindsOf(biz)[kind];
   const [mode, setMode] = useState("skip");
   const canUpdate = biz.can(spec.edit);
   const contact = kind !== "products";

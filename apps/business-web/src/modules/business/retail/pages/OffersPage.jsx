@@ -24,8 +24,25 @@ const FILTERS = [["", "All"], ["running", "Running"], ["scheduled", "Starts late
 const WEEKDAYS = [[1, "Mon"], [2, "Tue"], [3, "Wed"], [4, "Thu"], [5, "Fri"], [6, "Sat"], [7, "Sun"]];
 const PERCENT_KINDS = new Set(["item_percent", "category_percent", "bill_percent", "buy_x_get_y"]);
 
+// An example of each kind of offer, on the business's own item and category
+// (services/terms.js): "10% off Monthly membership", "15% off everything in
+// Hair". The bill's own offers read the same for every business.
+function kindExamples({ t, amount }) {
+  const item = t.ex("item_name");
+  const category = t.ex("category").split("›")[0].trim();
+  return {
+    item_percent: item ? `e.g. 10% off ${item}` : "e.g. 10% off one item",
+    item_amount: item ? `e.g. a set amount off each ${item}` : "e.g. a set amount off each unit",
+    category_percent: category ? `e.g. 15% off everything in ${category}` : "e.g. 15% off a whole category",
+    bill_percent: "e.g. 5% off the whole bill",
+    bill_amount: `e.g. ${amount(50)} off over ${amount(1000)}`,
+    buy_x_get_y: "e.g. buy 2 get 1 free",
+  };
+}
+
 export default function OffersPage() {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const [status, setStatus] = useState("");
   const list = useServerList("offers", { gridId: "retail-offers", params: status ? { status } : {} });
   const [editing, setEditing] = useState(null);
@@ -61,7 +78,7 @@ export default function OffersPage() {
       render: (o) => <span className="bz-two-line"><strong>{o.name}</strong><small className="muted">{offerSummary(o, biz.amount)}</small></span> },
     { key: "coupon", header: "Coupon", value: (o) => o.coupon_code || "", className: "mono",
       render: (o) => (o.coupon_code
-        ? <span className="bz-two-line"><span className="mono">{o.coupon_code}</span><small className="muted">{[o.usage_limit && `${o.usage_limit} uses`, o.per_customer_limit && `${o.per_customer_limit} per customer`].filter(Boolean).join(" · ") || "No limit"}</small></span>
+        ? <span className="bz-two-line"><span className="mono">{o.coupon_code}</span><small className="muted">{[o.usage_limit && `${o.usage_limit} uses`, o.per_customer_limit && `${o.per_customer_limit} per ${t.lower("customer")}`].filter(Boolean).join(" · ") || "No limit"}</small></span>
         : <span className="muted">Automatic</span>) },
     { key: "kind", header: "Type", value: (o) => OFFER_KINDS[o.kind], filter: "select" },
     { key: "when", header: "When", value: (o) => `${o.starts_on}`, render: (o) => (
@@ -84,7 +101,7 @@ export default function OffersPage() {
   return (
     <div className="stack">
       <BusinessHeader icon="gift" title="Offers & discounts"
-        description="Set them once; the bill applies them by itself. Each item gets its best item offer, then the bill its best bill offer, then any points the customer redeems."
+        description={`Set them once; the bill applies them by itself. Each item gets its best item offer, then the bill its best bill offer, then any points the ${t.lower("customer")} redeems.`}
         actions={biz.can("offers.create") && <button type="button" className="button" onClick={() => setEditing({})}><Icon name="plus" size={16} /> New offer</button>} />
       <SuccessMessage message={notice} />
       <ErrorMessage message={error || list.error} />
@@ -101,7 +118,7 @@ export default function OffersPage() {
             </div>
           )}
           rowClassName={(o) => (o.status === "off" || o.status === "ended" ? "dg-tone-muted" : "")}
-          empty="No offers yet" emptyHint="Add one: 10% off a category, buy 2 get 1, ₹50 off bills over ₹1,000…" emptyIcon="gift"
+          empty="No offers yet" emptyHint={t.ex("offers") ? `Add one: ${t.ex("offers")}…` : "Add one: on an item, a category or the whole bill."} emptyIcon="gift"
           emptyAction={biz.can("offers.create") && <button type="button" className="button button-secondary" onClick={() => setEditing({})}>New offer</button>} />
       </SectionCard>
       {canSeeSales && (
@@ -129,6 +146,8 @@ export default function OffersPage() {
 
 function OfferDialog({ offer, onClose, onSaved }) {
   const biz = useOpenBusiness();
+  const { t } = biz;
+  const examples = kindExamples(biz);
   const editing = Boolean(offer.id);
   const { options, error } = useOptions(["catalog?active=true", "categories?active=true"]);
   const items = options?.["catalog?active=true"] || [];
@@ -171,12 +190,14 @@ function OfferDialog({ offer, onClose, onSaved }) {
           {Object.entries(OFFER_KINDS).map(([key, label]) => (
             <button key={key} type="button" role="radio" aria-checked={kind === key} className={`rt-kind ${kind === key ? "is-active" : ""}`} onClick={() => setForm((f) => ({ ...f, kind: key }))}>
               <strong>{label}</strong>
-              <small>{{ item_percent: "e.g. 10% off ghee", item_amount: "e.g. ₹5 off each soap", category_percent: "e.g. 15% off all stationery", bill_percent: "e.g. 5% off the whole bill", bill_amount: "e.g. ₹50 off over ₹1,000", buy_x_get_y: "e.g. buy 2 get 1 free" }[key]}</small>
+              <small>{examples[key]}</small>
             </button>
           ))}
         </div>
       </div>
-      <Field label="Offer name" hint="Printed on the receipt next to what it saved." wide><input required maxLength={120} value={form.name} onChange={set("name")} placeholder="e.g. Diwali 10% off dry fruits" /></Field>
+      <Field label="Offer name" hint="Printed on the receipt next to what it saved." wide>
+        <input required maxLength={120} value={form.name} onChange={set("name")} placeholder={t.ex("offer_name") ? `e.g. ${t.ex("offer_name")}` : undefined} />
+      </Field>
       {needsItem && (
         <Field label="Item" wide>
           <select required value={form.skuId} onChange={set("skuId")}>
@@ -195,7 +216,7 @@ function OfferDialog({ offer, onClose, onSaved }) {
       )}
       {kind === "buy_x_get_y" && (
         <>
-          <Field label="Customer buys"><input required type="number" min="0.001" step="any" value={form.buyQuantity} onChange={set("buyQuantity")} /></Field>
+          <Field label={`${t("customer")} buys`}><input required type="number" min="0.001" step="any" value={form.buyQuantity} onChange={set("buyQuantity")} /></Field>
           <Field label="And gets"><input required type="number" min="0.001" step="any" value={form.getQuantity} onChange={set("getQuantity")} /></Field>
           <Field label="At % off" hint="100 = free; 50 = half price."><input type="number" min="0.01" max="100" step="0.01" value={form.value || "100"} onChange={set("value")} /></Field>
         </>
@@ -207,13 +228,13 @@ function OfferDialog({ offer, onClose, onSaved }) {
       )}
       <Field label="Only on bills of at least (optional)" hint="Counted before any discount."><input type="number" min="0" step="0.01" value={form.minBillAmount} onChange={set("minBillAmount")} /></Field>
       <Field label="Most per bill (optional)" hint="A cap on what one bill can get."><input type="number" min="0.01" step="0.01" value={form.maxDiscount} onChange={set("maxDiscount")} /></Field>
-      <Field label="Coupon code (optional)" hint="With a code the offer applies only when the cashier enters it. Empty: it applies by itself.">
+      <Field label="Coupon code (optional)" hint={`With a code the offer applies only when it is entered at the ${t.lower("counter")}. Empty: it applies by itself.`}>
         <input maxLength={20} className="mono" placeholder="e.g. DIWALI100" value={form.couponCode} onChange={(e) => setForm((f) => ({ ...f, couponCode: e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, "") }))} />
       </Field>
       {form.couponCode.trim() && (
         <>
-          <Field label="Uses in all (optional)" hint="Bills that can use it, across all customers."><input type="number" min="1" step="1" value={form.usageLimit} onChange={set("usageLimit")} /></Field>
-          <Field label="Uses per customer (optional)" hint="Needs the customer on the bill."><input type="number" min="1" step="1" value={form.perCustomerLimit} onChange={set("perCustomerLimit")} /></Field>
+          <Field label="Uses in all (optional)" hint={`Bills that can use it, across all ${t.lower("customer", "many")}.`}><input type="number" min="1" step="1" value={form.usageLimit} onChange={set("usageLimit")} /></Field>
+          <Field label={`Uses per ${t.lower("customer")} (optional)`} hint={`Needs the ${t.lower("customer")} on the bill.`}><input type="number" min="1" step="1" value={form.perCustomerLimit} onChange={set("perCustomerLimit")} /></Field>
         </>
       )}
       <Field label="Starts on"><input required type="date" value={form.startsOn} onChange={set("startsOn")} /></Field>
@@ -224,7 +245,7 @@ function OfferDialog({ offer, onClose, onSaved }) {
           {WEEKDAYS.map(([day, label]) => <label key={day}><input type="checkbox" checked={form.days.includes(day)} onChange={() => toggleDay(day)} /> {label}</label>)}
         </div>
       </div>
-      <Field label="From time (optional)" hint="Happy hours, e.g. 16:00."><input type="time" value={form.startsTime} onChange={set("startsTime")} /></Field>
+      <Field label="From time (optional)" hint={t.ex("offer_hours") ? `${t.ex("offer_hours")}: it runs only between these times.` : "It runs only between these times."}><input type="time" value={form.startsTime} onChange={set("startsTime")} /></Field>
       <Field label="Until time (optional)" hint="Can run past midnight."><input type="time" value={form.endsTime} onChange={set("endsTime")} /></Field>
       <label className="checkbox bz-check"><input type="checkbox" checked={form.active} onChange={set("active")} /> Switched on</label>
     </FormDialog>

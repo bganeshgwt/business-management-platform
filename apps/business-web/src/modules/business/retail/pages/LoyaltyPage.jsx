@@ -21,6 +21,7 @@ const KIND = { earn: ["active", "Earned"], redeem: ["warning", "Redeemed"], adju
 
 export default function LoyaltyPage() {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const [rules, setRules] = useState(null);
   const [rulesError, setRulesError] = useState("");
   const [editingRules, setEditingRules] = useState(false);
@@ -44,7 +45,7 @@ export default function LoyaltyPage() {
   return (
     <div className="stack">
       <BusinessHeader icon="star" title="Loyalty points"
-        description="Customers earn points on every bill and redeem them at the counter. The rules below decide how many, and how much a point is worth." />
+        description={`${t("customer", "many")} earn points on every bill and redeem them at the ${t.lower("counter")}. The rules below decide how many, and how much a point is worth.`} />
       <SuccessMessage message={notice} />
       <ErrorMessage message={rulesError} />
       <SectionCard icon="sliders" title="Rules" tone={rules?.active ? "success" : "warning"}
@@ -52,24 +53,24 @@ export default function LoyaltyPage() {
         {!rules && !rulesError && <Loading />}
         {rules && (
           <div className="rt-rules">
-            <p className="rt-rule-line"><strong>{rules.active ? "Points are on" : "Points are off"}</strong><span className="rt-sub">{rules.active ? "Bills with a customer earn points" : rules.saved ? "No points are earned or redeemed" : "Set the rules to start"}</span></p>
+            <p className="rt-rule-line"><strong>{rules.active ? "Points are on" : "Points are off"}</strong><span className="rt-sub">{rules.active ? `Bills with ${t.a("customer")} earn points` : rules.saved ? "No points are earned or redeemed" : "Set the rules to start"}</span></p>
             <p className="rt-rule-line"><strong>{rules.earn_points} {Number(rules.earn_points) === 1 ? "point" : "points"} per {biz.amount(rules.earn_per_amount)}</strong><span className="rt-sub">earned on the bill total</span></p>
             <p className="rt-rule-line"><strong>1 point = {biz.exact(rules.point_value)}</strong><span className="rt-sub">off the bill when redeemed</span></p>
             <p className="rt-rule-line"><strong>From {rules.min_redeem_points} points</strong><span className="rt-sub">up to {Number(rules.max_redeem_percent)}% of a bill</span></p>
-            <p className="rt-rule-line"><strong>{rules.return_spent_points === false ? "Spent points stay spent" : "Spent points come back"}</strong><span className="rt-sub">{rules.return_spent_points === false ? "when goods on a bill are returned" : "in proportion, when goods on a bill are returned"}</span></p>
+            <p className="rt-rule-line"><strong>{rules.return_spent_points === false ? "Spent points stay spent" : "Spent points come back"}</strong><span className="rt-sub">{rules.return_spent_points === false ? "when part of a bill is returned" : "in proportion, when part of a bill is returned"}</span></p>
           </div>
         )}
       </SectionCard>
       <div className="stat-grid">
-        <StatTile icon="users" tone="primary" label="Customers with points" value={members.data ? String(members.data.total) : "—"} />
+        <StatTile icon="users" tone="primary" label={`${t("customer", "many")} with points`} value={members.data ? String(members.data.total) : "—"} />
         <StatTile icon="star" tone="warning" label="Points held" value={members.data ? outstanding.toLocaleString("en-IN") : "—"}
           note={rules && members.data ? `worth ${biz.amount(outstanding * Number(rules.point_value))}${members.data.total > members.data.items.length ? " (this page)" : ""}` : ""} />
       </div>
-      <SectionCard flush icon="users" title="Customers and their points">
-        <DataGrid {...members.gridProps} caption="Customers and their points" currency={biz.symbol} rowNoun={["customer", "customers"]}
+      <SectionCard flush icon="users" title={`${t("customer", "many")} and their points`}>
+        <DataGrid {...members.gridProps} caption={`${t("customer", "many")} and their points`} currency={biz.symbol} rowNoun={[t.lower("customer"), t.lower("customer", "many")]}
           exportName={biz.can("loyalty.export") ? `${biz.business.code}-loyalty` : undefined}
           columns={[
-            { key: "name", header: "Customer", value: (m) => m.name, mobile: "title", pin: true, render: (m) => <span className="bz-two-line"><strong>{m.name}</strong><small className="muted">{m.phone || "No phone"}</small></span> },
+            { key: "name", header: t("customer"), value: (m) => m.name, mobile: "title", pin: true, render: (m) => <span className="bz-two-line"><strong>{m.name}</strong><small className="muted">{m.phone || "No phone"}</small></span> },
             { key: "balance", header: "Points now", type: "number", value: (m) => Number(m.balance), total: "sum", mobile: "show" },
             { key: "value", header: "Worth", type: "money", value: (m) => Number(m.balance) * Number(rules?.point_value || 0), total: "sum" },
             { key: "earned", header: "Earned", type: "number", value: (m) => Number(m.earned) },
@@ -79,14 +80,14 @@ export default function LoyaltyPage() {
             { key: "last_at", header: "Last activity", type: "date", value: (m) => m.last_at, mobile: "subtitle" },
             biz.can("loyalty.edit") && { key: "actions", header: "", label: "Actions", type: "actions", render: (m) => <button type="button" className="chip-button" onClick={() => setAdjusting(m)}>Correct</button> },
           ].filter(Boolean)}
-          empty="No customer has points yet" emptyHint="Bills with a customer chosen earn points once the rules are on." emptyIcon="star" />
+          empty={`No ${t.lower("customer")} has points yet`} emptyHint={`Bills with ${t.a("customer")} chosen earn points once the rules are on.`} emptyIcon="star" />
       </SectionCard>
       <SectionCard flush icon="history" title="Points history">
         <DataGrid {...entries.gridProps} caption="Points history" currency={biz.symbol} rowNoun={["entry", "entries"]} toolbar={<PeriodFilter list={entries} />}
           exportName={biz.can("loyalty.export") ? `${biz.business.code}-loyalty-history` : undefined}
           columns={[
             { key: "created_at", header: "When", type: "datetime", value: (e) => e.created_at, mobile: "subtitle" },
-            { key: "contact_name", header: "Customer", value: (e) => e.contact_name, mobile: "title", pin: true },
+            { key: "contact_name", header: t("customer"), value: (e) => e.contact_name, mobile: "title", pin: true },
             { key: "kind", header: "What", type: "status", value: (e) => e.kind, render: (e) => <Badge tone={KIND[e.kind]?.[0]} label={KIND[e.kind]?.[1]} />, mobile: "show" },
             { key: "points", header: "Points", type: "number", value: (e) => e.points, mobile: "show" },
             { key: "value", header: "Taken off the bill", type: "money", exact: true, value: (e) => (e.value === null ? null : Number(e.value)) },
@@ -117,12 +118,12 @@ function RulesDialog({ rules, onClose, onSaved }) {
       onSubmit={() => businessWrite(biz.id, "loyalty/rules", form, "put")}
       description="New rules apply to bills from now on. Points already earned keep their number; their value follows the new rate.">
       <Field label="For every (₹ spent)"><input required type="number" min="1" step="0.01" value={form.earnPerAmount} onChange={set("earnPerAmount")} /></Field>
-      <Field label="Customer earns (points)"><input required type="number" min="1" step="1" value={form.earnPoints} onChange={set("earnPoints")} /></Field>
+      <Field label={`${biz.t("customer")} earns (points)`}><input required type="number" min="1" step="1" value={form.earnPoints} onChange={set("earnPoints")} /></Field>
       <Field label="One point is worth (₹)"><input required type="number" min="0.01" step="0.01" value={form.pointValue} onChange={set("pointValue")} /></Field>
       <Field label="Redeem from (points)"><input required type="number" min="1" step="1" value={form.minRedeemPoints} onChange={set("minRedeemPoints")} /></Field>
       <Field label="Points can pay at most (% of a bill)"><input required type="number" min="1" max="100" step="0.01" value={form.maxRedeemPercent} onChange={set("maxRedeemPercent")} /></Field>
       <label className="checkbox bz-check"><input type="checkbox" checked={form.active} onChange={set("active")} /> Points are on</label>
-      <label className="checkbox bz-check field-wide"><input type="checkbox" checked={form.returnSpentPoints} onChange={set("returnSpentPoints")} /> Give back spent points on returns <small className="muted">(points used on a bill come back in proportion to the goods returned; points it earned are taken back)</small></label>
+      <label className="checkbox bz-check field-wide"><input type="checkbox" checked={form.returnSpentPoints} onChange={set("returnSpentPoints")} /> Give back spent points on returns <small className="muted">(points used on a bill come back in proportion to what is returned; points it earned are taken back)</small></label>
       <p className="field-wide muted small">Example: a {biz.exact(1000)} bill earns {example} points, worth {biz.exact(example * Number(form.pointValue || 0))} on a later bill.</p>
     </FormDialog>
   );
@@ -133,12 +134,13 @@ function AdjustDialog({ member, onClose, onSaved }) {
   const [requestKey] = useState(newKey);
   const [form, setForm] = useState({ points: "", reason: "" });
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
+  const example = biz.t.ex("loyalty_reason");
   return (
     <FormDialog title={`Correct points · ${member.name}`} icon="star" width={520} onClose={onClose} onSaved={onSaved}
       onSubmit={() => businessWrite(biz.id, `loyalty/${member.id}/adjustments`, { ...form, requestKey })}
       description={`${member.name} has ${member.balance} points. Use a minus sign to take points away.`}>
       <Field label="Points (+ to add, − to take away)"><input required type="number" step="1" value={form.points} onChange={set("points")} /></Field>
-      <Field label="Reason" wide><input required maxLength={300} value={form.reason} placeholder="e.g. Diwali bonus promised in store" onChange={set("reason")} /></Field>
+      <Field label="Reason" wide><input required maxLength={300} value={form.reason} placeholder={example ? `e.g. ${example}` : undefined} onChange={set("reason")} /></Field>
     </FormDialog>
   );
 }

@@ -3405,7 +3405,11 @@ A shop that comes to the platform with its catalogue, customers or suppliers
 in another system (Tally, Vyapar, Marg), a spreadsheet or an udhaar book
 brings them in at once. **Import from Excel or CSV** is on **Products &
 services**, **Customers** and **Suppliers**, beside *Add item*, *Add customer*
-and *Add supplier*, for whoever may add those by hand.
+and *Add supplier*, for whoever may add those by hand. The dialog speaks the
+business's own words (a gym imports its *plans & services* and its
+*members*, from *your member register*), and tells of opening stock and pack
+sizes only where the business keeps stock, and of styles only with Variants
+on.
 
 1. **Download sample file** gives the template: its headings are exactly the
    columns the import reads, and *What each column means* explains each,
