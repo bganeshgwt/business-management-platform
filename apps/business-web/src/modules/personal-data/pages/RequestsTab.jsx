@@ -12,7 +12,7 @@ import { getErrorMessage } from "../../../services/api";
 import { confirmAction } from "../../../services/confirm";
 import { toast } from "../../../services/toast";
 import { dateShort, dateTime } from "@bmp/shared/format";
-import { CHANNELS, KINDS, REQUEST_CHANNELS, REQUEST_STATUS, downloadPersonFile, dueWords, kindLabel, requestTone } from "../personalData";
+import { KINDS, REQUEST_CHANNELS, REQUEST_STATUS, channelWords, downloadPersonFile, dueWords, kindLabel, requestTone } from "../personalData";
 import { refusalOf } from "../services/privacy.service";
 import { PersonPrivacy } from "../components/ChildMark";
 import usePagedList from "./usePagedList";
@@ -29,7 +29,7 @@ export default function RequestsTab({ privacy, openId, onOpen }) {
   const [status, setStatus] = useState("open");
   const list = usePagedList(privacy.api, "requests", { gridId: `privacy-requests-${privacy.api.kind}`, params: status ? { status } : {} });
   const [logging, setLogging] = useState(false);
-  const words = privacy.api.person;
+  const words = privacy.words.person;
 
   const columns = useMemo(() => [
     { key: "no", header: "No.", value: (r) => r.request_no, mobile: "title", pin: true, render: (r) => <strong>Request {r.request_no}</strong> },
@@ -41,9 +41,9 @@ export default function RequestsTab({ privacy, openId, onOpen }) {
       render: (r) => <span className="pd-two-line"><span>{dateShort(r.due_on, { year: true })}</span>{r.status === "open" && <small className={`pd-due pd-due-${requestTone(r)}`}>{dueWords(r.days_left)}</small>}</span> },
     { key: "status", header: "Status", type: "status", value: (r) => REQUEST_STATUS[r.status] || r.status, mobile: "show",
       render: (r) => <StatusBadge status={r.status} label={REQUEST_STATUS[r.status] || r.status} tone={requestTone(r)} /> },
-    { key: "channel", header: "Came in", value: (r) => CHANNELS[r.channel] || r.channel, defaultHidden: true },
+    { key: "channel", header: "Came in", value: (r) => channelWords(r.channel, privacy.words), defaultHidden: true },
     { key: "actions", header: "", label: "Actions", type: "actions", render: (r) => <button type="button" className="chip-button" onClick={() => onOpen(r.id)}>Open</button> },
-  ], [onOpen, words.One]);
+  ], [onOpen, words.One, privacy.words]);
 
   return (
     <>
@@ -60,7 +60,7 @@ export default function RequestsTab({ privacy, openId, onOpen }) {
           )}
           rowClassName={(r) => (r.status !== "open" ? "dg-tone-muted" : Number(r.days_left) < 0 ? "dg-tone-danger" : requestTone(r) === "warning" ? "dg-tone-warning" : "")}
           empty={status === "open" ? "No request waiting" : "No request yet"} emptyIcon="shield"
-          emptyHint={`When a ${words.one} asks to see, correct or erase their data, or complains about how it is used, log it here the day it comes: it is answered within 90 days.`} />
+          emptyHint={`When ${words.a} asks to see, correct or erase their data, or complains about how it is used, log it here the day it comes: it is answered within 90 days.`} />
       </SectionCard>
       {logging && <LogRequestDialog privacy={privacy} onClose={() => setLogging(false)}
         onSaved={(row) => { setLogging(false); toast.success(`Request ${row.request_no} logged: answer by ${dateShort(row.due_on, { year: true })}.`); list.reload(); onOpen(row.id); }} />}
@@ -71,7 +71,7 @@ export default function RequestsTab({ privacy, openId, onOpen }) {
 }
 
 function LogRequestDialog({ privacy, onClose, onSaved }) {
-  const words = privacy.api.person;
+  const words = privacy.words.person;
   const [form, setForm] = useState({ kind: "access", person: null, personName: "", replyTo: "", channel: "counter", receivedOn: "", details: "" });
   const [requestKey] = useState(() => crypto.randomUUID());
   const [busy, setBusy] = useState(false);
@@ -99,7 +99,7 @@ function LogRequestDialog({ privacy, onClose, onSaved }) {
           <select value={form.kind} onChange={set("kind")}>{Object.entries(KINDS).map(([value, k]) => <option key={value} value={value}>{k.label}</option>)}</select>
         </FormField>
         <FormField label="How it came in">
-          <select value={form.channel} onChange={set("channel")}>{REQUEST_CHANNELS.map((c) => <option key={c} value={c}>{CHANNELS[c]}</option>)}</select>
+          <select value={form.channel} onChange={set("channel")}>{REQUEST_CHANNELS.map((c) => <option key={c} value={c}>{channelWords(c, privacy.words)}</option>)}</select>
         </FormField>
         <SearchPicker className="field-wide" label={`The ${words.one}`} hint={`Find them in your ${words.many}; if they cannot be found yet, give their name below and link them later.`}
           value={form.person} onChange={(person) => setForm((f) => ({ ...f, person }))} search={search}
@@ -135,7 +135,7 @@ function RequestPanel({ privacy, requestId, onClose, onChanged }) {
   const [blocked, setBlocked] = useState(null);
   const [answering, setAnswering] = useState(null);
   const [busy, setBusy] = useState(false);
-  const words = privacy.api.person;
+  const words = privacy.words.person;
   const load = useCallback((signal) => privacy.api.request(requestId, signal).then((r) => { setRequest(r); setError(""); })
     .catch((err) => { if (!signal?.aborted) setError(getErrorMessage(err)); }), [privacy.api, requestId]);
   useEffect(() => {
@@ -187,7 +187,7 @@ function RequestPanel({ privacy, requestId, onClose, onChanged }) {
             <div className="pd-facts">
               <StatusBadge status={request.status} label={REQUEST_STATUS[request.status]} tone={requestTone(request)} />
               {open && <span className={`pd-due pd-due-${requestTone(request)}`}>{dueWords(request.days_left)}</span>}
-              <span className="muted">{CHANNELS[request.channel]}{request.reply_to ? ` · reply to ${request.reply_to}` : ""}</span>
+              <span className="muted">{channelWords(request.channel, privacy.words)}{request.reply_to ? ` · reply to ${request.reply_to}` : ""}</span>
             </div>
             <p className="pd-asked"><strong>{request.person_name}</strong> asked: {request.details}</p>
 
@@ -202,7 +202,7 @@ function RequestPanel({ privacy, requestId, onClose, onChanged }) {
                 <SearchPicker label={`Link the request to the ${words.one}`} search={search} getLabel={(p) => p.name}
                   getDescription={(p) => [p.phone, p.email].filter(Boolean).join(" · ")} placeholder="Name, phone or e-mail"
                   onChange={(picked) => picked && run(async () => { await privacy.api.linkRequest(request.id, picked.id); changed(); })} />
-              ) : <p className="muted">Not linked to a {words.one}.</p>}
+              ) : <p className="muted">Not linked to {words.a}.</p>}
             </section>
 
             {open && privacy.canManage && (

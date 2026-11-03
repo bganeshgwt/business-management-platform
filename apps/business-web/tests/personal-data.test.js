@@ -1,9 +1,30 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { blockedReason, boardWords, breachTone, consentAllows, consentChanges, dueWords, notAgreed, requestTone } from '../src/modules/personal-data/personalData.js';
+import { RESTAURANT_WORDS, blockedReason, boardWords, breachTone, channelWords, consentAllows, consentChanges, dueWords, notAgreed, privacyWords, requestTone } from '../src/modules/personal-data/personalData.js';
+import { defaultT, words } from './helpers/defaultWords.js';
 
 // Personal data on the staff screens: the 90 days of a request, the Board's
-// 72 hours on a breach, what a consent form sends, and why a message cannot go.
+// 72 hours on a breach, what a consent form sends, why a message cannot go,
+// and the words of a business's people and places.
+
+test("a business's people, counter and sale in its own words; a restaurant's guests", () => {
+  const gym = privacyWords(words({ customer: ['Member', 'Members'], counter: ['Front desk', 'Front desks'], sale: ['Bill', 'Bills'] }));
+  assert.deepEqual(gym.person, { one: 'member', many: 'members', One: 'Member', a: 'a member' });
+  assert.equal(gym.sale, 'a bill');
+  assert.equal(channelWords('counter', gym), 'At the front desk');
+  assert.equal(channelWords('guests_site', gym), 'Online');
+  assert.equal(channelWords('phone', gym), 'On the phone');
+  // A business with the default words, and a restaurant, read as before.
+  const shop = privacyWords(defaultT);
+  assert.deepEqual(shop.person, { one: 'customer', many: 'customers', One: 'Customer', a: 'a customer' });
+  assert.equal(shop.sale, 'a sale');
+  assert.equal(channelWords('counter', shop), 'At the counter');
+  assert.equal(channelWords('counter', RESTAURANT_WORDS), 'At the counter');
+  assert.equal(channelWords('guests_site', RESTAURANT_WORDS), "On the guests' site");
+  // A channel the screens do not know reads as itself; none reads as nothing.
+  assert.equal(channelWords('kiosk', gym), 'kiosk');
+  assert.equal(channelWords(null, gym), '');
+});
 
 test("a request's 90 days: due in so many days, due today, or so many days late; the bell's tones", () => {
   assert.equal(dueWords(90), 'Due in 90 days');

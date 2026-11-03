@@ -65,11 +65,11 @@ export default function ConsentChoices({ privacy, personId = null, personName = 
       ? <>Consent is taken on your privacy notice: <Link to={`${privacy.settingsPath}?tab=notice`}>publish it first (Settings › Personal data)</Link>.</>
       : "Consent is taken on the privacy notice, which the owner publishes in Settings › Personal data.";
   } else if (!privacy.canRecord) {
-    hint = "Someone who takes customers records what they agree to.";
+    hint = `Someone who takes ${privacy.words.person.many} records what they agree to.`;
   } else if (notice) {
     hint = instant
-      ? `Tap what they say yes to, after reading them its line of your privacy notice (v${notice.version}). None is needed for a sale.`
-      : `Read them each line of your privacy notice (v${notice.version}) and tap what they say yes to. None is needed for a sale.`;
+      ? `Tap what they say yes to, after reading them its line of your privacy notice (v${notice.version}). None is needed for ${privacy.words.sale}.`
+      : `Read them each line of your privacy notice (v${notice.version}) and tap what they say yes to. None is needed for ${privacy.words.sale}.`;
   }
 
   return (

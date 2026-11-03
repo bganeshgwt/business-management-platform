@@ -4,7 +4,7 @@ import Icon from "@bmp/ui/Icon";
 import Modal from "../../../components/Modal";
 import { ErrorMessage } from "../../../components/Feedback";
 import { getErrorMessage } from "../../../services/api";
-import { PURPOSES, blockedReason } from "../personalData";
+import { PURPOSES, blockedReason, channelWords } from "../personalData";
 import { consentStore } from "../consentStore";
 import "../styles/personal-data.css";
 
@@ -17,7 +17,8 @@ export default function AskConsentDialog({ privacy, purpose, person, status, not
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const store = consentStore(privacy.api);
-  const name = person?.name || privacy.api.person.One;
+  const people = privacy.words.person;
+  const name = person?.name || people.One;
   const words = PURPOSES[purpose] || { words: purpose };
   const line = notice && words.text ? notice[words.text] : null;
   const never = Boolean(status?.erased || (purpose === "offers" && status?.child));
@@ -42,7 +43,7 @@ export default function AskConsentDialog({ privacy, purpose, person, status, not
       <div className="stack pd-ask">
         <ErrorMessage message={error} />
         <p className="pd-ask-why">{reason}{never ? "" : " Ask them, and record their answer before it goes."}</p>
-        {!never && !person?.id && <p className="muted">Save them as a {privacy.api.person.one} first: a consent is kept on their record.</p>}
+        {!never && !person?.id && <p className="muted">Save them as {people.a} first: a consent is kept on their record.</p>}
         {!never && person?.id && notice === null && (
           <p className="muted">
             The privacy notice is not published yet, and consent is taken on it.{" "}
@@ -58,13 +59,13 @@ export default function AskConsentDialog({ privacy, purpose, person, status, not
             <label className="field">
               <span>Where they said yes</span>
               <select value={channel} onChange={(e) => setChannel(e.target.value)}>
-                <option value="counter">At the counter</option>
-                <option value="phone">On the phone</option>
+                <option value="counter">{channelWords("counter", privacy.words)}</option>
+                <option value="phone">{channelWords("phone", privacy.words)}</option>
               </select>
             </label>
           </>
         )}
-        {!never && person?.id && notice && !privacy.canRecord && <p className="muted">Someone who takes {privacy.api.person.many} records it on their record.</p>}
+        {!never && person?.id && notice && !privacy.canRecord && <p className="muted">Someone who takes {people.many} records it on their record.</p>}
         <div className="form-actions">
           <button type="button" className="button button-secondary" onClick={onClose} disabled={busy}>{canAsk ? "Not now" : "Close"}</button>
           {canAsk && (

@@ -1,11 +1,15 @@
 import { useMemo } from "react";
 import useAuth from "../../hooks/useAuth";
 import useBusiness from "../../hooks/useBusiness";
+import { makeTerms } from "../../services/terms";
+import { RESTAURANT_WORDS, privacyWords } from "./personalData";
 import { restaurantPrivacy, shopPrivacy } from "./services/privacy.service";
 
 // What a screen needs to take or check a person's consent, for the business
 // open in Business Admin or for the signed-in restaurant:
 //   api          the calls (services/privacy.service.js)
+//   words        the people it keeps, its counter, a sale (personalData.js
+//                privacyWords): a gym's members at its front desk
 //   canRecord    may record or withdraw a consent (whoever takes customers)
 //   canView, canManage, canExport   the registers, as the server allows them
 //   settingsPath where Settings › Personal data is
@@ -16,13 +20,14 @@ const SHOP_RECORDERS = ["contacts.create", "contacts.edit", "patients.create", "
 export function useShopPrivacy() {
   const biz = useBusiness();
   const id = biz.context?.business?.id;
+  const terms = biz.context?.terms;
   const canRecord = SHOP_RECORDERS.some((code) => biz.can(code));
   const canView = biz.can("privacy.view");
   const canManage = biz.can("privacy.manage");
   const canExport = biz.can("privacy.export");
   const settingsPath = biz.path("privacy");
-  return useMemo(() => ({ api: shopPrivacy(id), canRecord, canView, canManage, canExport, settingsPath }),
-    [id, canRecord, canView, canManage, canExport, settingsPath]);
+  return useMemo(() => ({ api: shopPrivacy(id), words: privacyWords(makeTerms(terms)), canRecord, canView, canManage, canExport, settingsPath }),
+    [id, terms, canRecord, canView, canManage, canExport, settingsPath]);
 }
 
 export function useRestaurantPrivacy() {
@@ -31,6 +36,6 @@ export function useRestaurantPrivacy() {
   const canView = hasPermission("privacy.view");
   const canManage = hasPermission("privacy.manage");
   const canExport = hasPermission("privacy.export");
-  return useMemo(() => ({ api: restaurantPrivacy(), canRecord, canView, canManage, canExport, settingsPath: "/privacy" }),
+  return useMemo(() => ({ api: restaurantPrivacy(), words: RESTAURANT_WORDS, canRecord, canView, canManage, canExport, settingsPath: "/privacy" }),
     [canRecord, canView, canManage, canExport]);
 }

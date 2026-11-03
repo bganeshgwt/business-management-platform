@@ -1,6 +1,7 @@
 // Personal data (DPDP Act 2023 and Rules 2025): the words and small rules the
-// screens share, for a shop's customers and a restaurant's guests alike. No
-// React here, so the staff app's unit tests read it as it is.
+// screens share, for a business's customers (its members, patients, clients)
+// and a restaurant's guests alike. No React here, so the staff app's unit
+// tests read it as it is.
 
 // The purposes a person agrees to, each with its own consent notice.
 export const PURPOSES = {
@@ -15,10 +16,30 @@ export const PURPOSES = {
 export const COUNTER_PURPOSES = ["bills_digital", "reminders", "offers"];
 export const purposeLabel = (purpose) => PURPOSES[purpose]?.label || purpose;
 
-// Where a consent or a request came from.
+// The words the screens use for a business's people and places, from its own
+// (services/terms.js `t`): the people it keeps (a member, a patient), where
+// they are served (the front desk, reception), what they buy (a bill) and
+// where they agree online. A restaurant's are its guests' (RESTAURANT_WORDS).
+export function privacyWords(t) {
+  return {
+    person: { one: t.lower("customer"), many: t.lower("customer", "many"), One: t("customer"), a: t.a("customer") },
+    counter: t.lower("counter"),
+    sale: t.a("sale"),
+    online: "Online",
+  };
+}
+export const RESTAURANT_WORDS = {
+  person: { one: "guest", many: "guests", One: "Guest", a: "a guest" },
+  counter: "counter",
+  sale: "a sale",
+  online: "On the guests' site",
+};
+
+// Where a consent or a request came from; at the counter and online in the
+// words of the business (privacyWords).
 export const CHANNELS = {
   counter: "At the counter",
-  guests_site: "On the guests' site",
+  guests_site: "Online",
   phone: "On the phone",
   import: "From earlier records",
   email: "By e-mail",
@@ -26,7 +47,11 @@ export const CHANNELS = {
   field: "In person, by a salesperson",
 };
 export const METHODS = { verbal: "Said yes", signed_form: "Signed a form", digital: "Ticked it online" };
-export const channelWords = (channel) => CHANNELS[channel] || channel || "";
+export function channelWords(channel, words) {
+  if (channel === "counter" && words?.counter) return `At the ${words.counter}`;
+  if (channel === "guests_site" && words?.online) return words.online;
+  return CHANNELS[channel] || channel || "";
+}
 
 // What a person may ask (DPDP Rules 2025: answered within 90 days).
 export const KINDS = {

@@ -18,7 +18,6 @@ function calls(door) {
   const { get, post, patch, remove } = door;
   return {
     kind: door.kind,
-    person: door.person,
     // The notice in force (any member), its versions, and a new version.
     notice: (signal) => get("notice", undefined, signal),
     notices: (signal) => get("notices", undefined, signal),
@@ -53,10 +52,9 @@ function calls(door) {
   };
 }
 
-// A shop on the shared core: its customers.
+// A business on the shared core: its customers (in its own words: usePrivacy.js).
 export const shopPrivacy = (businessId) => once(`shop:${businessId}`, () => ({
   kind: "shop",
-  person: { one: "customer", many: "customers", One: "Customer" },
   get: (path, params, signal) => businessRead(businessId, `privacy/${path}`, params, signal),
   post: (path, body) => businessWrite(businessId, `privacy/${path}`, body),
   patch: (path, body) => businessWrite(businessId, `privacy/${path}`, body, "patch"),
@@ -66,7 +64,6 @@ export const shopPrivacy = (businessId) => once(`shop:${businessId}`, () => ({
 // The signed-in restaurant: its guests.
 export const restaurantPrivacy = () => once("restaurant", () => ({
   kind: "restaurant",
-  person: { one: "guest", many: "guests", One: "Guest" },
   get: async (path, params, signal) => (await api.get(`/privacy/${path}`, { params, signal })).data.data,
   post: async (path, body) => (await api.post(`/privacy/${path}`, body || {})).data.data,
   patch: async (path, body) => (await api.patch(`/privacy/${path}`, body || {})).data.data,

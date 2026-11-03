@@ -3868,12 +3868,16 @@ customer's form, *+ New customer* at Quick bill, a member, hirer, lodger,
 owner, farmer or client added on a type's own screen, a restaurant's guest
 form), three chips ask what they agree to be sent: *Bills on WhatsApp*,
 *Reminders*, *Offers*. Read them the line of the notice for each and tap what
-they say yes to; none is needed for a sale, and a phone number never is. On a
+they say yes to; none is needed for a sale (a gym's or a clinic's screens say
+*a bill*), and a phone number never is. On a
 customer chosen at Quick bill or the restaurant's till, a tap records it at
 once. To withdraw one, let its chip go on the customer's form and save.
 A person's consent history says where each was given and withdrawn: at the
-counter, on the phone, on the guests' site, or *in person, by a salesperson*
-for a shop's yes given on the [salesperson app](#salesperson-app).
+counter (in the business's own words: *At the front desk*, *At the
+reception*), on the phone, online (a restaurant's: *On the guests' site*), or
+*in person, by a salesperson* for a shop's yes given on the
+[salesperson app](#salesperson-app). The personal data screens name the
+business's own people too: a gym's members, a clinic's patients.
 
 **A message asks first.** A WhatsApp bill, a quotation on WhatsApp, a dues,
 renewal, recall, service-due, appointment, package, gold-scheme or site-dues

@@ -31,12 +31,12 @@ export default function PrivacyView({ privacy }) {
   }), [setParams]);
   const openRequest = useCallback((id) => go({ request: id }), [go]);
   const openBreach = useCallback((id) => go({ breach: id }), [go]);
-  const words = privacy.api.person;
+  const words = privacy.words.person;
 
   return (
     <div className="stack">
       <PageHeader icon="shield" title="Personal data"
-        description={`The privacy notice and contact your ${words.many} are shown, their requests to see, correct or erase their data (answered within 90 days), and the breach register. Consent for bills, reminders and offers is taken where a ${words.one} is taken.`} />
+        description={`The privacy notice and contact your ${words.many} are shown, their requests to see, correct or erase their data (answered within 90 days), and the breach register. Consent for bills, reminders and offers is taken where ${words.a} is taken.`} />
       <ContentTabs label="Personal data" value={tab} options={TABS} onChange={(value) => go({ tab: value, request: null, breach: null })}>
         {tab === "requests" && <RequestsTab privacy={privacy} openId={params.get("request")} onOpen={openRequest} />}
         {tab === "breaches" && <BreachesTab privacy={privacy} openId={params.get("breach")} onOpen={openBreach} />}

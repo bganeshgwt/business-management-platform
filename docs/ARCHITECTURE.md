@@ -1120,7 +1120,9 @@ It serves both engines the way tasks and GST rate changes do (§4.3, §4.5):
   one is found, exported and erased, the business's lock and date, the
   permission checks, and where audit rows go (`business_audit`, or the
   restaurant's `audit_logs`). The staff app shares its screens the same way
-  (`modules/personal-data/pages/`, *Settings › Personal data* in both).
+  (`modules/personal-data/pages/`, *Settings › Personal data* in both), each
+  in its own words (`usePrivacy.js` › `words`: a business's people, counter
+  and sale from its words per type, §7; a restaurant's guests).
 
 **Consent where a customer is taken, checked where a message goes.**
 `services/consents.js` is what every module uses inside its own transaction:

@@ -63,7 +63,7 @@ export default function BreachesTab({ privacy, openId, onOpen }) {
 }
 
 function RecordBreachDialog({ privacy, onClose, onSaved }) {
-  const words = privacy.api.person;
+  const words = privacy.words.person;
   const [form, setForm] = useState({ foundAt: toLocal(new Date()), whatHappened: "", impact: "", stepsTaken: "", affected: "chosen", people: [] });
   const [requestKey] = useState(() => crypto.randomUUID());
   const [busy, setBusy] = useState(false);
@@ -137,7 +137,7 @@ const whatsappTo = (phone, text) => {
 };
 
 function BreachPanel({ privacy, breachId, onClose, onChanged }) {
-  const words = privacy.api.person;
+  const words = privacy.words.person;
   const [breach, setBreach] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -231,7 +231,7 @@ function BreachPanel({ privacy, breachId, onClose, onChanged }) {
               {breach.affected === "chosen" ? (
                 <>
                   {open && privacy.canManage && (
-                    <SearchPicker label={`Add a ${words.one}`} search={search} clearOnSelect getLabel={(p) => p.name}
+                    <SearchPicker label={`Add ${words.a}`} search={search} clearOnSelect getLabel={(p) => p.name}
                       getDescription={(p) => [p.phone, p.email].filter(Boolean).join(" · ")} placeholder="Name, phone or e-mail"
                       onChange={(p) => p && run(() => privacy.api.addPeople(breach.id, [p.id]), `${p.name} added.`)} />
                   )}
@@ -249,7 +249,7 @@ function BreachPanel({ privacy, breachId, onClose, onChanged }) {
                     <p className="muted">The first {everyone.items.length} of {everyone.total}. Find anyone else by name:</p>
                   )}
                   {everyone && everyone.total > everyone.items.length && open && privacy.canManage && (
-                    <SearchPicker label={`Find a ${words.one}`} search={search} clearOnSelect getLabel={(p) => p.name}
+                    <SearchPicker label={`Find ${words.a}`} search={search} clearOnSelect getLabel={(p) => p.name}
                       onChange={(p) => p && setSendTo({ person_id: p.id, name: p.name, phone: p.phone, email: p.email })} />
                   )}
                 </>
