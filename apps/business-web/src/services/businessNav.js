@@ -128,7 +128,7 @@ export function businessSections(type, t = makeTerms()) {
     {
       title: "Pharmacy",
       links: [
-        { section: "drug-master", label: "Drug master", icon: "products", need: "pharmacy.view", types: PHARMACY },
+        { section: "drug-master", label: "Drug master", icon: "pill", need: "pharmacy.view", types: PHARMACY },
         { section: "pharmacy-registers", label: "Registers & prescriptions", icon: "logbook", need: "pharmacy.view", types: PHARMACY },
         { section: "pharmacy-batches", label: "Expiry, returns & recalls", icon: "returns", need: "pharmacy.view", types: PHARMACY },
       ],
@@ -141,15 +141,15 @@ export function businessSections(type, t = makeTerms()) {
         { section: "clinic-workspace", label: "Clinic workspace", icon: "clinic", need: "patients.view", types: CLINIC, href: (id) => `/clinic/${id}` },
         { section: "lab-workspace", label: "Lab workspace", icon: "lab", need: "lab.view", types: CLINIC, href: (id) => `/lab/${id}` },
         { section: "clinic-today", label: "Today's patients", icon: "reservations", need: "patients.view", types: CLINIC },
-        { section: "clinic-queue", label: "Token queue", icon: "collection", need: "patients.view", types: CLINIC },
+        { section: "clinic-queue", label: "Token queue", icon: "token", need: "patients.view", types: CLINIC },
         { section: "patients", label: "Patients", icon: "customers", need: "patients.view", types: CLINIC },
         { section: "visits", label: "Visits & follow-ups", icon: "logbook", need: "patients.view", types: CLINIC },
-        { section: "lab-orders", label: "Lab orders", icon: "inventoryInsights", need: "lab.view", types: CLINIC },
+        { section: "lab-orders", label: "Lab orders", icon: "lab", need: "lab.view", types: CLINIC },
         { section: "lab-tests", label: "Tests & panels", icon: "categories", need: "lab.view", types: CLINIC },
         { section: "lab-qc", label: "Quality control", icon: "activity", need: "lab.view", types: CLINIC },
         { section: "doctors", label: "Doctors, fees & OPD", icon: "employees", need: "appointments.view", types: CLINIC },
         // The clinic's own drug list, which the prescription picks from (kept by the doctors).
-        { section: "clinic-drugs", label: "Drug list", icon: "products", need: "patients.view_clinical", types: CLINIC },
+        { section: "clinic-drugs", label: "Drug list", icon: "pill", need: "patients.view_clinical", types: CLINIC },
       ],
     },
     {
@@ -163,7 +163,7 @@ export function businessSections(type, t = makeTerms()) {
         { section: "molecules", label: "Molecules", icon: "categories", need: "agri.view", types: AGRI },
         // Each farmer's credit for a season (its limit, harvest date and interest), and the crops in their groups.
         { section: "agri-seasons", label: "Season credit", icon: "dues", need: "agri.view", types: AGRI },
-        { section: "agri-crops", label: "Crops", icon: "products", need: "agri.view", types: AGRI },
+        { section: "agri-crops", label: "Crops", icon: "sprout", need: "agri.view", types: AGRI },
       ],
     },
     {
@@ -189,7 +189,7 @@ export function businessSections(type, t = makeTerms()) {
       title: "Garage",
       links: [
         { section: "job-cards", label: "Job cards", icon: "repair", module: "garage", types: GARAGE },
-        { section: "vehicles", label: "Vehicles", icon: "deliveries", need: "garage.view", types: GARAGE },
+        { section: "vehicles", label: "Vehicles", icon: "car", need: "garage.view", types: GARAGE },
         // Vehicles due for a service, and insurance and PUC running out, with a reminder ready to send.
         { section: "service-due", label: "Service due", icon: "reservations", need: "garage.view", types: GARAGE },
       ],
@@ -249,7 +249,7 @@ export function businessSections(type, t = makeTerms()) {
         // Karigars' job work, the hallmarking centre and the fine-weight book (with its pieces).
         { section: "karigar-work", label: "Karigar work", icon: "repair", need: "jewellery.view", types: JEWELLERY },
         { section: "hallmarking", label: "Hallmarking", icon: "logbook", need: "jewellery.view", types: JEWELLERY },
-        { section: "fine-weight", label: "Fine weight", icon: "inventoryInsights", need: "jewellery.view", types: JEWELLERY },
+        { section: "fine-weight", label: "Fine weight", icon: "scale", need: "jewellery.view", types: JEWELLERY },
         // Metal with bullion suppliers in grams, and its rate fixed (with its purchases; for those who see purchases).
         { section: "metal-account", label: "Metal account", icon: "suppliers", need: "purchasing.view", module: "jewellery", types: JEWELLERY },
       ],
@@ -302,7 +302,7 @@ export function businessSections(type, t = makeTerms()) {
         { section: "lodging-rooms", label: "Rooms & housekeeping", icon: "floors", need: "lodging.view", types: LODGING },
         { section: "lodging-reservations", label: "Reservations", icon: "calendar", need: "lodging.view", types: LODGING },
         { section: "lodging-stays", label: "Stays", icon: "hours", need: "lodging.view", types: LODGING },
-        { section: "lodging-form-iii", label: "Foreign guests (Form-III)", icon: "profile", need: "lodging.create", types: LODGING },
+        { section: "lodging-form-iii", label: "Foreign guests (Form-III)", icon: "idCard", need: "lodging.create", types: LODGING },
         { section: "lodging-register", label: "Guest register", icon: "logbook", need: "lodging.print", types: LODGING },
         // Maintenance tickets for the rooms, and the house's figures (occupancy, ADR, RevPAR: money, for those who see reports).
         { section: "lodging-maintenance", label: "Maintenance", icon: "repair", need: "lodging.view", types: LODGING },
@@ -325,7 +325,7 @@ export function businessSections(type, t = makeTerms()) {
     {
       title: "Products",
       links: [
-        { section: "products", label: t("catalog", "many"), icon: "products", need: "catalog.view" },
+        { section: "products", label: t("catalog", "many"), icon: "catalog", need: "catalog.view" },
         { section: "categories", label: "Categories", icon: "categories", need: "catalog.view" },
         // Every business's units; with Stock on, the page holds its pack sizes too.
         { section: "units", label: "Units", icon: "units", need: "catalog.view" },
@@ -336,7 +336,7 @@ export function businessSections(type, t = makeTerms()) {
         { section: "kits", label: "Kits & bundles", icon: "box", need: "catalog.view", module: "inventory", types: GOODS },
         // The yearly GST change, entered ahead: items move to another slab from a date.
         { section: "tax-changes", label: "GST rate changes", icon: "tax", need: "catalog.view", except: ['restaurant'] },
-        { section: "salon-setup", label: "Stylists & services", icon: "hours", need: "appointments.view", types: SALON },
+        { section: "salon-setup", label: "Stylists & services", icon: "scissors", need: "appointments.view", types: SALON },
         { section: "rates", label: "Today's rates", icon: "priceList", need: "catalog.view", module: "weight", types: WEIGHED },
         // A hardware shop's board of the items whose price moves every day.
         { section: "rates", label: "Today's rates", icon: "priceList", need: "catalog.view", module: "hardware_rates", types: HARDWARE },
@@ -345,7 +345,7 @@ export function businessSections(type, t = makeTerms()) {
         // A rental business's items with their rates, units and deposits, and the handover settings.
         { section: "rental-items", label: "Rental items", icon: "box", need: "rentals.view", types: RENTALS },
         // A garage's parts: the makes and models each fits, newer numbers and parts that do the same job.
-        { section: "garage-parts", label: "Parts fitment", icon: "products", need: "catalog.view", module: "garage", types: GARAGE },
+        { section: "garage-parts", label: "Parts fitment", icon: "part", need: "catalog.view", module: "garage", types: GARAGE },
       ],
     },
     {
@@ -359,11 +359,11 @@ export function businessSections(type, t = makeTerms()) {
         { section: "counts", label: "Stock counts", icon: "counts", need: "stock_counts.view" },
         { section: "serials", label: "Serial / IMEI register", icon: "numbering", need: "inventory.view", module: "serials" },
         // Weight-based shops.
-        { section: "weight-stock", label: "Stock by weight", icon: "inventoryInsights", need: "inventory.view", module: "weight", types: WEIGHED },
-        { section: "processing", label: t("processing", "many"), icon: "kitchen", need: "processing.view" },
+        { section: "weight-stock", label: "Stock by weight", icon: "scale", need: "inventory.view", module: "weight", types: WEIGHED },
+        { section: "processing", label: t("processing", "many"), icon: "processing", need: "processing.view" },
         { section: "wastage", label: "Wastage", icon: "returns", need: "wastage.view" },
         // A farm-input shop's seed lots with their tags, and stock kept apart (expired, seized, sampled).
-        { section: "agri-seed-lots", label: "Seed lots", icon: "inventoryInsights", need: "inventory.view", module: "agri", types: AGRI },
+        { section: "agri-seed-lots", label: "Seed lots", icon: "sprout", need: "inventory.view", module: "agri", types: AGRI },
         { section: "agri-kept-apart", label: "Kept apart", icon: "returns", need: "inventory.view", module: "agri", types: AGRI },
       ],
     },
@@ -386,11 +386,11 @@ export function businessSections(type, t = makeTerms()) {
       title: "Reports",
       links: [
         { section: "reports", label: "Reports", icon: "reports", need: "reports.view" },
-        { section: "retail-reports", label: "Retail reports", icon: "inventoryInsights", need: "reports.view", module: "sales", types: RETAIL },
+        { section: "retail-reports", label: "Retail reports", icon: "reports", need: "reports.view", module: "sales", types: RETAIL },
         { section: "wholesale-reports", label: "Wholesale reports", icon: "reports", need: "reports.view", module: "sales_orders" },
-        { section: "variant-reports", label: "Variant reports", icon: "inventoryInsights", need: "reports.view", module: "variants" },
-        { section: "weight-reports", label: "Yield & wastage report", icon: "inventoryInsights", need: "reports.view", types: WEIGHED },
-        { section: "salon-reports", label: "Service profitability", icon: "inventoryInsights", need: "reports.view", types: SALON },
+        { section: "variant-reports", label: "Variant reports", icon: "reports", need: "reports.view", module: "variants" },
+        { section: "weight-reports", label: "Yield & wastage report", icon: "reports", need: "reports.view", types: WEIGHED },
+        { section: "salon-reports", label: "Service profitability", icon: "reports", need: "reports.view", types: SALON },
         { section: "commissions", label: "Staff commissions", icon: "payroll", need: "commissions.view" },
         { section: "fitter-reports", label: "Fitters' commission", icon: "payroll", need: "fitter_commission.view", types: HARDWARE },
         // A garage's mechanics' commission on the labour billed, and its payouts.
@@ -420,7 +420,7 @@ export function businessSections(type, t = makeTerms()) {
         // A garage's months and kilometres to the next service, and the item that bills the owner's share of a claim.
         { section: "garage-settings", label: "Garage settings", icon: "serviceSettings", need: "garage.view", types: GARAGE },
         // A gym's, studio's or coaching centre's plans, and when overdue fees turn a member away at check-in.
-        { section: "member-plans", label: "Membership plans", icon: "package", need: "member_plans.view", types: MEMBERSHIPS },
+        { section: "member-plans", label: "Membership plans", icon: "idCard", need: "member_plans.view", types: MEMBERSHIPS },
         // A jeweller's tags and the hallmarking charge a new piece starts with.
         { section: "jewellery-settings", label: "Jewellery settings", icon: "serviceSettings", need: "jewellery.view", types: JEWELLERY },
         { section: "scheme-plans", label: "Gold scheme plans", icon: "recurring", need: "sales.view", module: "jewellery", types: JEWELLERY },
