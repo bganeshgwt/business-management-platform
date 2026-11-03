@@ -254,8 +254,11 @@ test('the offline till', { timeout: 900000 }, async (t) => {
     assert.equal(kept.customers.find((c) => c.id === Number(ramesh.id)).balance, '330.00');
     assert.equal(kept.items.length, 6);
     // A price change: the items come again.
-    priceChangedAt = new Date();
     await pool.query('UPDATE catalog_skus SET price=46 WHERE business_id=$1 AND id=$2', [grocery.id, sugar.id]);
+    // When the price changed, by the database's own clock (its price history), so
+    // a bill dated just before it falls after the item was made however fast this runs.
+    priceChangedAt = new Date((await one('SELECT max(changed_at) AS at FROM business_price_history WHERE business_id=$1 AND sku_id=$2 AND location_id IS NULL',
+      [grocery.id, sugar.id])).at);
     const repriced = await as(ravi.token, till(tokenOne))('GET', `${G('till/snapshot')}?${new URLSearchParams(snapshots.snapshotQuery(kept))}`);
     assert.equal(repriced.items.unchanged, undefined);
     assert.equal(repriced.items.rows.find((row) => row.code === 'SUGAR').listPrice, '46.00');
@@ -475,7 +478,7 @@ test('the offline till', { timeout: 900000 }, async (t) => {
     // Sugar at 48 before its price changed: in force then, no flag; at 48 now: flagged, and the billed price stands.
     const then = structuredClone(snap);
     then.items.find((row) => row.id === Number(sugar.id)).listPrice = '48.00';
-    const before = await send(ravi.token, tokenOne, billOf(then, { seq: 10, madeAt: new Date(priceChangedAt.getTime() - 1000).toISOString(), cart: { lines: [{ skuId: sugar.id, quantity: '1' }] } }));
+    const before = await send(ravi.token, tokenOne, billOf(then, { seq: 10, madeAt: new Date(priceChangedAt.getTime() - 1).toISOString(), cart: { lines: [{ skuId: sugar.id, quantity: '1' }] } }));
     assert.deepEqual(before.flags, []);
     const stale = await send(ravi.token, tokenOne, billOf(then, { seq: 11, cart: { lines: [{ skuId: sugar.id, quantity: '1' }] } }));
     assert.deepEqual(stale.flags, ['price']);
