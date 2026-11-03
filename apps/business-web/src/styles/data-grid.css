@@ -334,8 +334,9 @@
   vertical-align: middle;
 }
 
-/* A sized column's heading wraps onto a second line rather than being cut;
-   only a third line is clipped. */
+/* A sized column's heading wraps onto a second line rather than being cut,
+   and onto a third where the device's letters are wider than the widths here
+   assume (another font, larger text); only a fourth line is clipped. */
 .dg-head-row > th.is-sized {
   white-space: normal;
 }
@@ -347,7 +348,7 @@
   overflow: hidden;
   overflow-wrap: normal;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
 }
 
 .dg-sort {

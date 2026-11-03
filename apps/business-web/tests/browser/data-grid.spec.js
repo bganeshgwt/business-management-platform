@@ -493,11 +493,13 @@ test.describe("DataGrid component", () => {
     // both are pinned (pinning never moves a column forward).
     await expect(small.locator("thead th")).toHaveText(["S.No.", "#", "Dish name", "Quantity sold today", "Kitchen note"]);
     await expect(small.locator("thead th.is-pinned")).toHaveCount(3);
-    // A narrow heading wraps to two lines instead of being cut, and a column
-    // of words is never narrower than about 110px.
+    // A narrow heading wraps instead of being cut: to two lines with Windows'
+    // Segoe UI, to a third where the letters are wider (Linux's fonts on CI).
+    // A column of words is never narrower than about 110px.
     const label = small.locator("thead th", { hasText: "Quantity sold today" }).locator(".dg-head-label");
     const box = await label.evaluate((node) => ({ lines: Math.round(node.getBoundingClientRect().height / parseFloat(getComputedStyle(node).lineHeight)), cut: node.scrollHeight > node.clientHeight + 1 || node.scrollWidth > node.clientWidth + 1 }));
-    expect(box.lines).toBe(2);
+    expect(box.lines).toBeGreaterThanOrEqual(2);
+    expect(box.lines).toBeLessThanOrEqual(3);
     expect(box.cut).toBe(false);
     expect((await small.locator("thead th", { hasText: "Kitchen note" }).boundingBox()).width).toBeGreaterThanOrEqual(109);
     // No step in the row lines where the pinned columns end.
