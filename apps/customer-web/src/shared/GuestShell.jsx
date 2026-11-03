@@ -3,7 +3,7 @@ import Icon from "@bmp/ui/Icon";
 import { drawing, markSvg } from "@bmp/ui/drawings";
 import { BUSINESS_ACCENTS } from "@bmp/ui/businessIcons";
 import { initials, mapsHref, openLine, sellerLines, telHref } from "./guestWords";
-import { usePlatformBrand, useTypeLook } from "./siteInfo";
+import { usePlatformBrand } from "./siteInfo";
 import "../styles/guest.css";
 import "./shared.css";
 
@@ -18,9 +18,9 @@ import "./shared.css";
 //
 //   card     the business card the page's API answer carries (the API's
 //            guestBusinessCard); null while it loads: the band shows its
-//            placeholder. Its mark is its `look` ({ icon, accent }) when the
-//            card carries one, else its type's (`type`), as the platform sets
-//            them in Platform › Business types
+//            placeholder. Its mark is the card's `look` ({ icon, accent }, as
+//            Platform › Business types sets them for its type or kind) when
+//            the card carries one; its initials otherwise
 //   seller   what the page adds to the card's seller details, each shown only
 //            when given: { legalName, address, customerCare: { phone, email },
 //            grievance: { name, designation, phone, email }, fssai } (a shop
@@ -30,15 +30,12 @@ import "./shared.css";
 //   actions  more buttons for the band, before Call and Directions
 //   wide     a wider page (a shop's grid) than a form's column
 
-// The business's mark: { icon, color } once its look is known, null when it
-// has none we can draw, undefined while its type's is read.
-function useMark(card) {
-  const typeLook = useTypeLook(card && !card.look ? card.type : null);
-  const look = card ? card.look || typeLook : undefined;
-
-  if (look === undefined) return undefined;
+// The business's mark from its card: { icon, color }, or null when the card
+// carries no look we can draw.
+const markOf = (card) => {
+  const look = card && card.look;
   return look && drawing(look.icon) ? { icon: look.icon, color: BUSINESS_ACCENTS[look.accent] || null } : null;
-}
+};
 
 // The browser tab's icon: the business's mark while its page is open.
 function useTabMark(mark) {
@@ -61,10 +58,6 @@ function Mark({ card, mark }) {
     return <img className="gs-logo" src={card.logoUrl} alt="" width="36" height="36" onError={() => setBroken(true)} />;
   }
 
-  if (mark === undefined) {
-    return <span className="skeleton gs-sk-mark" aria-hidden="true" />;
-  }
-
   if (mark) {
     return (
       <span className="g-monogram gs-mark" style={mark.color ? { "--gs-mark": mark.color } : undefined} aria-hidden="true">
@@ -82,7 +75,7 @@ function Mark({ card, mark }) {
 
 export default function GuestShell({ card, seller = null, context = null, actions = null, wide = false, children }) {
   const brand = usePlatformBrand();
-  const mark = useMark(card);
+  const mark = markOf(card);
   useTabMark(mark);
   const line = card ? openLine(card.hours) : null;
   const call = card ? telHref(card.location && card.location.phone) : null;

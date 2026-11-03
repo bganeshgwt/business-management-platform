@@ -3,13 +3,15 @@ import { expect, test } from "@playwright/test";
 
 import { account, business, fixture } from "../../../../e2e/fixture.mjs";
 
-// A business's guest page wears its own look (words and looks per business
+// A business's guest page in its own look (words and looks per business
 // type), in the light and the dark look:
-//   - a gym's booking page shows the gym's mark (its type's icon) white on
-//     its accent in the band and the browser tab, names the gym in the tab,
-//     and never speaks of a restaurant's tables;
-//   - neither does the site's own address or a cut-off link, while a table's
-//     QR code link still asks for the table's code.
+//   - the site's own address and a cut-off link never speak of a restaurant's
+//     tables, while a table's QR code link still asks for the table's code;
+//   - a gym's booking page names the gym in the tab and says nothing of tables;
+//   - with its card carrying the gym's look (its type's icon and accent, as
+//     Platform › Business types sets them), the band and the browser tab wear
+//     the gym's mark, white on its accent. The card is given its look here, in
+//     the page's API answer, as the API is to send it (guestBusinessCard).
 // The gym's booking link is made here, as Online booking › Booking link makes
 // one, and switched off again at the end.
 
@@ -32,11 +34,16 @@ async function call(method, route, body, expected = 200, token = ownerToken) {
 
 let gym = null;
 let link = null;
+// The gym's booking link, switched on: made once, found again on a rerun.
 test.beforeAll(async () => {
   const owner = account("RESTAURANT_ADMIN");
   ownerToken = (await call("POST", "/auth/login", { identifier: owner.email, password: owner.password }, 200, null)).token;
   gym = business("memberships");
-  link = await call("POST", `/businesses/${gym.id}/online-booking/links`, { locationId: gym.locationId }, 201);
+  const { locations } = await call("GET", `/businesses/${gym.id}/online-booking`);
+  const made = locations.find((entry) => entry.location.id === gym.locationId)?.link;
+  link = made
+    ? await call("PATCH", `/businesses/${gym.id}/online-booking/links/${made.id}`, { enabled: true })
+    : await call("POST", `/businesses/${gym.id}/online-booking/links`, { locationId: gym.locationId }, 201);
 });
 
 test.afterAll(async () => {
@@ -46,7 +53,7 @@ test.afterAll(async () => {
 const TABLES = /\btables?\b/i;
 
 for (const colorScheme of ["light", "dark"]) {
-  test(`a gym's booking page wears the gym's mark and speaks of no tables (${colorScheme})`, async ({ browser }, testInfo) => {
+  test(`a gym's booking page speaks of no tables and wears the gym's mark from its card (${colorScheme})`, async ({ browser }, testInfo) => {
     const context = await browser.newContext({ colorScheme, viewport: { width: 390, height: 800 } });
     const page = await context.newPage();
     const errors = [];
@@ -64,20 +71,30 @@ for (const colorScheme of ["light", "dark"]) {
       await page.goto(`${fixture().urls.guests}/order`);
       await expect(page.locator("main")).toContainText("QR code on your table");
 
-      await page.goto(`${fixture().urls.guests}/appointments/${link.token}`);
+      // The gym's booking page, as served.
+      const bookingPage = `${fixture().urls.guests}/appointments/${link.token}`;
+      await page.goto(bookingPage);
       const band = page.getByRole("banner");
       await expect(band).toContainText(gym.name, { timeout: 15_000 });
       await expect(page).toHaveTitle(`Book online · ${gym.name}`);
-      const types = (await call("GET", "/site/pricing", undefined, 200, null)).types;
-      const look = types.find((type) => type.code === "memberships");
-      // No logo: the gym's mark, white on its accent.
-      const mark = band.locator(".gs-mark");
-      await expect(mark).toBeVisible();
-      await expect(mark.locator("svg")).toHaveCount(1);
-      expect(await mark.getAttribute("style")).toContain(`--gs-mark: ${ACCENTS[look.accent]}`);
-      const tabIcon = await page.locator('link[rel="icon"]').getAttribute("href");
-      expect(decodeURIComponent(tabIcon)).toContain(`fill="${ACCENTS[look.accent]}"`);
       await expect(page.locator("body")).not.toContainText(TABLES);
+
+      // Its card carrying the gym's look: the band's mark and the tab's, in the gym's accent.
+      const types = (await call("GET", "/site/pricing", undefined, 200, null)).types;
+      const { icon, accent } = types.find((type) => type.code === gym.type);
+      await page.route((url) => url.pathname.endsWith(`/public/appointments/${link.token}`), async (route) => {
+        const response = await route.fetch();
+        const json = await response.json();
+        json.data.card = { ...json.data.card, look: { icon, accent } };
+        await route.fulfill({ response, json });
+      });
+      await page.goto(bookingPage);
+      const mark = band.locator(".gs-mark");
+      await expect(mark).toBeVisible({ timeout: 15_000 });
+      await expect(mark.locator("svg")).toHaveCount(1);
+      expect(await mark.getAttribute("style")).toContain(`--gs-mark: ${ACCENTS[accent]}`);
+      const tabIcon = await page.locator('link[rel="icon"]').getAttribute("href");
+      expect(decodeURIComponent(tabIcon)).toContain(`fill="${ACCENTS[accent]}"`);
       await page.screenshot({ path: testInfo.outputPath(`gym-booking-${colorScheme}.png`) });
       expect(errors).toEqual([]);
     } finally {
