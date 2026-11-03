@@ -1,4 +1,5 @@
-import { GOODS, ONLINE_SHOP, SERVICES, UDHAAR, WEIGHED } from './businessTypes.js';
+import { GOODS, ONLINE_SHOP, WEIGHED } from './businessTypes.js';
+import { makeTerms } from './terms.js';
 
 // Presentation groups share the existing route permissions and module guards.
 // A capability being available does not make it a daily sidebar destination.
@@ -94,19 +95,17 @@ export function workspaceSections(key, type) {
   });
 }
 
-export function workspaceLabel(section, type, fallback) {
-  if (section === 'sales') return SERVICES.includes(type) ? 'Bill history' : 'Sales history';
-  if (section === 'collections') return 'Payments received';
-  if (section === 'udhaar') return UDHAAR.includes(type) ? 'Udhaar' : 'Customer dues';
-  if (section === 'outstanding') return 'Customer dues';
+// A page's name in the menu, the tabs and the page guard: the business's own
+// word for it where it names its people, things or money (t: services/terms.js).
+export function workspaceLabel(section, type, fallback, t = makeTerms()) {
+  if (section === 'sales') return t.ex('phrase.sales_history') || fallback;
+  if (section === 'collections') return t('collection', 'many');
+  if (section === 'udhaar' || section === 'outstanding') return t('dues_list', 'many');
   if (section === 'day-close') return 'Daily money';
-  if (section === 'stock') return type === 'salon' ? 'Product stock' : 'Stock';
-  if (section === 'processing') return type === 'weight_retail' ? 'Sorting & repacking' : 'Cutting & processing';
-  if (section === 'weight-reports') return type === 'weight_retail' ? 'Repacking & wastage' : 'Cutting & wastage';
-  if (section === 'salon-calendar') return 'Appointments';
-  if (section === 'products' && type === 'healthcare') return 'Services & charges';
-  // A gym's members are its Members page; the contacts behind them keep their details and dues.
-  if (section === 'customers' && type === 'memberships') return 'Member contacts';
+  if (section === 'stock') return t.ex('phrase.stock') || fallback;
+  if (section === 'processing') return t('processing', 'many');
+  if (section === 'weight-reports') return t.ex('phrase.processing_report') || fallback;
+  if (section === 'salon-calendar') return t('appointment', 'many');
   if (section === 'settings') return 'Settings';
   if (section === 'staff') return 'Staff & access';
   return fallback;

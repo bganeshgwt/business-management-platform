@@ -104,9 +104,14 @@ test('platform site: info, pricing, sign-up into a free trial, call-back enquiri
     const inOrder = (list) => list.every((item, i) => i === 0 || order[list[i - 1].code] <= order[item.code]);
     const byCode = (list) => [...list].sort((a, b) => a.code.localeCompare(b.code));
     const tidy = (type) => ({ ...type, plans: type.plans.map((plan) => ({ ...plan, modules: byCode(plan.modules) })), addons: byCode(type.addons) });
+    // Each type with its look and the kinds a new business may choose (Platform › Business types).
+    const looks = Object.fromEntries((await all('SELECT code,icon,accent FROM business_types')).map((r) => [r.code, { icon: r.icon, accent: r.accent }]));
+    const kindsOf = (code) => all('SELECT code,name,icon FROM business_type_kinds WHERE business_type=$1 AND active ORDER BY sort_order,name', [code]);
+    assert.ok(pricing.types.find((type) => type.code === 'memberships').kinds.some((kind) => kind.code === 'coaching'), 'a gym type offers its kinds');
     for (const type of pricing.types) {
       const offer = await catalogue.forType(type.code);
-      assert.deepEqual(tidy(type), tidy({ code: type.code, name: type.name, ...offer, ...(type.code === 'restaurant' ? { formats: restaurant.formats } : {}) }), type.code);
+      assert.deepEqual(tidy(type), tidy({ code: type.code, name: type.name, ...looks[type.code], kinds: await kindsOf(type.code), ...offer,
+        ...(type.code === 'restaurant' ? { formats: restaurant.formats } : {}) }), type.code);
       assert.deepEqual(type.plans.map((plan) => plan.code), offer.plans.map((plan) => plan.code), type.code);
       assert.ok(inOrder(type.addons) && type.plans.every((plan) => inOrder(plan.modules)), type.code);
     }

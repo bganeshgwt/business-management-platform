@@ -55,7 +55,8 @@ test('meat billing fits desktop, customer dues share navigation, and expense/cas
   await expect(page.getByRole('heading',{name:'Stock on hand',exact:true})).toBeVisible();
   await expect(page.getByRole('link',{name:'Stock by weight',exact:true})).toBeVisible();
   await page.goto(`/business-admin/${business.id}/udhaar`);
-  await expect(page.getByRole('navigation',{name:'Related pages'}).getByRole('link',{name:'Payments received'})).toBeVisible();
+  // A shop that keeps udhaar calls its payments against it so.
+  await expect(page.getByRole('navigation',{name:'Related pages'}).getByRole('link',{name:'Udhaar payments'})).toBeVisible();
   await page.goto(`/business-admin/${business.id}/expenses`);
   await expect(page.getByRole('heading',{name:'Daily expenses',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'Record expense',exact:true}).click();

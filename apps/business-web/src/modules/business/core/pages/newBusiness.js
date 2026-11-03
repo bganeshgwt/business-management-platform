@@ -18,7 +18,7 @@ const localZone = () => {
 };
 
 export const emptyBusiness = () => ({
-  businessType: "", name: "", code: "", legalName: "", gstin: "", stateCode: "", addressLine1: "", addressLine2: "", city: "", postalCode: "",
+  businessType: "", kind: "", name: "", code: "", legalName: "", gstin: "", stateCode: "", addressLine1: "", addressLine2: "", city: "", postalCode: "",
   phone: "", email: "", currency: "INR", timezone: localZone(), locationName: "", locationCode: "",
 });
 

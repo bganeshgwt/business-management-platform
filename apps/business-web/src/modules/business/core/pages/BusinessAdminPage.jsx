@@ -10,8 +10,8 @@ import { getErrorMessage } from "../../../../services/api";
 import { businessRead, createBusiness, linkRestaurant } from "../../../../services/business.service";
 import { AddBusinessDialog } from "./NewBusinessForm";
 import { moneyShort } from "@bmp/shared/format";
-import { businessPath, TYPE_ICONS } from "../../../../services/businessNav";
-import { UDHAAR } from "../../../../services/businessTypes";
+import { businessPath } from "../../../../services/businessNav";
+import TypeMark from "../../../../components/TypeMark";
 import StatusBadge from "../../../../components/StatusBadge";
 // Each business's plan in a few words (modules/plan).
 import { stateBadge, todayIn } from "../../../plan/planWords";
@@ -61,7 +61,7 @@ export default function BusinessAdminPage() {
   const linked = businesses.some((b) => b.is_signed_in_restaurant);
   // Owners (and a restaurant's admin) may start another business of their own.
   const canAdd = businesses.some((b) => b.full_access) || user.roles.includes("RESTAURANT_ADMIN");
-  const types = Object.entries(directory?.types || {}).map(([code, t]) => ({ code, name: t.name }));
+  const types = Object.entries(directory?.types || {}).map(([code, t]) => ({ code, ...t }));
   const term = q.trim().toLowerCase();
   const shown = term ? businesses.filter((b) => `${b.name} ${b.type_name} ${b.role_name}`.toLowerCase().includes(term)) : businesses;
 
@@ -115,7 +115,7 @@ function BusinessCard({ business, onOpen }) {
   const alerts = summary ? ["low_stock", "expiring_soon", "promises_broken", "repairs_ready", "orders_to_dispatch"].reduce((n, key) => n + Number(summary[key] || 0), 0) : 0;
   const figures = summary ? [
     "sales_today" in summary && `Today ${moneyShort(summary.sales_today)}`,
-    "receivables_owed" in summary && Number(summary.receivables_owed) > 0 && `${UDHAAR.includes(business.business_type) ? "Udhaar" : "Owed"}${moneyShort(summary.receivables_owed)}`,
+    "receivables_owed" in summary && Number(summary.receivables_owed) > 0 && `${business.dues_word || "Owed"} ${moneyShort(summary.receivables_owed)}`,
     alerts > 0 && `${alerts} to look at`,
   ].filter(Boolean) : [];
   // Its plan: the trial's days left, paid or given until, renew by, ended.
@@ -123,9 +123,7 @@ function BusinessCard({ business, onOpen }) {
   return (
     <button type="button" className="bz-business-card" onClick={onOpen}
       disabled={restaurant && !business.is_signed_in_restaurant} title={business.name}>
-      <span className={`bsw-type bsw-type-${business.business_type}`} aria-hidden="true">
-        <Icon name={TYPE_ICONS[business.business_type] || "store"} size={18} />
-      </span>
+      <TypeMark look={business.look} format={business.restaurant_format} size={18} />
       <span className="bz-business-card-text">
         <strong>{business.name}</strong>
         <small>{business.type_name} · {business.role_name}</small>

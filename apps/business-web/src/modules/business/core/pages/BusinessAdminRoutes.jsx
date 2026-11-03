@@ -8,6 +8,7 @@ import SidePanel from "../../../../components/SidePanel";
 import { sectionRule, typeAllows } from "../../../../services/businessNav";
 import WorkspaceNav from './WorkspaceNav';
 import { workspaceLabel } from "../../../../services/businessWorkspace";
+import { makeTerms } from "../../../../services/terms";
 
 const OverviewPage = lazy(() => import("./OverviewPage"));
 const DocumentsPage = lazy(() => import("./DocumentsPage"));
@@ -468,7 +469,7 @@ function OverviewSheet() {
   const element = section ? screens(type)[section] : null;
   if (!element) return null;
   const rule = sectionRule(section, type);
-  const title = workspaceLabel(section, type, rule?.label || "Details");
+  const title = workspaceLabel(section, type, rule?.label || "Details", makeTerms(context.terms));
   const rest = new URLSearchParams(params);
   rest.delete("open");
   return (

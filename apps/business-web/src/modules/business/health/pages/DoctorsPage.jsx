@@ -101,7 +101,7 @@ function DoctorList() {
         <StatTile icon="calendar" label="With OPD timings" value={rows ? String(doctors.filter((d) => d.sessions.length).length) : ""} loading={!rows} />
         <StatTile icon="clock" label="On leave ahead" value={rows ? String(doctors.filter((d) => d.leave.length).length) : ""} loading={!rows} />
       </div>
-      <SectionCard flush icon="users" title="Doctors and rooms" description="Add doctors and rooms in Settings › Doctors & rooms; link a doctor's registration in Clinic & lab settings.">
+      <SectionCard flush icon="users" title={biz.t("resource", "many")} description={`Add them in Settings › ${biz.t("resource", "many")}; link a doctor's registration in Clinic & lab settings.`}>
         <DataGrid id="clinic-doctors" caption="Doctors" rows={doctors} rowKey={(d) => d.id} columns={columns} loading={!rows && !error} rowNoun={["doctor", "doctors"]}
           empty="No doctors yet" emptyIcon="users" />
       </SectionCard>

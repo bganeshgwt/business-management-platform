@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {businessMenu,sectionRule,typeAllows} from '../src/services/businessNav.js';
 import {restaurantMenu,restaurantRelated} from '../src/services/restaurantWorkspace.js';
 import {workspaceFor,workspaceSections} from '../src/services/businessWorkspace.js';
+import {defaultT,words} from './helpers/defaultWords.js';
 
 const TYPES=['grocery','supermarket','wholesale','fashion','electronics','pharmacy','books','salon','healthcare','meat','weight_retail',
   'general_retail','hardware','agri_inputs','optical','garage','jewellery','fuel_station','memberships','laundry','rentals','lodging'];
@@ -38,7 +39,8 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   // The newer trades: bookings for the optician, the garage and the gym; a hardware shop's
   // site orders while Sales orders is on; services bill without a counter; their own words.
   // A permission counts only while its module is on, as the business context reports it.
-  const menu=(type,has=()=>true)=>businessMenu(33,type,p=>has(p.split('.')[0]),has).flatMap(g=>g.links);
+  // The menu in a type's words (the server's; here the defaults with what a test gives).
+  const menu=(type,has=()=>true,t=defaultT)=>businessMenu(33,type,p=>has(p.split('.')[0]),has,false,t).flatMap(g=>g.links);
   for(const type of ['optical','garage','memberships'])assert.ok(menu(type).some(l=>l.section==='appointments'),`${type}: bookings in the daily menu`);
   assert.ok(menu('hardware').some(l=>l.section==='sales-orders'),'hardware: site orders');
   assert.ok(!menu('hardware',m=>m!=='sales_orders').some(l=>l.section==='sales-orders'),'hardware: no orders while Sales orders is off');
@@ -47,9 +49,9 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   // A jeweller's counter is the jewellery bill, with Quick bill beside it for everything else.
   assert.ok(menu('jewellery').some(l=>l.section==='jewellery-bill'&&l.pages.some(p=>p.to.endsWith('/counter'))),'jewellery: the jewellery bill with Quick bill');
   assert.ok(menu('jewellery',m=>m!=='jewellery').some(l=>l.section==='counter'),'jewellery: Quick bill while its tools are off');
-  assert.equal(menu('hardware').find(l=>l.section==='udhaar').label,'Udhaar');
+  assert.equal(menu('hardware',undefined,words({dues_list:['Udhaar','Udhaar']})).find(l=>l.section==='udhaar').label,'Udhaar');
   assert.equal(menu('optical').find(l=>l.section==='udhaar').label,'Customer dues');
-  assert.equal(menu('lodging').find(l=>l.section==='sales').label,'Bill history');
+  assert.equal(menu('lodging',undefined,words({'phrase.sales_history':['Bill history']})).find(l=>l.section==='sales').label,'Bill history');
   // Quotations sit with Sales wherever the module is on; a hardware shop's orders have no beat screen.
   const pages=(type,has=()=>true)=>menu(type,has).flatMap(l=>l.pages);
   for(const type of ['hardware','grocery','garage','wholesale'])assert.ok(pages(type).some(p=>p.to.endsWith('/quotations')),`${type}: quotations under Sales`);
@@ -127,7 +129,8 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   const checkIn=menu('memberships').find(l=>l.section==='check-in');
   assert.equal(checkIn.label,'Check-in');
   assert.ok(businessMenu(33,'memberships',()=>true,()=>true).find(g=>g.title==='Daily work').links.some(l=>l.section==='check-in'),'memberships: check-in in the daily menu');
-  const members=menu('memberships').find(l=>l.section==='members');
+  const gym=words({customer_list:['Member contact','Member contacts']});
+  const members=menu('memberships',undefined,gym).find(l=>l.section==='members');
   assert.equal(members.label,'Members');
   assert.deepEqual(members.pages.slice(0,3).map(p=>[p.to.split('/').pop(),p.label]),[['members','Members'],['renewals','Renewals'],['customers','Member contacts']]);
   assert.ok(!menu('memberships').some(l=>l.section==='customers'),'memberships: members in place of customers');
@@ -137,7 +140,7 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   assert.equal(workspaceFor('member-plans','memberships'),'settings');
   assert.ok(pages('memberships').some(p=>p.to.endsWith('/member-plans')),'memberships: its plans under Settings');
   assert.ok(!menu('memberships',m=>m!=='member_plans').some(l=>['check-in','members'].includes(l.section)),'no check-in or members while the module is off');
-  assert.equal(menu('memberships',m=>m!=='member_plans').find(l=>l.section==='customers').label,'Member contacts');
+  assert.equal(menu('memberships',m=>m!=='member_plans',gym).find(l=>l.section==='customers').label,'Member contacts');
   // A trainer (members, their plans and check-ins; no money) finds the desk and the members, and no money screens.
   const trainer=new Set(['member_plans.view','member_plans.create','appointments.view','appointments.edit']);
   const floor=businessMenu(33,'memberships',p=>trainer.has(p),()=>true).flatMap(g=>g.links);
@@ -152,7 +155,7 @@ test('daily menus keep specialist pages in their trades and remove duplicate set
   assert.ok(pages('laundry').some(p=>p.to.endsWith('/laundry-packages')&&p.label==='Packages'),'laundry: its packages with its customers');
   assert.equal(workspaceFor('ready-racks','laundry'),'garmentOrders');
   assert.equal(workspaceFor('laundry-prices','laundry'),'products');
-  assert.equal(menu('laundry').find(l=>l.section==='products').label,'Services & items');
+  assert.equal(menu('laundry',undefined,words({catalog:['Price list','Services & items']})).find(l=>l.section==='products').label,'Services & items');
   assert.ok(pages('laundry').some(p=>p.to.endsWith('/laundry-prices')&&p.label==='Price list'),'laundry: its price list with its services');
   assert.ok(!menu('laundry',m=>m!=='laundry').some(l=>['laundry-new','garment-orders'].includes(l.section)),'no garment orders while the module is off');
   // The presser (a stock keeper) finds the orders and the racks, and no counter.

@@ -143,6 +143,10 @@ for (const [name, permission] of Object.entries(listPermissions)) {
 // Settings, modules, tax rates, number series and locations.
 router.get(b('/settings'), context('settings.view'), async (req, res) => send(res, await setup.getSettings(req.business)));
 router.put(b('/settings'), context('settings.edit'), async (req, res) => send(res, await setup.updateSettings(req.business, req.user, req.body)));
+// Business settings › Words: the business's kind and the words its owner renames.
+const businessWords = require('../services/businessWords.service');
+router.get(b('/words'), context('settings.view'), async (req, res) => send(res, await businessWords.ownerView(req.business)));
+router.put(b('/words'), context('settings.edit'), async (req, res) => send(res, await businessWords.saveOwn(req.business, req.user, req.body)));
 router.get(b('/modules'), context(), async (req, res) => send(res, await setup.modules(req.business)));
 router.put(b('/modules/:code'), context('settings.edit'), async (req, res) => send(res, await setup.setModule(req.business, req.user, req.params.code, req.body)));
 router.post(b('/tax-rates'), context('settings.edit'), async (req, res) => send(res, await setup.createTaxRate(req.business, req.user, req.body), 201));

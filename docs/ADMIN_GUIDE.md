@@ -368,7 +368,9 @@ period filled in.
 1. *About you*: the owner's name, mobile, email and a password of 8 to 72
    characters. The owner signs in with the email or the mobile.
 2. *Your business*: its name and type (a restaurant also chooses its format:
-   restaurant, café, bakery or cloud kitchen), its city and state, and its
+   restaurant, café, bakery or cloud kitchen; a type with kinds offers them,
+   such as a yoga studio or a dental clinic, whose words its screens then
+   use), its city and state, and its
    GSTIN if it has one, whose first two digits must be the state's.
 3. *Your plan*: the plan (the type's default to start with), monthly or
    yearly, and the add-ons. Ticking an add-on ticks what it needs; unticking
@@ -591,7 +593,10 @@ opens [the business's page](#a-businesss-page).
 
 - **The business** — the type (fixed once created); for a restaurant, its
   format (restaurant, café, bakery or cloud kitchen: how its POS opens and
-  the features it starts with, which the owner can change later); the name
+  the features it starts with, which the owner can change later); for a type
+  that has kinds, the kind (a yoga studio among gyms, studios and coaching, a
+  dental clinic among clinics: it brings the kind's words, and the owner can
+  change it later in Business settings › Words); the name
   and the code (fixed once created); for any other type, the legal name and
   GSTIN; the **state**, the place of supply on the platform's invoices to it
   (required for a restaurant, taken from the GSTIN otherwise); the address,
@@ -599,8 +604,9 @@ opens [the business's page](#a-businesss-page).
   decides its "today", its trial and its end date (the computer's own to
   start with: a computer in India may show its old name, Asia/Calcutta, which
   is saved as Asia/Kolkata, the same clock); and, for any type but a
-  restaurant, its first location and code (*Main store* and MAIN when left
-  empty).
+  restaurant, its first location and code (when left empty, the type's or
+  kind's name for one, such as *Main store*, *Main branch* or *Main clinic*,
+  and MAIN).
 - **The owner** — for any type but a restaurant, an existing login found by
   its email (the business is added to it and appears in its switcher), or a
   new login with a name, a mobile (optional) and a first password of 8 to 72
@@ -858,6 +864,31 @@ Three reports, each with *Export CSV*.
   held to (7 days after it was made; after that the owner makes it again) and
   the owner to call.
 
+### Platform › Business types
+
+Every type a business can be, with its mark and colour, its kinds and how
+many businesses use it. A type's page has three parts, and a business of the
+type sees what is saved at once:
+
+- **Name and look** — the type's name (in the switcher, the sign-up and the
+  price list), what a new item starts as (goods kept in stock, or a service:
+  a gym's or a clinic's), its colour and its mark, with a preview of the mark
+  and of the menu in its words.
+- **Kinds** — the kinds within the type, each with its name and mark: Yoga
+  studio, Dance studio, Coaching & tuition centre among gyms; Dental clinic
+  among clinics; Barber shop and Spa among salons. *On offer* off: no new
+  business can choose it, and those that have it keep it. *A new kind* adds
+  one (its code is made from its name).
+- **Words** — every word the screens, bills and messages use, grouped by what
+  it names (people, what is sold, places, work, money, and the examples and
+  printed lines), with the default in each box. The buttons above choose
+  whose words are edited: the type's, or a kind's (empty: the type's word).
+  An example or a printed line may be *None* (a clinic's bills print no
+  exchange-policy line). The words marked *owners rename* an owner may still
+  change for their own business (Business settings › Words), and the page
+  says how many have. Legal and tax words (GSTIN, Tax invoice, HSN) are not
+  here: the law names them.
+
 ### Platform › Settings
 
 Four tabs (`?tab=company`, `trial`, `prices` or `payment` in the address opens
@@ -995,6 +1026,27 @@ A new business starts with its basics set up and nothing else: no products,
 customers, suppliers, staff logins or stock. These steps take it to its first
 real bill. The owner can do them all; a manager can do the ones their role
 allows.
+
+### Business settings › Words
+
+What the business's screens, bills and messages call its people, things and
+places: a gym's members, trainers and sessions; a clinic's patients and
+doctors; a kirana's udhaar. Each word starts as its type's (Platform ›
+Business types), or its kind's where the kind has its own.
+
+- **Kind of business** — for a type that has kinds (a yoga studio, a coaching
+  centre, a dental clinic, a spa…). A kind brings its own words: a coaching
+  centre's students, faculty and classes. The owner's own words stay.
+- **The words an owner may rename** — the people it serves and its list of
+  them, what it sells (as a list and one item), its locations, where people
+  pay, who serves at a booking and what is booked, a booking itself, its dues
+  and a payment against them. Write the word and its plural; *Use “…”* goes
+  back to the type's word. *Your menu reads* shows the menu with the words as
+  typed. A word the same as the type's is not kept as the owner's, so a
+  later change of the type's word reaches the business too.
+
+Every screen uses the words from the next page it opens; the change is in the
+business's activity (`settings.words_updated`).
 
 ### A shop, wholesaler, salon, pharmacy or clinic
 

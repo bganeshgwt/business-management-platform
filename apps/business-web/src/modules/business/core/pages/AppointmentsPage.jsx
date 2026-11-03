@@ -6,7 +6,7 @@ import SectionCard from "../../../../components/SectionCard";
 import { ErrorMessage, SuccessMessage } from "../../../../components/Feedback";
 import { businessRead, businessWrite } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
-import { businessPath, word } from "../../../../services/businessNav";
+import { businessPath } from "../../../../services/businessNav";
 import FormDialog from "./FormDialog";
 import { Badge, BusinessHeader, Field, PeriodFilter } from "./ui";
 import { useOpenBusiness, useOptions, useServerList } from "./hooks";
@@ -58,7 +58,7 @@ export default function AppointmentsPage() {
   const columns = [
     { key: "starts_at", header: "When", type: "datetime", value: (a) => a.starts_at, mobile: "subtitle",
       render: (a) => `${new Date(a.starts_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}, ${clock(a.starts_at)}–${clock(a.ends_at)}` },
-    { key: "contact_name", header: word(biz.type, "customers", "Customers").replace(/s$/, ""), value: (a) => a.contact_name, mobile: "title", pin: true, render: (a) => (
+    { key: "contact_name", header: biz.t("customer"), value: (a) => a.contact_name, mobile: "title", pin: true, render: (a) => (
       <span className="bz-two-line"><span>{a.contact_name} {a.source === "guests_site" && <span className="ob-online-tag">Online</span>}</span>
         {(a.online_person || a.online_vehicle || a.online_note) && <small className="muted">{[a.online_person && `For ${a.online_person}`, a.online_vehicle, a.online_note].filter(Boolean).join(" · ")}</small>}</span>
     ) },
@@ -158,7 +158,7 @@ function BookDialog({ onClose, onSaved }) {
   };
   return (
     <FormDialog title="Book an appointment" icon="calendar" width={620} submitLabel="Book" onSubmit={submit} onClose={onClose} onSaved={onSaved} disabled={!options}>
-      <Field label={word(biz.type, "customers", "Customers").replace(/s$/, "")}>
+      <Field label={biz.t("customer")}>
         <select required value={form.contactId} onChange={set("contactId")}>
           <option value="">Choose…</option>
           {(options?.["contacts?kind=customer&active=true"] || []).map((c) => <option key={c.id} value={c.id}>{c.name}{c.phone ? ` · ${c.phone}` : ""}</option>)}

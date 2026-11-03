@@ -12,6 +12,12 @@ export const saveConsoleSettings = async (body) => data(await api.put(`${P}/sett
 export const consolePrices = async () => data(await api.get(`${P}/prices`));
 export const saveConsolePrices = async (body) => data(await api.put(`${P}/prices`, body));
 
+// Business types: each type's look, kinds and words.
+export const consoleBusinessTypes = async () => data(await api.get(`${P}/business-types`));
+export const consoleBusinessType = async (code) => data(await api.get(`${P}/business-types/${code}`));
+export const saveConsoleBusinessType = async (code, body) => data(await api.put(`${P}/business-types/${code}`, body));
+export const saveConsoleBusinessKind = async (code, kind, body) => data(await api.put(`${P}/business-types/${code}/kinds/${kind}`, body));
+
 export const consoleBusiness = async (id) => data(await api.get(`${P}/businesses/${id}`));
 export const setConsoleSelection = async (id, body) => data(await api.put(`${P}/businesses/${id}/selection`, body));
 export const giveConsoleTime = async (id, body) => data(await api.post(`${P}/businesses/${id}/given-time`, body));

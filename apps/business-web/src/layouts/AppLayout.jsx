@@ -15,6 +15,7 @@ import BusinessLocationSwitcher from "../components/BusinessLocationSwitcher";
 import BusinessProvider from "../context/BusinessProvider";
 import useBusiness from "../hooks/useBusiness";
 import { businessMenu, businessPath, homeLanding, isRestaurantStaff } from "../services/businessNav";
+import { makeTerms } from "../services/terms";
 import { restaurantMenu } from '../services/restaurantWorkspace';
 import RestaurantWorkspaceNav from '../components/RestaurantWorkspaceNav';
 import NavIcon from "../components/NavIcon";
@@ -202,6 +203,7 @@ const NAV_SECTIONS = [
       { to: "/platform/payments", label: "Payments", icon: "collection", permission: "platform.restaurants.manage" },
       { to: "/platform/invoices", label: "Invoices", icon: "bills", permission: "platform.restaurants.manage" },
       { to: "/platform/reports", label: "Reports", icon: "reports", permission: "platform.restaurants.manage" },
+      { to: "/platform/business-types", label: "Business types", icon: "categories", permission: "platform.restaurants.manage" },
       { to: "/platform/settings", label: "Settings", icon: "settings", permission: "platform.restaurants.manage" },
     ],
   },
@@ -327,7 +329,7 @@ function AppShell() {
   const bellFeed = useMemo(() => (businessMode && businessId ? businessFeed(businessId, user.id) : null), [businessMode, businessId, user.id]);
   const availableSections = useMemo(() => {
     if (businessMode) {
-      return businessContext ? businessMenu(businessId, businessContext.business.business_type, can, has, Boolean(businessContext.role?.full_access)) : [];
+      return businessContext ? businessMenu(businessId, businessContext.business.business_type, can, has, Boolean(businessContext.role?.full_access), makeTerms(businessContext.terms)) : [];
     }
     const resolved = NAV_SECTIONS.filter((section) => user.restaurantId || section.title === "Platform").map((section) => ({
       ...section,

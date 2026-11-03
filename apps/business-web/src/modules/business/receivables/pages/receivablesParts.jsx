@@ -10,7 +10,6 @@ import { businessRead, businessWrite } from "../../../../services/business.servi
 import { getErrorMessage } from "../../../../services/api";
 import { monthStart } from "@bmp/shared/dates";
 import { balanceText, dateShort, relative } from "@bmp/shared/format";
-import { word } from "../../../../services/businessNav";
 import { toast } from "../../../../services/toast";
 import FormDialog from "../../core/pages/FormDialog";
 import { Badge, Field, FormError } from "../../core/pages/ui";
@@ -89,7 +88,7 @@ export function CollectionDialog({ contactId: fixedContact, documentId, onClose,
   });
   const quick = [owes > 0 && { label: `Full ${biz.exact(owes)}`, value: owes }, overdue > 0 && overdue < owes && { label: `Overdue ${biz.exact(overdue)}`, value: overdue }].filter(Boolean);
   return (
-    <FormDialog title={`Record a ${word(biz.type, "collections", "collection").toLowerCase().replace(/s$/, "")}`} icon="wallet" width={780} submitLabel="Save receipt"
+    <FormDialog title={`Record ${biz.t.a("collection")}`} icon="wallet" width={780} submitLabel="Save receipt"
       onSubmit={submit} onClose={onClose} onSaved={onSaved} disabled={!options}
       description="A numbered receipt is issued. Money is put against the customer's bills; anything left over stays as their advance.">
       <FormError message={error} />

@@ -7,7 +7,6 @@ import { ErrorMessage, Loading, SuccessMessage } from "../../../../components/Fe
 import { businessRead, businessWrite } from "../../../../services/business.service";
 import Modal from "../../../../components/Modal";
 import { getErrorMessage } from "../../../../services/api";
-import { word } from "../../../../services/businessNav";
 import { SERVICES } from "../../../../services/businessTypes";
 import FormDialog from "./FormDialog";
 import { ActiveBadge, BusinessHeader, Field, FormError } from "./ui";
@@ -67,7 +66,7 @@ export default function CatalogPage() {
   const taxChanges = useMemo(() => shopChanges(biz.id), [biz.id]);
   // A branch may sell at its own price once there is more than one.
   const branches = biz.locations.filter((l) => l.active).length > 1;
-  const title = word(biz.type, "products", "Products & services");
+  const title = biz.t("catalog", "many");
   useEffect(() => {
     if (params.get("new")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);

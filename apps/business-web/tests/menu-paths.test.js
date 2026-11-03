@@ -6,6 +6,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import { businessMenu } from '../src/services/businessNav.js';
 import { restaurantMenu } from '../src/services/restaurantWorkspace.js';
+import { defaultT } from './helpers/defaultWords.js';
 
 // Help texts, the server's messages and code comments send people to a screen
 // by its menu path ("Settings → Business hours"). When the menus were
@@ -84,7 +85,9 @@ const placesOf = (groups, pagesOf) => groups.map((group) => ({
 }));
 const RESTAURANT = placesOf(restaurantMenu(NAV_SECTIONS), (link) => (link.related || [link]).map((page) => page.label));
 const PLATFORM = RESTAURANT.filter((group) => group.title === 'Platform');
-const shopMenu = (type, can = () => true) => placesOf(businessMenu(1, type, can, () => true), (link) => link.pages.map((page) => page.label));
+// In the words every business starts from: a type's own words are data, and a path
+// written in code that names one of them is built from the business's words.
+const shopMenu = (type, can = () => true) => placesOf(businessMenu(1, type, can, () => true, false, defaultT), (link) => link.pages.map((page) => page.label));
 
 // What a path may name on a page, by the page's name: its tabs, sections and
 // buttons. Where the page lists them in code ({ id | key | value, label } or a

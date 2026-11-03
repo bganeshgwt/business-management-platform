@@ -28,7 +28,7 @@ const localZone = () => {
 const STATE_OPTIONS = Object.entries(GST_STATES).map(([code, name]) => [String(code).padStart(2, "0"), name]).sort((a, b) => a[1].localeCompare(b[1]));
 
 const emptyForm = () => ({
-  businessType: "", format: "restaurant", name: "", code: "", legalName: "", gstin: "", stateCode: "", addressLine1: "", addressLine2: "", city: "", postalCode: "",
+  businessType: "", format: "restaurant", kind: "", name: "", code: "", legalName: "", gstin: "", stateCode: "", addressLine1: "", addressLine2: "", city: "", postalCode: "",
   phone: "", email: "", currency: "INR", timezone: localZone(), locationName: "", locationCode: "",
   ownerEmail: "", ownerName: "", ownerMobile: "", ownerPassword: "",
   planCode: "", billingPeriod: "year", addons: [], access: "until", endsOn: "", reason: "", everything: false,
@@ -60,11 +60,13 @@ export default function PlatformNewBusinessPage() {
   const addons = (catalogue?.prices || []).filter((m) => m.types.includes(form.businessType) && !(plan?.modules || []).includes(m.code));
   const trialDays = settings?.trialDays ?? 0;
   const gstRate = settings?.gstRate || 18;
+  const chosenType = (catalogue?.types || []).find((t) => t.code === form.businessType);
+  const firstLocation = chosenType?.kinds?.find((k) => k.code === form.kind)?.firstLocation || chosenType?.firstLocation || "Main store";
 
   const chooseType = (event) => {
     const type = event.target.value;
     const first = (catalogue?.plans || []).find((p) => p.businessType === type && p.isDefault) || (catalogue?.plans || []).find((p) => p.businessType === type && p.active);
-    setForm((f) => ({ ...f, businessType: type, planCode: first ? first.code : "", addons: [] }));
+    setForm((f) => ({ ...f, businessType: type, kind: "", planCode: first ? first.code : "", addons: [] }));
   };
   const toggleAddon = (code, on) => setForm((f) => ({ ...f, addons: on ? [...f.addons, code] : f.addons.filter((c) => c !== code) }));
 
@@ -76,7 +78,7 @@ export default function PlatformNewBusinessPage() {
     const business = restaurant
       ? { format: trimmed.format, stateCode: trimmed.stateCode, timezone: trimmed.timezone }
       : { legalName: trimmed.legalName, gstin: trimmed.gstin, stateCode: trimmed.stateCode, currency: trimmed.currency, timezone: trimmed.timezone,
-        locationName: trimmed.locationName, locationCode: trimmed.locationCode };
+        locationName: trimmed.locationName, locationCode: trimmed.locationCode, ...(trimmed.kind ? { kind: trimmed.kind } : {}) };
     try {
       const made = await createPlatformBusiness({
         businessType: trimmed.businessType, name: trimmed.name, code: trimmed.code, addressLine1: trimmed.addressLine1, addressLine2: trimmed.addressLine2,
@@ -124,6 +126,14 @@ export default function PlatformNewBusinessPage() {
               {catalogue.types.map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
             </select>
           </FormField>
+          {!restaurant && chosenType?.kinds?.length > 0 && (
+            <FormField label="Kind" optional hint="Its words follow it: a coaching centre's students and classes. The owner can change it later.">
+              <select value={form.kind} onChange={set("kind")}>
+                <option value="">Not chosen</option>
+                {chosenType.kinds.map((k) => <option key={k.code} value={k.code}>{k.name}</option>)}
+              </select>
+            </FormField>
+          )}
           {restaurant && (
             <FormField label="Format" hint="How its POS opens and the features it starts with; the owner can change them later.">
               <select value={form.format} onChange={set("format")}>
@@ -167,7 +177,7 @@ export default function PlatformNewBusinessPage() {
           </FormField>
           {!restaurant && (
             <>
-              <FormField label="First location" optional hint="The shop, counter or godown; Main store when empty."><input maxLength={150} value={form.locationName} onChange={set("locationName")} /></FormField>
+              <FormField label="First location" optional hint={`Where the business works; ${firstLocation} when empty.`}><input maxLength={150} value={form.locationName} onChange={set("locationName")} placeholder={firstLocation} /></FormField>
               <FormField label="Location code" optional hint="Used in bill numbers; MAIN when empty."><input className="mono" maxLength={30} value={form.locationCode} onChange={set("locationCode", (x) => x.toUpperCase())} /></FormField>
             </>
           )}

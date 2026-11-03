@@ -56,7 +56,8 @@ async function saveSettings(user, body) {
 async function getPrices(user) {
   requirePlatform(user);
   const list = await catalogue.all();
-  const types = await repo.all(repo.pool, 'SELECT code,name FROM business_types ORDER BY name');
+  // Each type with its look and kinds, for the platform's New business form.
+  const types = await require('../../business/core/services/businessWords.service').typesForNew();
   return { ...list, types };
 }
 

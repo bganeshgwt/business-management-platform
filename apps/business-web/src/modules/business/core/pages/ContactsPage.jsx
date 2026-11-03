@@ -6,7 +6,6 @@ import SectionCard from "../../../../components/SectionCard";
 import { ErrorMessage, SuccessMessage } from "../../../../components/Feedback";
 import { businessRead, businessWrite } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
-import { word } from "../../../../services/businessNav";
 import { toast } from "../../../../services/toast";
 // A salon's clients are booked from the list, as from their client card.
 import { bookVisitPath } from "../../salon/pages/salonLinks";
@@ -33,8 +32,8 @@ import { OldGoldPayoutsDialog } from "../../jewellery/pages/OldGoldPayouts";
 export default function ContactsPage({ kind }) {
   const biz = useOpenBusiness();
   const customer = kind === "customer";
-  const plural = customer ? word(biz.type, "customers", "Customers") : "Suppliers";
-  const singular = plural.toLowerCase().replace(/ & .*/, "").replace(/s$/, "");
+  const plural = customer ? biz.t("customer_list", "many") : "Suppliers";
+  const singular = customer ? biz.t.lower("customer_list") : "supplier";
   const [params, setParams] = useSearchParams();
   const list = useServerList("contacts", { gridId: `business-${kind}s`, params: { kind } });
   const [editing, setEditing] = useState(() => (params.get("new") === "1" && biz.can("contacts.create") ? {} : null));

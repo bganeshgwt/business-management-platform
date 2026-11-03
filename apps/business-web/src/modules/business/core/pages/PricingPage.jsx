@@ -6,7 +6,6 @@ import ConfirmDialog from "../../../../components/ConfirmDialog";
 import { ErrorMessage, SuccessMessage } from "../../../../components/Feedback";
 import { businessWrite } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
-import { word } from "../../../../services/businessNav";
 import FormDialog from "./FormDialog";
 import { ActiveBadge, BusinessHeader, Field } from "./ui";
 import { quantity, useOpenBusiness, useOptions, useServerList } from "./hooks";
@@ -44,7 +43,7 @@ export default function PricingPage() {
 
   return (
     <div className="stack">
-      <BusinessHeader icon="percent" title={word(biz.type, "pricing", "Wholesale prices")}
+      <BusinessHeader icon="percent" title={biz.t("price_list", "many")}
         description="Lower prices for bigger quantities, for everyone or for one customer, per unit or per pack. A customer's own price comes first, then a price for the pack the line is entered in; the highest slab reached prices every unit on the line."
         actions={biz.can("wholesale.edit") && <button type="button" className="button" onClick={() => setAdding(true)}><Icon name="plus" size={16} /> Add price</button>} />
       <SuccessMessage message={notice} />

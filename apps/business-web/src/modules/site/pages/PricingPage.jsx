@@ -4,7 +4,6 @@ import Icon from "@bmp/ui/Icon";
 import { money } from "@bmp/shared/format";
 import { ErrorMessage, Loading } from "../../../components/Feedback";
 import { getErrorMessage } from "../../../services/api";
-import { TYPE_ICONS } from "../../../services/businessNav";
 import SiteLayout from "../SiteLayout";
 import { useSiteInfo, useSitePricing } from "../useSite";
 import { addonsFor, gstPercent, periodWords, plusGst, priceLabel, priceOf, startLabel, trialWords, typeGroups, typeLine } from "../siteWords.js";
@@ -100,7 +99,7 @@ export default function PricingPage() {
               <section className="site-type-prices" aria-labelledby="type-heading">
                 <div className="site-type-head">
                   <span className="site-type-icon" aria-hidden="true">
-                    <Icon name={TYPE_ICONS[type.code] || "store"} size={20} />
+                    <Icon name={type.icon} fallback="store" size={20} />
                   </span>
                   <div>
                     <h2 id="type-heading">{type.name}</h2>

@@ -3,7 +3,6 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import Icon from "@bmp/ui/Icon";
 import { money } from "@bmp/shared/format";
 import { motionAllowed } from "../../../components/motion";
-import { TYPE_ICONS } from "../../../services/businessNav";
 import SiteLayout from "../SiteLayout";
 import CallBackForm from "../CallBackForm";
 import { useSiteInfo, useSitePricing } from "../useSite";
@@ -118,7 +117,7 @@ function TypeRibbon({ types }) {
             {[0, 1].map((copy) =>
               row.map((type) => (
                 <span key={`${copy}-${type.code}`} className={`wl-chip${copy ? " is-copy" : ""}`}>
-                  <span className="wl-chip-icon"><Icon name={TYPE_ICONS[type.code] || "store"} size={16} /></span>
+                  <span className="wl-chip-icon"><Icon name={type.icon} fallback="store" size={16} /></span>
                   {type.name}
                 </span>
               ))
@@ -243,7 +242,7 @@ export default function WelcomePage() {
                     <ul className="wl-types">
                       {group.types.map((type) => (
                         <li key={type.code} className="wl-type">
-                          <span className="wl-type-icon" aria-hidden="true"><Icon name={TYPE_ICONS[type.code] || "store"} size={17} /></span>
+                          <span className="wl-type-icon" aria-hidden="true"><Icon name={type.icon} fallback="store" size={17} /></span>
                           <span className="wl-type-body">
                             <Link to={`/pricing?type=${type.code}`} className="wl-type-name">{type.name}</Link>
                             <small>{typeLine(type.code)}</small>

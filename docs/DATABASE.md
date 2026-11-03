@@ -1065,9 +1065,32 @@ Linked section: [data model §1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform).
 ### Module catalogue and business types
 
 #### `business_types`
-Purpose: the business types; see the list under [Business types](#business-types). Key columns: `code` (TEXT PK), `name`.
-Relations: referenced by `businesses.business_type` and `platform_module_business_types.business_type`.
-Added by: 1791280000000 multi-business-admin.
+Purpose: the business types; see the list under [Business types](#business-types). Key columns: `code` (TEXT PK), `name`, `icon` (a glyph of the staff app's icon set, `^[a-z][a-z0-9-]{1,39}$`), `accent` (one of the staff app's palette: orange, amber, yellow, lime, green, emerald, teal, cyan, sky, blue, indigo, violet, purple, fuchsia, pink, rose, red, slate), `default_item_kind` (`goods` or `service`: what a new item starts as), `sort_order`.
+Relations: referenced by `businesses.business_type`, `platform_module_business_types.business_type`, `business_type_kinds` and `business_type_terms`.
+Added by: 1791280000000 multi-business-admin; 1791990000000 business-words-and-looks (the look columns). Edited in Platform › Business types ([Words and looks](#words-and-looks)).
+
+### Words and looks
+
+Linked section: [ARCHITECTURE.md › Words and looks per type](ARCHITECTURE.md). Added by 1791990000000_business-words-and-looks.
+
+What the screens, bills and messages call a business's people, things, places and money, and the examples they show, are data. A business's word is its owner's (`business_terms`), else its kind's (`business_kind_terms`), else its type's (`business_type_terms`), else the word's default (`term_keys`). Legal and tax words (GSTIN, Tax invoice, Bill of supply, HSN, SAC, CGST) are not words here.
+
+#### `term_keys`
+Purpose: every word the product uses, with its default. Key columns: `key` (PK, `customer`, `catalog`, `example.category`, `phrase.bill_note`…), `area` (people, things, places, work, money, examples), `label` and `hint` (what it names and where, for the editors), `one`, `many` (the plural; NULL for an example or a phrase), `owner_may_rename`, `sort_order`.
+Rules: a key has a plural exactly when it is not an example; a noun is 1 to 80 characters; an example or phrase up to 300 and may be empty (none shown or printed); only nouns may be renamed by owners.
+
+#### `business_type_kinds`
+Purpose: the kinds within a type (Yoga studio, Dental clinic, Barber shop, Hotel…). Key columns: PK (`business_type` -> `business_types`, `code`), `name` (unique within the type, any case), `icon`, `accent` (NULL: the type's), `sort_order`, `active`, `updated_by`, `updated_at`.
+Rules: a kind switched off stays on the businesses that have it; none can choose it. A kind in use cannot be deleted (`businesses_kind_fkey`).
+
+#### `business_type_terms`, `business_kind_terms`, `business_terms`
+Purpose: a type's, a kind's and a business's own words, each row one word (`one`, `many`). PKs: (`business_type`, `key`); (`business_type`, `kind`, `key`) -> `business_type_kinds`; (`business_id`, `key`) -> `businesses`. Each has `updated_by`, `updated_at`.
+Rules: trigger `business_term_fits` (BEFORE INSERT OR UPDATE on each) trims the word and refuses a plural where the key has none, a missing plural where it has one, a noun outside 1 to 80 characters or an example over 300, and, in `business_terms`, a key not marked `owner_may_rename`. The API keeps an owner's word only when it differs from the type's (or kind's).
+
+| Function | What it does |
+|---|---|
+| `business_words(business_id) → (key, one, many)` | Every word of the business, merged (STABLE). Read with every screen's context (`businessWords.service.js` `wordsOf`, kept a minute per business). |
+| `business_word(business_id, key, plural = false) → text` | One word, for a message the database writes and for a new business's first location (`example.first_location`: Main store, Main branch, Main clinic). |
 
 #### `platform_modules`
 Purpose: the module catalogue; see [Platform module codes](#platform-module-codes). `code` is the capability string stored in `business_capabilities` ([§1](BUSINESS_PLATFORM_DATA_MODEL.md#1-platform)).
@@ -1155,11 +1178,12 @@ Linked section: [data model §3](BUSINESS_PLATFORM_DATA_MODEL.md#3-business-tena
 
 #### `businesses`
 Purpose: the tenant root. A restaurant appears here as one row whose `legacy_restaurant_id` points to `restaurants` ([five layers](BUSINESS_PLATFORM_DATA_MODEL.md#the-five-layers)).
-Key columns: `name` (the switcher's and every screen's; changed in Business settings, audited `business.renamed`; a restaurant's row keeps its restaurant's, through trigger `restaurants_business_name` on `restaurants`), `code` (unique), `business_type` -> `business_types`, `legacy_restaurant_id` (unique, -> `restaurants`), `status` (active or inactive), `currency` (default INR; the owner changes it in Business settings until the first document), `timezone` (default Asia/Kolkata; editable; a place name the database knows, under its current name), `is_demo` (boolean, default false; no application code reads it), `created_by`.
+Key columns: `name` (the switcher's and every screen's; changed in Business settings, audited `business.renamed`; a restaurant's row keeps its restaurant's, through trigger `restaurants_business_name` on `restaurants`), `code` (unique), `business_type` -> `business_types`, `kind` (NULL or one of its type's kinds, `businesses_kind_fkey` -> `business_type_kinds`; chosen when the business is made and in Business settings › Words, [Words and looks](#words-and-looks)), `legacy_restaurant_id` (unique, -> `restaurants`), `status` (active or inactive), `currency` (default INR; the owner changes it in Business settings until the first document), `timezone` (default Asia/Kolkata; editable; a place name the database knows, under its current name), `is_demo` (boolean, default false; no application code reads it), `created_by`.
 Created by: Platform › Businesses (the platform console), an owner's *Add a business* or the public site's sign-up (`site.service.js`), all through `businessOnboarding.service.js`. A restaurant's row comes from *Link my restaurant* (`linkRestaurant` in `business.service.js`) or from `restaurant_business_id()` (see [Restaurant features](#restaurant-features)), which creating a restaurant calls at once.
 Rules:
 - CHECK: `legacy_restaurant_id` may be set only when the type is `restaurant`.
 - Trigger `businesses_type_is_fixed` refuses any change of type.
+- Trigger `businesses_kind_fits` (function `businesses_kind_fits()`, BEFORE INSERT and BEFORE UPDATE OF `kind`) refuses a new or changed kind that is not one of the type's kinds on offer (`active`).
 - Trigger `businesses_timezone_known` (function `check_business_timezone()`, BEFORE INSERT and BEFORE UPDATE OF `timezone`) refuses a time zone the database does not know (`pg_timezone_names`), with `check_violation`; India's zone and an unchanged one skip the lookup. Every date of the business is worked out in it, so an unknown zone would stop them all. A browser may name a place by its old name (an Indian one says Asia/Calcutta) that a Linux server's database often does not know: the API keeps the current name (`backend/src/utils/timezone.js`), as for a restaurant's.
 - AFTER INSERT trigger `businesses_provision_defaults` runs `business_provision_defaults()`. It gives the business the roles of its type (`business_seed_roles()`), its settings row (`business_seed_settings()`), GST slabs (`business_seed_tax_rates()`; none for a restaurant), units (`business_seed_units()`; none for a restaurant without SKUs) and its type's default modules.
 - AFTER INSERT trigger `businesses_default_payment_methods` (function `business_default_payment_methods`) gives every business except a restaurant the five usual payment methods (`business_payment_methods`); a restaurant keeps its own `payment_types`.

@@ -12,7 +12,7 @@ import { ErrorMessage, Loading, SuccessMessage } from "../../../../components/Fe
 import { businessRead, businessWrite } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
 import { escapeHtml, printDocument } from "../../../../services/print";
-import { businessPath, word } from "../../../../services/businessNav";
+import { businessPath } from "../../../../services/businessNav";
 import FormDialog from "../../core/pages/FormDialog";
 import { Badge, BusinessHeader, Field, PeriodFilter } from "../../core/pages/ui";
 import { businessToday, dateTime, newKey, useOpenBusiness, useServerList } from "../../core/pages/hooks";
@@ -56,7 +56,7 @@ export default function UdhaarPage() {
     <div className="stack">
       <BusinessHeader icon="wallet" title="Udhaar"
         description="Customers who buy on credit: what each owes, since when, and what they promised. Money collected settles the oldest bills first."
-        actions={<Link className="button button-secondary" to={businessPath(biz.id, "collections")}><Icon name="wallet" size={16} /> {word(biz.type, "collections", "Collections")}</Link>} />
+        actions={<Link className="button button-secondary" to={businessPath(biz.id, "collections")}><Icon name="wallet" size={16} /> {biz.t("collection", "many")}</Link>} />
       <div className="stat-grid">
         <StatTile icon="wallet" tone="primary" label="Udhaar to collect" value={summary ? biz.amount(summary.totals.outstanding) : "—"} note={summary ? `${summary.total} ${summary.total === 1 ? "customer" : "customers"}` : ""} />
         <StatTile icon="alert" tone="danger" label="Overdue" value={summary ? biz.amount(summary.totals.overdue) : "—"} note="past their credit days" />

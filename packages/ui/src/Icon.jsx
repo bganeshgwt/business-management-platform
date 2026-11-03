@@ -11,6 +11,7 @@
 //   <Icon name="money" />                 18 px, decorative
 //   <Icon name="alert" size={16} />
 //   <Icon name="trash" title="Delete" />  announced, for an icon-only button
+//   <Icon name={look.icon} fallback="store" />  a name from data, with a stand-in
 
 const PATHS = {
   // --- money ---
@@ -524,12 +525,191 @@ const PATHS = {
   ),
   moon: <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />,
   activity: <path d="M22 12h-4l-3 9L9 3l-3 9H2" />,
+  // --- business types and kinds (Platform › Business types picks from these) ---
+  basket: (
+    <>
+      <path d="M2 10h20" />
+      <path d="m4 10 1.8 8.4A2 2 0 0 0 7.8 20h8.4a2 2 0 0 0 2-1.6L20 10" />
+      <path d="m8 10 2.5-6h3L16 10M12 13.5v3M9 13.5l.4 3M15 13.5l-.4 3" />
+    </>
+  ),
+  cart: (
+    <>
+      <path d="M2 3h2.5l2.7 11.4a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 1.9-1.5L21 7H5.6" />
+      <circle cx="9.5" cy="20" r="1.5" />
+      <circle cx="17.5" cy="20" r="1.5" />
+    </>
+  ),
+  fish: (
+    <>
+      <path d="M6.5 12c2.5-3.6 6-5.5 9.5-5.5 3 0 5.2 1.9 6 5.5-.8 3.6-3 5.5-6 5.5-3.5 0-7-1.9-9.5-5.5Z" />
+      <path d="M6.5 12 2 8v8ZM18 11h.01" />
+    </>
+  ),
+  shirt: <path d="M9 3 4.5 5 2 9.5l3.5 1.8L6 10.5V21h12V10.5l.5.8L22 9.5 19.5 5 15 3a3 3 0 0 1-6 0Z" />,
+  smartphone: (
+    <>
+      <rect x="6" y="2" width="12" height="20" rx="2.5" />
+      <path d="M11 18h2" />
+    </>
+  ),
+  pill: (
+    <>
+      <path d="M10.5 20.5a5 5 0 0 1-7-7l7-7a5 5 0 0 1 7 7Z" />
+      <path d="m7 10 7 7" />
+    </>
+  ),
+  glasses: (
+    <>
+      <circle cx="6" cy="15" r="4" />
+      <circle cx="18" cy="15" r="4" />
+      <path d="M10 14.5a2 2 0 0 1 4 0M2 15l1.5-8H6M22 15l-1.5-8H18" />
+    </>
+  ),
+  gem: (
+    <>
+      <path d="M6 3h12l4 6-10 12L2 9Z" />
+      <path d="M2 9h20M10 3 8 9l4 12 4-12-2-6" />
+    </>
+  ),
+  hammer: (
+    <>
+      <path d="m10.5 6.5 4-4 7 7-4 4Z" />
+      <path d="M14 10 3.5 20.5" />
+    </>
+  ),
+  sprout: (
+    <>
+      <path d="M12 21v-9M7 21h10" />
+      <path d="M12 13c0-4-3-6.5-8-6.5 0 4 3 6.5 8 6.5ZM12 11.5c0-4.5 3-7.5 8-7.5 0 4.5-3 7.5-8 7.5Z" />
+    </>
+  ),
+  wrench: (
+    <>
+      <path d="M15 10.5 5.2 20.3a1.7 1.7 0 0 1-2.5-2.5L12.5 8" />
+      <path d="M12.5 8a5 5 0 0 1 6.7-5.8L16 5.4l.6 2 2 .6 3.2-3.2A5 5 0 0 1 15 10.5" />
+    </>
+  ),
+  fuel: (
+    <>
+      <path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h12M7 8h4" />
+      <path d="M14 10h2a2 2 0 0 1 2 2v4a1.5 1.5 0 0 0 3 0V8.5L18 5.5" />
+    </>
+  ),
+  scissors: (
+    <>
+      <circle cx="6" cy="6" r="3" />
+      <circle cx="6" cy="18" r="3" />
+      <path d="M8.1 8.1 19 19M8.1 15.9 19 5" />
+    </>
+  ),
+  stethoscope: (
+    <>
+      <path d="M4 3v5a4 4 0 0 0 8 0V3M3 3h2M11 3h2" />
+      <path d="M8 12v2.5a5.5 5.5 0 0 0 11 0V13" />
+      <circle cx="19" cy="11" r="2" />
+    </>
+  ),
+  dumbbell: (
+    <>
+      <path d="M9 12h6" />
+      <rect x="6" y="6" width="3" height="12" rx="1" />
+      <rect x="15" y="6" width="3" height="12" rx="1" />
+      <rect x="3" y="9" width="3" height="6" rx="1" />
+      <rect x="18" y="9" width="3" height="6" rx="1" />
+    </>
+  ),
+  hanger: (
+    <>
+      <path d="M10 5a2 2 0 1 1 2 2v1.5" />
+      <path d="M12 8.5 3.3 15.3A1.5 1.5 0 0 0 4.2 18h15.6a1.5 1.5 0 0 0 .9-2.7Z" />
+    </>
+  ),
+  bed: (
+    <>
+      <path d="M2 20V6M2 16h20M22 20v-6a3 3 0 0 0-3-3h-9v5" />
+      <circle cx="6.5" cy="12.5" r="1.8" />
+    </>
+  ),
+  lotus: (
+    <>
+      <path d="M12 20c-2.4-2-3.5-4.5-3.5-7.5S10 7 12 5c2 2 3.5 4.5 3.5 7.5S14.4 18 12 20Z" />
+      <path d="M12 20c-3.6 0-6.6-1.6-8.5-4.6 1.8-.8 3.8-1 5.6-.6M12 20c3.6 0 6.6-1.6 8.5-4.6-1.8-.8-3.8-1-5.6-.6" />
+    </>
+  ),
+  music: (
+    <>
+      <path d="M9 18V5l12-2v13" />
+      <circle cx="6" cy="18" r="3" />
+      <circle cx="18" cy="16" r="3" />
+    </>
+  ),
+  graduation: (
+    <>
+      <path d="M22 9 12 4 2 9l10 5Z" />
+      <path d="M6 11v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5M22 9v6" />
+    </>
+  ),
+  medal: (
+    <>
+      <path d="M8.5 2 11 9.2M15.5 2 13 9.2" />
+      <circle cx="12" cy="15" r="6" />
+      <path d="m12 12.4.8 1.7 1.8.2-1.3 1.3.3 1.8-1.6-.9-1.6.9.3-1.8-1.3-1.3 1.8-.2Z" />
+    </>
+  ),
+  tooth: <path d="M12 5.5C10.5 4 8.8 3.5 7 3.5 4.5 3.5 3 5.5 3 8c0 3 1.2 4.5 1.7 7.5.4 2.6.9 5.5 2.6 5.5 1.6 0 1.9-2.6 2.3-4.5.3-1.3.8-2 2.4-2s2.1.7 2.4 2c.4 1.9.7 4.5 2.3 4.5 1.7 0 2.2-2.9 2.6-5.5.5-3 1.7-4.5 1.7-7.5 0-2.5-1.5-4.5-4-4.5-1.8 0-3.5.5-5 2Z" />,
+  flask: (
+    <>
+      <path d="M9 3h6M10 3v6.5L4.6 18.2A1.8 1.8 0 0 0 6.1 21h11.8a1.8 1.8 0 0 0 1.5-2.8L14 9.5V3" />
+      <path d="M7 15h10" />
+    </>
+  ),
+  comb: (
+    <>
+      <path d="M3 6h18v4H3Z" />
+      <path d="M5 10v8M8 10v6M11 10v8M14 10v6M17 10v8M20 10v5" />
+    </>
+  ),
+  building: (
+    <>
+      <path d="M4 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17M16 9h3a1 1 0 0 1 1 1v11M2 21h20" />
+      <path d="M8 7h1M11 7h1M8 11h1M11 11h1M8 15h1M11 15h1M10 21v-2" />
+    </>
+  ),
+  washer: (
+    <>
+      <rect x="4" y="2" width="16" height="20" rx="2" />
+      <circle cx="12" cy="13" r="5" />
+      <path d="M7.5 5.5h.01M10.5 5.5h.01M9.5 13.5c.8-.7 1.7-.7 2.5 0s1.7.7 2.5 0" />
+    </>
+  ),
+  iron: (
+    <>
+      <path d="M3 17a8 7 0 0 1 8-7h8a2 2 0 0 1 2 2v5Z" />
+      <path d="M11 10V6.5a1.5 1.5 0 0 1 1.5-1.5h5a1.5 1.5 0 0 1 1.5 1.5V10" />
+      <path d="M8 20.5h.01M12 20.5h.01M16 20.5h.01" />
+    </>
+  ),
+  car: (
+    <>
+      <path d="M5 17H3a1 1 0 0 1-1-1v-3.4a2 2 0 0 1 .6-1.4L5 9l1.8-3.6A2 2 0 0 1 8.6 4.3h6.8a2 2 0 0 1 1.8 1.1L19 9l2.4 2.2a2 2 0 0 1 .6 1.4V16a1 1 0 0 1-1 1h-2M9 17h6M5 9h14" />
+      <circle cx="7" cy="17" r="2" />
+      <circle cx="17" cy="17" r="2" />
+    </>
+  ),
+  tent: (
+    <>
+      <path d="M3 20 12 4l9 16Z" />
+      <path d="m9.5 20 2.5-5 2.5 5M2 20h20" />
+    </>
+  ),
 };
 
 // An unknown name draws nothing rather than throwing: a typo costs an icon,
-// never the page.
-export default function Icon({ name, size = 18, strokeWidth = 2, title, className = "", style }) {
-  const path = PATHS[name];
+// never the page. `fallback` names one to draw instead (an icon set in data,
+// such as a business type's, that this version does not have yet).
+export default function Icon({ name, fallback, size = 18, strokeWidth = 2, title, className = "", style }) {
+  const path = PATHS[name] || (fallback ? PATHS[fallback] : undefined);
 
   if (!path) {
     return null;

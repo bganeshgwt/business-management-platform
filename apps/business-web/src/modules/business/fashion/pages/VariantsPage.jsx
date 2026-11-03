@@ -5,7 +5,6 @@ import Icon from "@bmp/ui/Icon";
 import SectionCard from "../../../../components/SectionCard";
 import { ErrorMessage, Loading, SuccessMessage } from "../../../../components/Feedback";
 import { businessRead, businessWrite } from "../../../../services/business.service";
-import { word } from "../../../../services/businessNav";
 import { dateShort } from "@bmp/shared/format";
 import FormDialog from "../../core/pages/FormDialog";
 import { ActiveBadge, BusinessHeader, Field, FormError } from "../../core/pages/ui";
@@ -27,7 +26,7 @@ export default function VariantsPage() {
   const [gstOpen, setGstOpen] = useState(false);
   const [version, setVersion] = useState(0);
   const [markdowns, setMarkdowns] = useState([]);
-  const title = word(biz.type, "variants", "Variants");
+  const title = biz.t("variant", "many");
   const canMark = biz.has("offers") && biz.can("offers.create");
   // Styles on a markdown now: "30% off" next to their price.
   useEffect(() => {

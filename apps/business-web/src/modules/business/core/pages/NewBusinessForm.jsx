@@ -13,14 +13,24 @@ export function NewBusinessFields({ form, setForm, types }) {
   const set = (key, transform = (x) => x) => (e) => setForm((f) => ({ ...f, [key]: transform(e.target.value) }));
   const [codeTouched, setCodeTouched] = useState(false);
   const typeList = types.filter((t) => t.code !== "restaurant");
+  const type = typeList.find((t) => t.code === form.businessType);
+  const kind = type?.kinds?.find((k) => k.code === form.kind);
   return (
     <>
       <Field label="Type of business" hint="Fixed once created: it decides the screens and rules.">
-        <select required value={form.businessType} onChange={set("businessType")}>
+        <select required value={form.businessType} onChange={(e) => setForm((f) => ({ ...f, businessType: e.target.value, kind: "" }))}>
           <option value="">Choose…</option>
           {typeList.map((t) => <option key={t.code} value={t.code}>{t.name}</option>)}
         </select>
       </Field>
+      {type?.kinds?.length > 0 && (
+        <Field label="Kind" hint="Its words follow it: a coaching centre's students and classes. Can change later.">
+          <select value={form.kind} onChange={set("kind")}>
+            <option value="">Not chosen</option>
+            {type.kinds.map((k) => <option key={k.code} value={k.code}>{k.name}</option>)}
+          </select>
+        </Field>
+      )}
       <Field label="Business name">
         <input required maxLength={150} value={form.name}
           onChange={(e) => { const name = e.target.value; setForm((f) => ({ ...f, name, code: codeTouched ? f.code : codeFrom(name) })); }} />
@@ -45,7 +55,7 @@ export function NewBusinessFields({ form, setForm, types }) {
         <input required list="new-business-zones" maxLength={60} value={form.timezone} onChange={set("timezone")} />
         <datalist id="new-business-zones">{zoneList.map((z) => <option key={z} value={z} />)}</datalist>
       </Field>
-      <Field label="First location" hint="The shop, counter or godown; add more later."><input maxLength={150} value={form.locationName} onChange={set("locationName")} placeholder="Main store" /></Field>
+      <Field label="First location" hint="Where the business works; add more later."><input maxLength={150} value={form.locationName} onChange={set("locationName")} placeholder={kind?.firstLocation || type?.firstLocation || "Main store"} /></Field>
       <Field label="Location code" hint="Used in bill numbers."><input className="mono" maxLength={30} value={form.locationCode} onChange={set("locationCode", (x) => x.toUpperCase())} placeholder="MAIN" /></Field>
     </>
   );

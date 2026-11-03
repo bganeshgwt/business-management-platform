@@ -1712,7 +1712,7 @@ Where each area's tests are: [TESTING.md](TESTING.md).
 | Overview panels | `modules/business/core/pages/BusinessAdminRoutes.jsx` (`screens()`, `OverviewSheet`), `overviewLink.js` | An action on a business's Overview opens the real screen in a wide panel over it (`?open=<section>`, with *Open full page*). The panel and the route use the same `screens()` map, so they cannot drift apart. |
 | Motion | `components/motion.js` + `packages/ui/src/styles/motion.css` (with the staff app's `src/styles/app/motion.css`) | Only transform and opacity move; nothing waits for an animation; `prefers-reduced-motion` turns it off. |
 | Theme tokens | the top of `packages/ui/src/styles/base.css` (`:root`, then a dark-mode block), with `colour.css` beside it. Both apps load them through `@bmp/ui/styles.css` | Pages use `var(--…)` and never restate a hex value. |
-| Words per type | `services/businessNav.js` (`TYPE_WORDS`, `word()`); the menu's own labels in `services/businessWorkspace.js` (`workspaceLabel()`) | A salon says Clients, a kirana says Udhaar. |
+| Words and looks per type | Data: `term_keys`, `business_type_terms`, `business_kind_terms`, `business_terms`, `business_type_kinds`, and `business_types.icon`/`accent` ([DATABASE.md › Words and looks](DATABASE.md#words-and-looks)). Server: `modules/business/core/services/businessWords.service.js` (`wordsOf`, `lookOf`) and `utils/words.js`. Staff app: `services/terms.js` (`useOpenBusiness().t`), `components/TypeMark.jsx`, the menus in `services/businessNav.js` and `services/businessWorkspace.js` (`workspaceLabel()`). Edited in Platform › Business types and Business settings › Words | A gym says Members and Sessions, a clinic Patients and Doctors, a kirana Udhaar. Code names no type's word: it asks for the word by its key (`t("customer")`), and a business sees its owner's word, else its kind's, else its type's, else the default. |
 
 ### What not to do
 
@@ -1807,8 +1807,12 @@ inside the right `ProtectedRoute`, a link in `NAV_SECTIONS`
    on by default, listed explicitly: a module that an older migration gave to
    "every type" reached only the types that existed then (catalog, contacts,
    sales, inventory, purchasing, stock counts and transfers, receivables,
-   expenses, tasks, issues and projects). A goods shop also goes into
-   `business_seed_settings()`, and a trade's own pack words and measures
+   expenses, tasks, issues and projects). Its look (`icon`, `accent`, and
+   `default_item_kind`: whether a new item starts as goods or a service), its
+   words where they differ from the defaults (`business_type_terms`), and its
+   kinds if it has any (`business_type_kinds`, with `business_kind_terms`):
+   the platform can change them later in Platform › Business types. A goods
+   shop also goes into `business_seed_settings()`, and a trade's own pack words and measures
    into `business_seed_units()` (pattern: 1791960000000 more-business-types). The `AFTER INSERT` triggers on `businesses` then give each
    new business of that type its roles, settings, GST slabs, units, payment
    methods and default modules. A role only this type has (as a pharmacy's
@@ -1834,8 +1838,8 @@ inside the right `ProtectedRoute`, a link in `NAV_SECTIONS`
 5. **Staff app:** the type's groups in `services/businessTypes.js` (goods
    shop, retail reports, service, udhaar; the server's goods list in
    `modules/business/core/services/businessTypes.js` must match, and
-   `business-shared-commerce.test.js` checks it), `TYPE_WORDS` and
-   `TYPE_ICONS` in `services/businessNav.js`, links with `types: [...]`, its menu in `dailyWorkspaces()` in
+   `business-shared-commerce.test.js` checks it), links with `types: [...]`
+   in `services/businessNav.js`, its menu in `dailyWorkspaces()` in
    `services/businessWorkspace.js`, and pages in
    `modules/business/<type>/pages/`. The public site names the type in its
    group, with a line of what it does (`TYPE_GROUPS` and `TYPE_LINES` in

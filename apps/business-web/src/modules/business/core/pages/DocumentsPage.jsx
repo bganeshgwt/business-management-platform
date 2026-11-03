@@ -8,7 +8,7 @@ import { ErrorMessage, Loading, SuccessMessage } from "../../../../components/Fe
 import { businessRead, businessWrite } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
 import { printTaxInvoice } from "./invoice";
-import { businessPath, word } from "../../../../services/businessNav";
+import { businessPath } from "../../../../services/businessNav";
 import SearchPicker from "../../../../components/SearchPicker";
 import { toast } from "../../../../services/toast";
 import FormDialog from "./FormDialog";
@@ -75,11 +75,12 @@ export default function DocumentsPage({ kind }) {
     if (params.get("new")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);
 
+  const { t } = biz;
   const columns = useMemo(() => [
     { key: "document_no", header: sale ? "Invoice" : "Receipt", value: (d) => d.document_no, mobile: "title", pin: true,
       render: (d) => <button type="button" className="link-button mono" onClick={() => setOpenId(d.id)}>{d.document_no}</button> },
     { key: "created_at", header: "Date", type: "datetime", value: (d) => d.created_at, mobile: "subtitle" },
-    { key: "contact_name", header: sale ? word(biz.type, "customers", "Customer").replace(/s$/, "") : "Supplier", value: (d) => d.contact_name || (sale ? "Walk-in" : "—"), mobile: "show" },
+    { key: "contact_name", header: sale ? t("customer") : "Supplier", value: (d) => d.contact_name || (sale ? "Walk-in" : "—"), mobile: "show" },
     !sale && { key: "supplier_bill_no", header: "Supplier bill", value: (d) => d.supplier_bill_no || "", render: (d) => (d.supplier_bill_no ? <span>{d.supplier_bill_no}{d.supplier_bill_date ? <small className="muted"> · {String(d.supplier_bill_date).slice(0, 10)}</small> : null}</span> : <span className="muted">—</span>) },
     { key: "location_name", header: "Location", value: (d) => d.location_name, defaultHidden: biz.locations.length < 2 },
     sale && { key: "created_by_name", header: "Billed by", value: (d) => d.created_by_name || "", defaultHidden: !GOODS_TYPES.includes(biz.type) },
@@ -98,14 +99,14 @@ export default function DocumentsPage({ kind }) {
     trade && { key: "delivery", header: "Delivery", type: "status", value: (d) => d.delivery_status || "",
       render: (d) => (d.delivery_status ? <Badge tone={DELIVERY[d.delivery_status]?.tone} label={DELIVERY[d.delivery_status]?.label} /> : <span className="muted">—</span>) },
     { key: "actions", header: "", label: "Actions", type: "actions", render: (d) => <button type="button" className="chip-button" onClick={() => setOpenId(d.id)} title={`Open ${d.document_no}`}>View</button> },
-  ].filter(Boolean), [biz.locations.length, biz.type, sale, trade, sited]);
+  ].filter(Boolean), [biz.locations.length, biz.type, sale, t, trade, sited]);
   const setFilter = (name) => (e) => setFilters((f) => ({ ...f, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
 
   return (
     <div className="stack">
       <BusinessHeader
         icon={sale ? "receipt" : "truck"}
-        title={sale ? word(biz.type, "sales", "Sales") : "Purchases"}
+        title={sale ? biz.t("sale", "many") : "Purchases"}
         description={sale
           ? "Every sale with what was collected and what is still due. Prices and tax come from the product list; returns and refunds are recorded on the sale."
           : "Goods received from suppliers. Receiving adds the stock at once; supplier payments and returns are recorded on the receipt."}
@@ -395,7 +396,7 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
         </select>
       </Field>
       {sale ? (
-        <Field label={`${word(biz.type, "customers", "Customers").replace(/s$/, "")} (optional)`}>
+        <Field label={`${biz.t("customer")} (optional)`}>
           <select value={form.contactId} onChange={(e) => setForm((f) => ({ ...f, contactId: e.target.value, siteId: "" }))}>
             <option value="">Walk-in</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}{c.credit_limit ? ` · limit ${biz.amount(c.credit_limit)}` : ""}</option>)}

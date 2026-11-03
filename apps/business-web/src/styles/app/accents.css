@@ -1,0 +1,50 @@
+/* A business type's (or kind's) accent, as the platform sets it in Platform ›
+   Business types (business_types.accent): its mark, its tint, its line. Each
+   class sets --accent (strong enough for text on the page) and --accent-soft
+   (a tint behind it); in the dark both turn lighter. The names are the
+   server's list (businessTypes.service ACCENTS). */
+.type-accent-orange { --accent: #c2410c; }
+.type-accent-amber { --accent: #b45309; }
+.type-accent-yellow { --accent: #a16207; }
+.type-accent-lime { --accent: #4d7c0f; }
+.type-accent-green { --accent: #15803d; }
+.type-accent-emerald { --accent: #047857; }
+.type-accent-teal { --accent: #0f766e; }
+.type-accent-cyan { --accent: #0e7490; }
+.type-accent-sky { --accent: #0369a1; }
+.type-accent-blue { --accent: #1d4ed8; }
+.type-accent-indigo { --accent: #4338ca; }
+.type-accent-violet { --accent: #6d28d9; }
+.type-accent-purple { --accent: #7e22ce; }
+.type-accent-fuchsia { --accent: #a21caf; }
+.type-accent-pink { --accent: #be185d; }
+.type-accent-rose { --accent: #be123c; }
+.type-accent-red { --accent: #b91c1c; }
+.type-accent-slate { --accent: #475569; }
+
+[class*="type-accent-"] { --accent-soft: color-mix(in srgb, var(--accent) 13%, transparent); }
+
+@media (prefers-color-scheme: dark) {
+  .type-accent-orange { --accent: #fb923c; }
+  .type-accent-amber { --accent: #fbbf24; }
+  .type-accent-yellow { --accent: #facc15; }
+  .type-accent-lime { --accent: #a3e635; }
+  .type-accent-green { --accent: #4ade80; }
+  .type-accent-emerald { --accent: #34d399; }
+  .type-accent-teal { --accent: #2dd4bf; }
+  .type-accent-cyan { --accent: #22d3ee; }
+  .type-accent-sky { --accent: #38bdf8; }
+  .type-accent-blue { --accent: #60a5fa; }
+  .type-accent-indigo { --accent: #818cf8; }
+  .type-accent-violet { --accent: #a78bfa; }
+  .type-accent-purple { --accent: #c084fc; }
+  .type-accent-fuchsia { --accent: #e879f9; }
+  .type-accent-pink { --accent: #f472b6; }
+  .type-accent-rose { --accent: #fb7185; }
+  .type-accent-red { --accent: #f87171; }
+  .type-accent-slate { --accent: #94a3b8; }
+  [class*="type-accent-"] { --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent); }
+}
+
+/* A swatch of an accent, for the console's picker. */
+.accent-swatch { background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 72%, #fff), var(--accent)); }

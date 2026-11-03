@@ -87,6 +87,8 @@ const PlatformInvoicesPage = lazy(() => import("./modules/platform/pages/Platfor
 const PlatformInvoicePage = lazy(() => import("./modules/platform/pages/PlatformInvoicePage"));
 const PlatformReportsPage = lazy(() => import("./modules/platform/pages/PlatformReportsPage"));
 const PlatformSettingsPage = lazy(() => import("./modules/platform/pages/PlatformSettingsPage"));
+const PlatformBusinessTypesPage = lazy(() => import("./modules/platform/pages/PlatformBusinessTypesPage"));
+const PlatformBusinessTypePage = lazy(() => import("./modules/platform/pages/PlatformBusinessTypePage"));
 const CollectionDisplayPage = lazy(() => import("./modules/restaurant/orders/pages/CollectionDisplayPage"));
 const ServiceSettingsPage = lazy(() => import("./modules/restaurant/setup/pages/ServiceSettingsPage"));
 const FeaturesPage = lazy(() => import("./modules/restaurant/setup/pages/FeaturesPage"));
@@ -303,6 +305,8 @@ export default function App() {
             <Route path="platform/invoices/:invoiceId" element={<PlatformInvoicePage />} />
             <Route path="platform/reports" element={<PlatformReportsPage />} />
             <Route path="platform/settings" element={<PlatformSettingsPage />} />
+            <Route path="platform/business-types" element={<PlatformBusinessTypesPage />} />
+            <Route path="platform/business-types/:code" element={<PlatformBusinessTypePage />} />
           </Route>
 
           {/* Each area also requires its own permission, checked again by the API. */}

@@ -60,7 +60,8 @@
   color: var(--muted);
 }
 
-/* The type's mark in a tinted square: one tone per family of business. */
+/* The type's mark in a tinted square: its accent (styles/app/accents.css,
+   set per type and kind in Platform › Business types). */
 .bsw-type {
   display: inline-grid;
   place-items: center;
@@ -68,16 +69,9 @@
   width: 30px;
   height: 30px;
   border-radius: 9px;
-  background: var(--primary-soft);
-  color: var(--primary);
+  background: var(--accent-soft, var(--primary-soft));
+  color: var(--accent, var(--primary));
 }
-
-.bsw-type-restaurant { background: var(--warning-bg); color: var(--warning-text); }
-.bsw-type-salon,
-.bsw-type-healthcare { background: color-mix(in srgb, #7c5cff 14%, transparent); color: #6d4fe0; }
-.bsw-type-pharmacy { background: var(--danger-bg); color: var(--danger); }
-.bsw-type-electronics,
-.bsw-type-wholesale { background: color-mix(in srgb, #2f7de1 14%, transparent); color: #2a6fc9; }
 
 .bsw-panel {
   position: absolute;

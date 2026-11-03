@@ -20,7 +20,7 @@ import { addonsFor, needsWords, plusGst, priceLabel, priceSummary, refFrom, star
 
 const formOf = (params) => ({
   name: "", mobile: "", email: "", password: "",
-  businessName: "", type: params.get("type") || "", format: "restaurant", city: "", stateCode: "", gstin: "",
+  businessName: "", type: params.get("type") || "", format: "restaurant", kind: "", city: "", stateCode: "", gstin: "",
   planCode: params.get("plan") || "", billingPeriod: params.get("period") === "year" ? "year" : "month", addons: [],
   acceptedTerms: false, website: "",
 });
@@ -56,7 +56,7 @@ export default function SignupPage() {
     const code = event.target.value;
     const next = (pricing?.types || []).find((item) => item.code === code);
     const base = next?.plans.find((item) => item.isDefault) || next?.plans[0];
-    setForm((current) => ({ ...current, type: code, planCode: base ? base.code : "", addons: [], format: "restaurant" }));
+    setForm((current) => ({ ...current, type: code, planCode: base ? base.code : "", addons: [], format: "restaurant", kind: "" }));
   };
   const choosePlan = (code) => {
     const next = plans.find((item) => item.code === code);
@@ -75,7 +75,7 @@ export default function SignupPage() {
       const session = await signUp({
         owner: { name: form.name, mobile: form.mobile, email: form.email, password: form.password },
         business: {
-          name: form.businessName, type: form.type, ...(form.type === "restaurant" ? { format: form.format } : {}),
+          name: form.businessName, type: form.type, ...(form.type === "restaurant" ? { format: form.format } : form.kind ? { kind: form.kind } : {}),
           city: form.city, stateCode: form.stateCode, ...(form.gstin.trim() ? { gstin: form.gstin } : {}),
         },
         selection: { planCode: plan?.code, billingPeriod: form.billingPeriod, addons: chosen.map((addon) => addon.code) },
@@ -179,6 +179,14 @@ export default function SignupPage() {
                       ))}
                     </select>
                   </FormField>
+                  {type?.kinds?.length > 0 && (
+                    <FormField label="Kind" wide optional hint="Your screens use its words: a coaching centre's students and classes. You can change it later.">
+                      <select value={form.kind} onChange={set("kind")}>
+                        <option value="">Choose if one fits</option>
+                        {type.kinds.map((kind) => <option key={kind.code} value={kind.code}>{kind.name}</option>)}
+                      </select>
+                    </FormField>
+                  )}
                   {type?.formats && (
                     <FormField label="Format" wide hint="A restaurant gets a login of its own: use an email and a mobile number that have no login yet.">
                       <select value={form.format} onChange={set("format")} required>

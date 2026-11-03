@@ -7,7 +7,7 @@ import { ErrorMessage } from "../../../../components/Feedback";
 import { businessRead } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
 import { count } from "@bmp/shared/format";
-import { GOODS, word } from "../../../../services/businessNav";
+import { GOODS } from "../../../../services/businessNav";
 import { WEIGHED as WEIGHED_TYPES } from "../../../../services/businessTypes";
 import { BusinessHeader } from "./ui";
 import { useOpenBusiness } from "./hooks";
@@ -101,7 +101,7 @@ function firstActions(biz) {
   if (biz.type === "healthcare" && can("appointments.create")) list.push({ to: "appointments?new=1", icon: "calendar", label: "Book an appointment" });
   if (can("purchasing.create")) list.push({ to: "purchases?new=1", icon: "truck", label: "Receive a purchase" });
   if (goods && can("sales.view")) list.push({ to: "day-close", icon: "clock", label: "Close the day" });
-  if (can("catalog.create")) list.push({ to: "products?new=1", icon: "plus", label: `Add to ${word(biz.type, "products", "products & services").toLowerCase()}` });
+  if (can("catalog.create")) list.push({ to: "products?new=1", icon: "plus", label: `Add to ${biz.t.lower("catalog", "many")}` });
   if (can("contacts.create")) list.push({ to: "customers?new=1", icon: "user", label: `Add a ${CUSTOMER_ONE[biz.type] || "customer"}` });
   return list.slice(0, 8);
 }
@@ -138,7 +138,7 @@ export default function OverviewPage() {
       note={summary && s.bills_today !== undefined ? <>{count(s.bills_today)} bills{pace ? <> · <span className={pace.up ? "text-success" : "text-danger"}>{pace.text}</span></> : ` · this month ${biz.amount(s.sales_month)}`}</> : "after returns"} to={overviewLink(goods ? "day-close" : "sales")} />,
     has("taken_today") && <StatTile key="taken" icon="wallet" tone="success" label="Money in today" money={summary ? takenTotal : undefined} loading={loading}
       note={takenNote || "nothing taken yet"} to={overviewLink(goods ? "day-close" : "reports")} />,
-    has("receivables") && <StatTile key="due" icon="clipboard" tone={Number(s.receivables) > 0 ? "warning" : "neutral"} label={`${word(biz.type, "customers", "Customers")} owe`} money={summary ? Number(s.receivables_owed ?? s.receivables) : undefined} loading={loading}
+    has("receivables") && <StatTile key="due" icon="clipboard" tone={Number(s.receivables) > 0 ? "warning" : "neutral"} label={`${biz.t("customer", "many")} owe`} money={summary ? Number(s.receivables_owed ?? s.receivables) : undefined} loading={loading}
       note={summary ? [Number(s.credit_given_today) > 0 && `${biz.amount(s.credit_given_today)} given today`, Number(s.receivables_advances) > 0 && `${biz.amount(s.receivables_advances)} advances`].filter(Boolean).join(" · ") || "net of advances" : undefined}
       to={overviewLink(receivablesPath)} />,
     has("payables") && <StatTile key="pay" icon="truck" tone={Number(s.payables_overdue) > 0 ? "danger" : "neutral"} label="To pay suppliers" money={summary ? Number(s.payables) : undefined} loading={loading}

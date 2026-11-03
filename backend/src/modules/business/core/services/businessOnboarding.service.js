@@ -59,6 +59,16 @@ async function checkTimezone(db, zone) {
   if (!known) fail(`${zone} is not a time zone this system knows (for example Asia/Kolkata)`);
   return known.name;
 }
+// The kind of business within its type (a yoga studio among gyms, studios and
+// coaching), when one is given: one the type offers now. Left out: none.
+async function readKind(db, type, value) {
+  if (value === undefined || value === null || value === '') return null;
+  const kind = v.requiredString(value, 'Kind', 40);
+  if (!await repo.one(db, 'SELECT 1 FROM business_type_kinds WHERE business_type=$1 AND code=$2 AND active', [type, kind])) {
+    fail('That kind is not one this type of business offers');
+  }
+  return kind;
+}
 function readCode(value, field = 'Business code') {
   const code = v.requiredString(value, field, 40).toUpperCase().replace(/\s+/g, '-');
   if (!/^[A-Z0-9][A-Z0-9-]{1,39}$/.test(code)) fail(`${field} may use letters, digits and dashes (2 to 40)`);
@@ -99,19 +109,22 @@ async function createBusiness(db, actor, body, ownerId) {
   if (gstin && stateCode && gstin.slice(0, 2) !== stateCode) fail('The state code must match the first two digits of the GSTIN');
   const postal = v.optionalString(body.postalCode, 'PIN code', 10);
   if (postal && !/^\d{6}$/.test(postal)) fail('PIN code must be six digits');
-  const business = await repo.one(db, `INSERT INTO businesses(name,code,business_type,currency,timezone,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING *`,
-    [name, code, type, readCurrency(body.currency), await checkTimezone(db, readTimezone(body.timezone)), actor.id]);
+  const kind = await readKind(db, type, body.kind);
+  const business = await repo.one(db, `INSERT INTO businesses(name,code,business_type,kind,currency,timezone,created_by) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [name, code, type, kind, readCurrency(body.currency), await checkTimezone(db, readTimezone(body.timezone)), actor.id]);
   await db.query(`UPDATE business_settings SET legal_name=$2,gstin=$3,address_line1=$4,address_line2=$5,city=$6,state_code=$7,postal_code=$8,phone=$9,email=$10,
       updated_by=$11,updated_at=now() WHERE business_id=$1`,
   [business.id, v.optionalString(body.legalName, 'Legal name', 200), gstin, v.optionalString(body.addressLine1, 'Address line 1', 200),
     v.optionalString(body.addressLine2, 'Address line 2', 200), v.optionalString(body.city, 'City', 100), stateCode, postal,
     v.optionalString(body.phone, 'Phone', 30), body.email ? v.requiredEmail(body.email, 'Business email') : null, actor.id]);
-  const locationName = v.optionalString(body.locationName, 'First location', 150) || 'Main store';
+  // Left empty, the first location takes its type's name for one: Main store, Main branch, Main clinic.
+  const locationName = v.optionalString(body.locationName, 'First location', 150)
+    || (await repo.one(db, "SELECT business_word($1,'example.first_location') AS name", [business.id])).name || 'Main store';
   const locationCode = body.locationCode ? readCode(body.locationCode, 'Location code').slice(0, 30) : 'MAIN';
   await db.query('INSERT INTO business_locations(business_id,name,code) VALUES($1,$2,$3)', [business.id, locationName, locationCode]);
   await db.query(`INSERT INTO business_memberships(business_id,user_id,role_id,created_by,updated_by)
     SELECT $1,$2,id,$3,$3 FROM business_roles WHERE business_id=$1 AND full_access`, [business.id, ownerId, actor.id]);
-  await repo.audit(db, business.id, actor.id, 'business.created', business.id, { name, code, type, ownerId });
+  await repo.audit(db, business.id, actor.id, 'business.created', business.id, { name, code, type, ...(kind ? { kind } : {}), ownerId });
   return business;
 }
 

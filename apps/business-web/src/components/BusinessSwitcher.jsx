@@ -3,9 +3,8 @@ import { Link } from "react-router-dom";
 import Icon from "@bmp/ui/Icon";
 import usePresence from "../hooks/usePresence";
 import useBusiness from "../hooks/useBusiness";
-import { TYPE_ICONS } from "../services/businessNav";
+import TypeMark from "./TypeMark";
 import "../styles/business-switcher.css";
-import { formatIcon } from "../services/restaurantFormats";
 
 // The business switcher in the header. Lists every business this person is a
 // member of, with its type, and opens the one picked: the signed-in
@@ -69,9 +68,7 @@ export default function BusinessSwitcher() {
         aria-expanded={open}
         aria-label={`Business: ${label}. Switch business`}
       >
-        <span className={`bsw-type bsw-type-${current?.business_type || "none"}`} aria-hidden="true">
-          <Icon name={current?.restaurant_format ? formatIcon(current.restaurant_format) : TYPE_ICONS[current?.business_type] || "store"} size={16} />
-        </span>
+        <TypeMark look={current?.look} format={current?.restaurant_format} />
         <span className="bsw-text">
           <span className="bsw-name">{label}</span>
           <small>{current ? current.type_name : `${businesses.length} businesses`}</small>
@@ -111,9 +108,7 @@ export default function BusinessSwitcher() {
                       title={blocked ? "This restaurant opens when you sign in to it" : undefined}
                       onClick={() => pick(business)}
                     >
-                      <span className={`bsw-type bsw-type-${business.business_type}`} aria-hidden="true">
-                        <Icon name={business.restaurant_format ? formatIcon(business.restaurant_format) : TYPE_ICONS[business.business_type] || "store"} size={16} />
-                      </span>
+                      <TypeMark look={business.look} format={business.restaurant_format} />
                       <span className="bsw-option-text">
                         <strong>{business.name}</strong>
                         <small>

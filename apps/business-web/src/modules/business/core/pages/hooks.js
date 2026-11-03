@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { rememberedPageSize } from "../../../../components/DataGrid/useGridLayout";
 import useBusiness from "../../../../hooks/useBusiness";
 import { businessRead } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
+import { makeTerms } from "../../../../services/terms";
 import { money, moneyExact } from "@bmp/shared/format";
 import { monthStart } from "@bmp/shared/dates";
 
@@ -46,11 +47,15 @@ export function useOpenBusiness() {
   const biz = useBusiness();
   const business = biz.context.business;
   const symbol = currencySymbol(business.currency);
+  // Its words (services/terms.js) and its look: icon, accent, kind, logo.
+  const t = useMemo(() => makeTerms(biz.context.terms), [biz.context.terms]);
   return {
     ...biz,
     business,
     id: business.id,
     type: business.business_type,
+    t,
+    look: biz.context.look || null,
     settings: biz.context.settings || {},
     // The locations this person works with: theirs only when tied to one, or
     // the branch picked in the top bar. `allLocations` names every location

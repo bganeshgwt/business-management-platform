@@ -65,10 +65,15 @@ const planSql = `(SELECT json_build_object('state',s.state,'accessEndsOn',s.acce
   FROM business_plan_state(b.id) s CROSS JOIN LATERAL (SELECT CASE s.state WHEN 'trial' THEN s.trial_ends_on WHEN 'paid' THEN s.access_ends_on
    WHEN 'given' THEN s.access_ends_on WHEN 'grace' THEN s.grace_ends_on WHEN 'checking' THEN s.checking_until END AS ends_on) e)`;
 const list = async (userId) => (await pool.query(`
- SELECT b.id,b.name,b.code,b.business_type,b.legacy_restaurant_id,b.status,b.currency,b.timezone,
-  CASE rf.format WHEN 'cafe' THEN 'Café' WHEN 'bakery' THEN 'Bakery' WHEN 'cloud_kitchen' THEN 'Cloud kitchen' ELSE t.name END AS type_name,rf.format AS restaurant_format,
+ SELECT b.id,b.name,b.code,b.business_type,b.kind,b.legacy_restaurant_id,b.status,b.currency,b.timezone,
+  COALESCE(k.name,CASE rf.format WHEN 'cafe' THEN 'Café' WHEN 'bakery' THEN 'Bakery' WHEN 'cloud_kitchen' THEN 'Cloud kitchen' ELSE t.name END) AS type_name,rf.format AS restaurant_format,
+  json_build_object('icon',COALESCE(k.icon,t.icon),'accent',COALESCE(k.accent,t.accent),'kind',b.kind,'kindName',k.name,'logo',bs.logo_path,
+    'defaultItemKind',t.default_item_kind) AS look,
+  business_word(b.id,'dues_list',true) AS dues_word,
   m.role_id,r.name AS role_name,r.full_access,m.last_opened_at,${capabilitiesSql} AS capabilities,${planSql} AS plan
  FROM businesses b JOIN business_types t ON t.code=b.business_type LEFT JOIN restaurants rf ON rf.id=b.legacy_restaurant_id
+ LEFT JOIN business_type_kinds k ON k.business_type=b.business_type AND k.code=b.kind
+ LEFT JOIN business_settings bs ON bs.business_id=b.id
  JOIN business_memberships m ON m.business_id=b.id
  JOIN business_roles r ON r.business_id=m.business_id AND r.id=m.role_id
  WHERE m.user_id=$1 AND m.active AND b.status='active'

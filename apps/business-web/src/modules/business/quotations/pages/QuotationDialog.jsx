@@ -5,7 +5,6 @@ import SearchPicker from "../../../../components/SearchPicker";
 import { Loading } from "../../../../components/Feedback";
 import { businessRead, businessWrite } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
-import { word } from "../../../../services/businessNav";
 import FormDialog from "../../core/pages/FormDialog";
 import { Field, FormError } from "../../core/pages/ui";
 import { businessToday, newKey, quantity, useOpenBusiness, useOptions } from "../../core/pages/hooks";
@@ -187,7 +186,7 @@ export default function QuotationDialog({ quotation, initial, onClose, onSaved }
     ) },
   ];
 
-  const customerWord = word(biz.type, "customers", "Customers").replace(/ & .*$/, "").replace(/s$/, "");
+  const customerWord = biz.t("customer");
   return (
     <>
     <FormDialog title={editing ? `Revise ${quotation.quotation_no}` : "New quotation"} icon="clipboard" width={1080}

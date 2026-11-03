@@ -127,9 +127,13 @@ async function context(business) {
   // The paid plan's state and dates for everyone's banner, never prices (paid plans).
   const subscriptions = require('../../../platform/services/subscriptions.service');
   const plan = subscriptions.bannerOf(await subscriptions.planOf(business.id));
+  // What its screens call its people, things, places and money, and its icon and accent.
+  const businessWords = require('./businessWords.service');
+  const [terms, look] = await Promise.all([businessWords.wordsOf(business), businessWords.lookOf(business)]);
   return {
-    business: { id: business.id, name: business.name, code: business.code, business_type: business.business_type, type_name: business.type_name,
-      legacy_restaurant_id: business.legacy_restaurant_id, currency: business.currency, timezone: business.timezone },
+    business: { id: business.id, name: business.name, code: business.code, business_type: business.business_type, type_name: look?.kindName || business.type_name,
+      kind: business.kind || null, legacy_restaurant_id: business.legacy_restaurant_id, currency: business.currency, timezone: business.timezone },
+    terms, look,
     role: { id: business.role_id, name: business.role_name, full_access: business.full_access },
     member: { location_id: business.member_location_id || null, location_name: business.member_location_name || null,
       department_id: business.member_department_id || null, department_name: business.member_department_name || null },

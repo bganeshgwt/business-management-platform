@@ -19,6 +19,13 @@ router.put("/settings", async (req, res) => send(res, await consoleService.saveS
 router.get("/prices", async (req, res) => send(res, await consoleService.getPrices(req.user)));
 router.put("/prices", async (req, res) => send(res, await consoleService.savePrices(req.user, bodyOf(req))));
 
+// Business types: each type's look, its kinds, and the words its businesses see.
+const businessTypes = require("../services/businessTypes.service");
+router.get("/business-types", async (req, res) => send(res, await businessTypes.list(req.user)));
+router.get("/business-types/:code", async (req, res) => send(res, await businessTypes.get(req.user, req.params.code)));
+router.put("/business-types/:code", async (req, res) => send(res, await businessTypes.save(req.user, req.params.code, bodyOf(req))));
+router.put("/business-types/:code/kinds/:kind", async (req, res) => send(res, await businessTypes.saveKind(req.user, req.params.code, req.params.kind, bodyOf(req))));
+
 // One business: its page, and what the platform does to its plan.
 router.get("/businesses/:id", async (req, res) => send(res, await consoleService.getBusiness(req.user, req.params.id)));
 router.put("/businesses/:id/selection", async (req, res) => send(res, await consoleService.setSelection(req.user, req.params.id, bodyOf(req))));

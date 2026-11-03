@@ -4,6 +4,7 @@
 
 import { AGRI, BOOKS_ONLINE, CLINIC, FUEL, GARAGE, GOODS, HARDWARE, JEWELLERY, LAUNDRY, LODGING, MEMBERSHIPS, OFFLINE_TILL, ONLINE_SHOP, OPTICAL, PHARMACY, RENTALS, RETAIL, SALON, WEIGHED } from './businessTypes.js';
 import { dailyWorkspaces, WORKSPACES, workspaceLabel, workspaceSections } from './businessWorkspace.js';
+import { makeTerms } from './terms.js';
 
 export { GOODS };
 
@@ -51,50 +52,15 @@ export function arrivalLanding(businesses, restaurantStaff, pathname) {
   return pick ? businessPath(pick.id) : null;
 }
 
-// Words a business of each type uses for the same screens.
-const TYPE_WORDS = {
-  salon: { customers: "Clients", products: "Services & products", resources: "Stylists & rooms", sales: "Bills", appointments: "Appointment history" },
-  // Patients have their own screen (with consent); the core list is the billing contacts.
-  healthcare: { customers: "Billing contacts", products: "Services & charges", resources: "Doctors & rooms", sales: "Bills" },
-  pharmacy: { products: "Medicines & products" },
-  // Shared receivables: a kirana calls customer credit "udhaar".
-  grocery: { outstanding: "Udhaar", collections: "Udhaar collections" },
-  books: { products: "Books & stationery" },
-  wholesale: { customers: "Customers & retailers", pricing: "Price lists" },
-  fashion: { products: "Products & variants", variants: "Size × colour" },
-  electronics: { products: "Products & models" },
-  // A meat shop's customer rates; a dry-fruit shop sorts and repacks.
-  meat: { pricing: "Customer rates" },
-  weight_retail: { pricing: "Customer rates", processing: "Sorting & repacking" },
-  hardware: { customers: "Customers & contractors", pricing: "Contractor & dealer rates", variants: "Sizes & shades" },
-  agri_inputs: { customers: "Farmers & customers", products: "Seeds, fertilisers & pesticides", pricing: "Dealer rates" },
-  optical: { products: "Frames, lenses & products", variants: "Frame colours & sizes", appointments: "Eye tests", resources: "Optometrists & rooms" },
-  garage: { products: "Parts & services", pricing: "Mechanic & retailer rates", appointments: "Service bookings", resources: "Mechanics & bays" },
-  jewellery: { products: "Jewellery & items" },
-  fuel_station: { customers: "Customers & fleets", products: "Fuels, lubricants & items" },
-  memberships: { customers: "Members", products: "Plans & services", sales: "Bills", appointments: "Sessions & trials", resources: "Trainers & studios" },
-  laundry: { products: "Services & items", sales: "Bills" },
-  rentals: { customers: "Hirers", products: "Rental items & services", sales: "Bills" },
-  lodging: { customers: "Guests & companies", products: "Rooms, services & extras", sales: "Bills" },
-};
-export const word = (type, key, fallback) => TYPE_WORDS[type]?.[key] || fallback;
-
-// One icon per business type, from the shared Icon set, for the switcher.
-export const TYPE_ICONS = {
-  restaurant: "utensils", grocery: "store", supermarket: "grid", wholesale: "truck", fashion: "tag",
-  electronics: "zap", pharmacy: "heart", books: "book", salon: "sparkles", healthcare: "activity",
-  meat: "scale", weight_retail: "scale",
-  general_retail: "box", hardware: "layers", agri_inputs: "leaf", optical: "eye", garage: "settings", jewellery: "star",
-  fuel_station: "fire", memberships: "users", laundry: "refresh", rentals: "key", lodging: "home",
-};
-
 // section: the URL piece under /business-admin/<id>/; need: the permission
 // (its module must be on too); module: an extra module the screen needs;
 // types: only for these business types; except: not for these types;
 // owner: only for the business's owner (the Owner role, full access);
 // href(id): the address of a workspace of its own outside Business Admin
-// (the clinic's, the lab's), which the menu link opens instead.
-export function businessSections(type) {
+// (the clinic's, the lab's), which the menu link opens instead. Labels that
+// name the business's people, things and money are its words (`t`,
+// services/terms.js): Members, Plans & services, Udhaar.
+export function businessSections(type, t = makeTerms()) {
   return [
     { title: "Overview", links: [{ section: "", label: "Overview", icon: "dashboard", end: true }] },
     {
@@ -109,12 +75,12 @@ export function businessSections(type) {
         { section: "salon-calendar", label: "Calendar", icon: "reservations", need: "appointments.view", types: SALON },
         // Phone and WhatsApp orders for pickup at a weight shop.
         { section: "pickup-orders", label: "Orders for pickup", icon: "pickup", need: "sales.view", module: "weight", types: WEIGHED },
-        { section: "sales", label: word(type, "sales", "Sales"), icon: "bills", need: "sales.view" },
+        { section: "sales", label: t("sale", "many"), icon: "bills", need: "sales.view" },
         // Estimates with a validity date that become bills or sales orders.
         { section: "quotations", label: "Quotations", icon: "logbook", need: "quotations.view", except: ['restaurant'] },
         // A paint shop's tinting board (each tinted line of a bill, queued to handed over) and its shades.
         { section: "tinting", label: "Paint tinting", icon: "board", need: "hardware_tinting.view", types: HARDWARE },
-        { section: "customers", label: word(type, "customers", "Customers"), icon: "customers", need: "contacts.view" },
+        { section: "customers", label: t("customer_list", "many"), icon: "customers", need: "contacts.view" },
         // A hardware shop's contractors' and builders' sites, each with its ledger.
         { section: "sites", label: "Sites", icon: "locations", need: "hardware_sites.view", types: HARDWARE },
         // A hardware shop's fitters: the register, commission rules, payouts and statements.
@@ -126,18 +92,18 @@ export function businessSections(type) {
         { section: "book-orders", label: "Booklists & orders", icon: "orders", need: "sales.view", module: "books" },
         { section: "offers", label: "Offers & discounts", icon: "discounts", need: "offers.view" },
         { section: "loyalty", label: "Loyalty points", icon: "loyalty", need: "loyalty.view" },
-        { section: "appointments", label: word(type, "appointments", "Appointments"), icon: "reservations", need: "appointments.view" },
+        { section: "appointments", label: t("appointment", "many"), icon: "reservations", need: "appointments.view" },
         // A salon edits its stylists and rooms under Stylists & services.
-        { section: "resources", label: word(type, "resources", "Staff & rooms"), icon: "employees", need: "appointments.view", except: SALON },
-        { section: "pricing", label: word(type, "pricing", "Wholesale prices"), icon: "priceList", need: "wholesale.view" },
+        { section: "resources", label: t("resource", "many"), icon: "employees", need: "appointments.view", except: SALON },
+        { section: "pricing", label: t("price_list", "many"), icon: "priceList", need: "wholesale.view" },
         { section: "price-groups", label: "Price groups & schemes", icon: "discounts", need: "wholesale.view", module: "sales_orders" },
         // Wholesale orders and the shared receivables screens.
         { section: "sales-orders", label: "Sales orders", icon: "orders", need: "sales_orders.view" },
         { section: "dispatch", label: "Dispatch", icon: "deliveries", need: "sales_orders.view" },
         { section: "back-orders", label: "Back-orders", icon: "pickup", need: "sales_orders.view" },
         // Retail shops see the same balances on their Udhaar screen (with reminders).
-        { section: "outstanding", label: word(type, "outstanding", "Outstanding"), icon: "dues", need: "receivables.view", except: GOODS },
-        { section: "collections", label: word(type, "collections", "Collections"), icon: "collection", need: "receivables.view", except: GOODS },
+        { section: "outstanding", label: t("dues_list", "many"), icon: "dues", need: "receivables.view", except: GOODS },
+        { section: "collections", label: t("collection", "many"), icon: "collection", need: "receivables.view", except: GOODS },
         { section: "routes", label: "Routes & salespeople", icon: "deliveries", need: "sales_orders.view" },
         // Fashion exchanges, electronics repairs and warranties.
         { section: "exchanges", label: "Exchanges", icon: "returns", need: "exchanges.view" },
@@ -359,12 +325,12 @@ export function businessSections(type) {
     {
       title: "Products",
       links: [
-        { section: "products", label: word(type, "products", "Products & services"), icon: "products", need: "catalog.view" },
+        { section: "products", label: t("catalog", "many"), icon: "products", need: "catalog.view" },
         { section: "categories", label: "Categories", icon: "categories", need: "catalog.view" },
         { section: "units", label: "Units & pack sizes", icon: "units", need: "catalog.view" },
         { section: "books", label: "Book details", icon: "categories", need: "catalog.view", module: "books" },
         { section: "labels", label: "Barcode labels", icon: "numbering", need: "catalog.print", module: "inventory" },
-        { section: "variants", label: word(type, "variants", "Variants"), icon: "modifiers", need: "catalog.view", module: "variants" },
+        { section: "variants", label: t("variant", "many"), icon: "modifiers", need: "catalog.view", module: "variants" },
         // A kit / bundle sells as its parts (goods shops).
         { section: "kits", label: "Kits & bundles", icon: "box", need: "catalog.view", module: "inventory", types: GOODS },
         // The yearly GST change, entered ahead: items move to another slab from a date.
@@ -393,7 +359,7 @@ export function businessSections(type) {
         { section: "serials", label: "Serial / IMEI register", icon: "numbering", need: "inventory.view", module: "serials" },
         // Weight-based shops.
         { section: "weight-stock", label: "Stock by weight", icon: "inventoryInsights", need: "inventory.view", module: "weight", types: WEIGHED },
-        { section: "processing", label: WEIGHED.includes(type) ? "Cutting & processing" : word(type, "processing", "Cutting & yield"), icon: "kitchen", need: "processing.view" },
+        { section: "processing", label: t("processing", "many"), icon: "kitchen", need: "processing.view" },
         { section: "wastage", label: "Wastage", icon: "returns", need: "wastage.view" },
         // A farm-input shop's seed lots with their tags, and stock kept apart (expired, seized, sampled).
         { section: "agri-seed-lots", label: "Seed lots", icon: "inventoryInsights", need: "inventory.view", module: "agri", types: AGRI },
@@ -480,9 +446,9 @@ export function businessSections(type) {
 }
 
 // The menu this person sees in this business, as the main layout draws it;
-// owner: whether they hold its Owner role.
-export function businessMenu(businessId, type, can, has, owner = false) {
-  const rules = businessSections(type).flatMap((group) => group.links);
+// owner: whether they hold its Owner role; t: the business's words.
+export function businessMenu(businessId, type, can, has, owner = false, t = makeTerms()) {
+  const rules = businessSections(type, t).flatMap((group) => group.links);
   const allowed = (link) => link && typeAllows(link, type) && (!link.need || can(link.need)) && (!link.module || has(link.module)) && (!link.owner || owner);
   return dailyWorkspaces(type).map((group) => ({
     title: group.title,
@@ -493,11 +459,11 @@ export function businessMenu(businessId, type, can, has, owner = false) {
       if (!link) return null;
       const to = (item) => (item.href ? item.href(businessId) : businessPath(businessId, item.section));
       // Every page of the area, for quick access and "Jump to…" (the menu shows the area once).
-      const pages = available.map((item) => ({ to: to(item), label: workspaceLabel(item.section, type, item.label), icon: item.icon, end: item.end }));
+      const pages = available.map((item) => ({ to: to(item), label: workspaceLabel(item.section, type, item.label, t), icon: item.icon, end: item.end }));
       // Settings keeps its name whoever looks (a stock keeper's first page there is
       // Units & pack sizes), so a hint can say "Settings › Units & pack sizes";
       // so does a farm-input shop's Farm inputs area ("Farm inputs › Molecules").
-      return { to: to(link), label: key === 'tasks' ? 'Tasks' : key === 'settings' ? 'Settings' : key === 'farm' ? 'Farm inputs' : workspaceLabel(link.section, type, link.label),
+      return { to: to(link), label: key === 'tasks' ? 'Tasks' : key === 'settings' ? 'Settings' : key === 'farm' ? 'Farm inputs' : workspaceLabel(link.section, type, link.label, t),
         icon: link.icon, end: link.end, section: link.section, activeSections: available.map((item) => item.section), pages };
     }).filter(Boolean),
   })).filter((group) => group.links.length);

@@ -4,7 +4,6 @@ import Icon from "@bmp/ui/Icon";
 import SectionCard from "../../../../components/SectionCard";
 import { ErrorMessage, SuccessMessage } from "../../../../components/Feedback";
 import { businessWrite } from "../../../../services/business.service";
-import { word } from "../../../../services/businessNav";
 import FormDialog from "./FormDialog";
 import { ActiveBadge, BusinessHeader, Field } from "./ui";
 import { useOpenBusiness, useServerList } from "./hooks";
@@ -12,7 +11,7 @@ import { useOpenBusiness, useServerList } from "./hooks";
 // The people and rooms appointments are booked against.
 export default function ResourcesPage() {
   const biz = useOpenBusiness();
-  const title = word(biz.type, "resources", "Staff & rooms");
+  const title = biz.t("resource", "many");
   const list = useServerList("resources", { gridId: "business-resources" });
   const [adding, setAdding] = useState(false);
   const [notice, setNotice] = useState("");

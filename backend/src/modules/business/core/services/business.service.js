@@ -93,7 +93,8 @@ const rateText = (price, fourPlaces) => {
 async function list(user) {
   const businesses = await repo.list(user.id);
   const { modules } = await repo.platformCatalogue();
-  const types = Object.fromEntries((await repo.all(repo.pool, 'SELECT code,name FROM business_types ORDER BY name')).map((t) => [t.code, { name: t.name }]));
+  // Each type with its look and kinds, for Add a business.
+  const types = Object.fromEntries((await require('./businessWords.service').typesForNew()).map(({ code, ...type }) => [code, type]));
   return { types, modules: modules.map(({ code, name, kind }) => ({ code, name, kind })),
     businesses: businesses.map((b) => ({ ...b, is_signed_in_restaurant: Boolean(b.legacy_restaurant_id) && Number(b.legacy_restaurant_id) === Number(user.restaurantId) })) };
 }

@@ -7,7 +7,6 @@ import { ErrorMessage } from "../../../../components/Feedback";
 import { businessRead, businessWrite } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
 import { dateShort, relative } from "@bmp/shared/format";
-import { word } from "../../../../services/businessNav";
 import { toast } from "../../../../services/toast";
 import FormDialog from "../../core/pages/FormDialog";
 import { BusinessHeader, Field } from "../../core/pages/ui";
@@ -50,7 +49,7 @@ export default function OutstandingPage() {
   useEffect(() => {
     if (params.get("customer")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);
-  const title = word(biz.type, "outstanding", "Outstanding");
+  const title = biz.t("dues_list", "many");
   const t = list.data?.totals;
   const today = businessToday(biz.business.timezone);
 

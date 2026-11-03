@@ -85,15 +85,16 @@ const info = () => remembered('info', async () => {
   };
 });
 
-// Every business type with what it can buy, a restaurant's formats, and the
+// Every business type with its look and kinds, what it can buy, a restaurant's formats, and the
 // GST states: for each type, what planCatalogue.forType gives one business of
 // it (its plans on offer with the modules each includes; the optional modules
 // it can use, with their prices and what each needs), read for every type at
 // once.
 const pricing = () => remembered('pricing', async () => {
-  const [row, types, plans, addons] = await Promise.all([
+  const [row, types, kinds, plans, addons] = await Promise.all([
     settings.get(),
-    repo.all(repo.pool, 'SELECT code,name FROM business_types ORDER BY name'),
+    repo.all(repo.pool, 'SELECT code,name,icon,accent FROM business_types ORDER BY name'),
+    repo.all(repo.pool, 'SELECT business_type,code,name,icon FROM business_type_kinds WHERE active ORDER BY business_type,sort_order,name'),
     repo.all(repo.pool, `SELECT p.business_type,p.code,p.name,p.description,p.monthly_price,p.yearly_price,p.is_default,
         COALESCE((SELECT json_agg(json_build_object('code',m.code,'name',m.name) ORDER BY m.sort_order,m.code) FROM platform_plan_modules pm
           JOIN platform_modules m ON m.code=pm.module_code WHERE pm.plan_code=p.code),'[]') AS modules
@@ -116,6 +117,7 @@ const pricing = () => remembered('pricing', async () => {
   const plansOf = byType(plans, (p) => ({
     code: p.code, name: p.name, description: p.description, monthly: p.monthly_price, yearly: p.yearly_price, isDefault: p.is_default, modules: p.modules,
   }));
+  const kindsOf = byType(kinds, (k) => ({ code: k.code, name: k.name, icon: k.icon }));
   const addonsOf = byType(addons, (a) => ({
     code: a.code, name: a.name, description: a.description, soldAs: a.sold_as, monthly: a.monthly_price, yearly: a.yearly_price,
     available: a.available, recommended: a.recommended, requires: a.requires,
@@ -123,7 +125,8 @@ const pricing = () => remembered('pricing', async () => {
   return {
     trialDays: row.trial_days, gstRate: row.gst_rate,
     types: types.map((type) => ({
-      code: type.code, name: type.name, plans: plansOf.get(type.code) || [], addons: addonsOf.get(type.code) || [],
+      code: type.code, name: type.name, icon: type.icon, accent: type.accent, kinds: kindsOf.get(type.code) || [],
+      plans: plansOf.get(type.code) || [], addons: addonsOf.get(type.code) || [],
       ...(type.code === 'restaurant' ? { formats: restaurantFormat.FORMAT_CODES } : {}),
     })),
     states: STATE_CODES.map((code) => ({ code, name: STATES[code] })),
@@ -183,7 +186,15 @@ async function readBusiness(body) {
   if (!STATE_CODES.includes(stateCode)) fail("Choose your business's state");
   const gstin = readGstin(business.gstin, 'GSTIN');
   if (gstin && gstin.slice(0, 2) !== stateCode) fail(`The state must be the one in the GSTIN (${STATES[gstin.slice(0, 2)]})`);
-  return { type, name, format, city, stateCode, gstin };
+  // The kind within its type (a yoga studio, a dental clinic), when the type has kinds and one is chosen.
+  let kind = null;
+  if (type.code !== 'restaurant' && business.kind !== undefined && business.kind !== null && business.kind !== '') {
+    kind = String(business.kind).trim();
+    if (!await repo.one(repo.pool, 'SELECT 1 FROM business_type_kinds WHERE business_type=$1 AND code=$2 AND active', [type.code, kind])) {
+      fail('Choose the kind of your business from the list');
+    }
+  }
+  return { type, name, format, kind, city, stateCode, gstin };
 }
 
 // The plan (the type's default when none is named), month or year, and the
@@ -333,7 +344,7 @@ async function signUpBusiness(form) {
       const user = await repo.one(db, 'INSERT INTO users(name,email,mobile,password_hash) VALUES($1,$2,$3,$4) RETURNING id', [owner.name, owner.email, owner.mobile, first]);
       await db.query('SELECT users_set_own_password($1,$2,$3)', [user.id, first, own]);
       const made = await onboarding.createBusiness(db, { id: user.id }, {
-        businessType: business.type.code, name: business.name, code: await freeCode(db, business.name, business.type.code),
+        businessType: business.type.code, kind: business.kind, name: business.name, code: await freeCode(db, business.name, business.type.code),
         gstin: business.gstin, stateCode: business.stateCode, city: business.city,
       }, user.id);
       await setSwitches(db, made.id, withNeeds(chosen, needs), needs, user.id);

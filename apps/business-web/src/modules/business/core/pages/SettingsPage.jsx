@@ -14,6 +14,7 @@ import { toast } from "../../../../services/toast";
 import PlanBadge from "../../../plan/components/PlanBadge";
 import { moduleBadge } from "../../../plan/planWords";
 import { useOwnerPlan, usePlanScope } from "../../../plan/usePlan";
+import WordsCard from "./WordsCard";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const fromRow = (s) => ({
@@ -49,6 +50,7 @@ const SECTIONS = [
   { id: "bz-settings-prices", label: "Prices and totals" },
   { id: "bz-settings-rules", label: "Rules" },
   { id: "bz-settings-modules", label: "Business tools" },
+  { id: "bz-settings-words", label: "Words" },
 ];
 
 // This business's own details and billing rules, and the modules it uses.
@@ -221,6 +223,7 @@ export default function SettingsPage() {
           />
         </form>
         <ModulesCard />
+        {biz.type !== "restaurant" && <WordsCard />}
         </SettingsLayout>
       )}
       {!form && <ModulesCard />}

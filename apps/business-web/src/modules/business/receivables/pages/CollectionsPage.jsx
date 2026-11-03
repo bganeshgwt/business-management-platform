@@ -8,7 +8,6 @@ import { ErrorMessage, Loading } from "../../../../components/Feedback";
 import { businessRead } from "../../../../services/business.service";
 import { getErrorMessage } from "../../../../services/api";
 import { dateShort, dateTime } from "@bmp/shared/format";
-import { word } from "../../../../services/businessNav";
 import { toast } from "../../../../services/toast";
 import { Badge, BusinessHeader, PeriodFilter } from "../../core/pages/ui";
 import { businessToday, useOpenBusiness, useOptions, useServerList } from "../../core/pages/hooks";
@@ -35,7 +34,7 @@ export default function CollectionsPage() {
   useEffect(() => {
     if (params.get("new") || params.get("tab")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);
-  const title = word(biz.type, "collections", "Collections");
+  const title = biz.t("collection", "many");
   const saved = (c) => {
     setCreating(false);
     toast.success(`Receipt ${c.collection_no} saved for ${biz.exact(c.amount)}${Number(c.unallocated) ? `; ${biz.exact(c.unallocated)} kept as advance` : ""}`);
