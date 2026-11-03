@@ -16,7 +16,7 @@ import "../styles/tax-changes.css";
 // with its reason. Nothing is saved until the preview has been seen; changing
 // anything asks for a new preview.
 //
-// api: shopChanges(id) or menuChanges(); words: WORDS.shop or WORDS.menu;
+// api: shopChanges(id) or menuChanges(); words: shopWords(t) or WORDS.menu;
 // rates: [{ id, name, rate }] the business's active rates; categories:
 // [{ id, name }]; pricesInclude: true, false, or "mixed" (a restaurant's dishes
 // each have their own); today: the business's own date.
@@ -134,7 +134,7 @@ export default function TaxChangeTool({ api, words, rates, categories, pricesInc
             </label>
             <label className="field">
               <span>HSN / SAC code begins</span>
-              <input inputMode="numeric" maxLength={8} value={filters.hsn} onChange={setFilter("hsn")} placeholder="e.g. 1905" className="mono" />
+              <input inputMode="numeric" maxLength={8} value={filters.hsn} onChange={setFilter("hsn")} placeholder={words.hsn ? `e.g. ${words.hsn}` : undefined} className="mono" />
             </label>
             <label className="field">
               <span>Name or code</span>

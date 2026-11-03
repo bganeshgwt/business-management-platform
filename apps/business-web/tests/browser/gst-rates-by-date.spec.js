@@ -36,6 +36,9 @@ test("a shop schedules the yearly change ahead, sees what each item becomes, and
   await page.getByRole("button", { name: "New GST rate change" }).click();
   const tool = page.getByRole("dialog", { name: "New GST rate change" });
   await expect(tool).toBeVisible();
+  // In the grocery's own words: its products, and an HSN code of its own trade.
+  await expect(tool.getByText("1 · Which products")).toBeVisible();
+  await expect(tool.getByLabel("HSN / SAC code begins")).toHaveAttribute("placeholder", "e.g. 1905");
   await tool.getByLabel("Name or code").fill(GST_CHANGE.search);
   await tool.getByLabel("Moves to").selectOption({ label: "GST 5%" });
   // It starts on the next 1 April, the day GST rates change each year.
@@ -43,7 +46,7 @@ test("a shop schedules the yearly change ahead, sees what each item becomes, and
   await tool.getByRole("button", { name: "Preview" }).click();
 
   // Each biscuit, at 18% now, from 1 April at 5%: a grocery's price includes GST and keeps its total.
-  const grid = tool.getByRole("table", { name: "What each item becomes" });
+  const grid = tool.getByRole("table", { name: "What each product becomes" });
   await expect(grid.getByRole("row").filter({ hasText: marie.name })).toContainText("GST 18%", { timeout: 15_000 });
   await expect(grid.getByRole("row").filter({ hasText: marie.name })).toContainText("GST 5%");
   await expect(grid.getByRole("row").filter({ hasText: marie.name })).toContainText(`₹${marie.price}.00`);
@@ -59,7 +62,7 @@ test("a shop schedules the yearly change ahead, sees what each item becomes, and
   await expect(grid.getByRole("row").filter({ hasText: marie.name })).not.toContainText("₹52.50");
   await tool.getByLabel("Reason").fill(GST_CHANGE.reason);
   await page.screenshot({ path: testInfo.outputPath("gst-change-preview.png"), fullPage: true });
-  await tool.getByRole("button", { name: "Schedule for 2 items" }).click();
+  await tool.getByRole("button", { name: "Schedule for 2 products" }).click();
   await expect(tool).toHaveCount(0, { timeout: 15_000 });
 
   // The change is listed as scheduled, and opens with its items.
@@ -140,10 +143,12 @@ test("a notification's list is imported: each code finds its items, codes that f
   const shop = business("grocery");
   const [marie, cream] = GST_CHANGE.items;
   const reason = "Notification 9/2027-Central Tax (Rate)";
+  // A jeweller's 3% is a rule of GST law, not a setting: its screen says so, and a kirana's, which has none, does not.
+  await page.goto(`/business-admin/${business("jewellery").id}/tax-changes`);
+  await expect(page.getByText("A jewellery item's 3% is a rule of GST law kept by the software, not a setting: no change here moves it.")).toBeVisible({ timeout: 30_000 });
   await page.goto(`/business-admin/${shop.id}/tax-changes`);
   await expect(page.getByRole("heading", { level: 1, name: "GST rate changes" })).toBeVisible({ timeout: 30_000 });
-  // Jewellery's 3% and a fuel's nil slab are rules, not settings: the screen says so.
-  await expect(page.getByText(/A jewellery item's 3% and a fuel's nil slab are rules of GST law/)).toBeVisible();
+  await expect(page.getByText(/rules? of GST law/)).toHaveCount(0);
   await page.getByRole("button", { name: "Import a notification's list" }).click();
   const tool = page.getByRole("dialog", { name: "Import a notification's list" });
   // As a notification prints it: the code with spaces, the rate with its sign; and a code the shop does not stock.
@@ -156,12 +161,12 @@ test("a notification's list is imported: each code finds its items, codes that f
   await expect(lines.getByRole("row").filter({ hasText: marie.hsn })).not.toContainText(cream.name);
   await expect(lines.getByRole("row").filter({ hasText: "9999" })).toContainText("Finds nothing");
   await expect(tool.locator("p", { hasText: "Codes that find nothing:" })).toContainText("9999");
-  await expect(tool.getByText(/It becomes GST 5% for 1 item\./)).toBeVisible();
+  await expect(tool.getByText(/It becomes GST 5% for 1 product\./)).toBeVisible();
   await tool.getByLabel("Reason").fill(reason);
   await page.screenshot({ path: testInfo.outputPath("gst-import-preview.png"), fullPage: true });
-  await tool.getByRole("button", { name: "Schedule 1 change for 1 item" }).click();
+  await tool.getByRole("button", { name: "Schedule 1 change for 1 product" }).click();
   await expect(tool).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.getByText(`The list is scheduled: GST 5% for 1 item, from ${aprilWords}.`)).toBeVisible();
+  await expect(page.getByText(`The list is scheduled: GST 5% for 1 product, from ${aprilWords}.`)).toBeVisible();
 
   // Cancelled again, so nothing moves.
   const row = page.getByRole("row").filter({ hasText: reason });

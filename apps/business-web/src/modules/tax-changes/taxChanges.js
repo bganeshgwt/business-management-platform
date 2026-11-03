@@ -1,11 +1,20 @@
 import { dayMonth } from "@bmp/shared/dates";
 
-// What a GST rate change screen says, in a shop's words or a restaurant's.
+// What a GST rate change screen says, in a business's words or a
+// restaurant's; `hsn`: an HSN or SAC code of its own, for the code filter.
 
 export const WORDS = {
-  shop: { item: "item", items: "items", Item: "Item", Items: "Items", rate: "slab", Rate: "GST slab", rates: "slabs", catalogue: "catalogue" },
-  menu: { item: "dish", items: "dishes", Item: "Dish", Items: "Dishes", rate: "tax rate", Rate: "Tax rate", rates: "tax rates", catalogue: "menu" },
+  shop: { item: "item", items: "items", Item: "Item", Items: "Items", rate: "slab", Rate: "GST slab", rates: "slabs", catalogue: "catalogue", hsn: "" },
+  menu: { item: "dish", items: "dishes", Item: "Dish", Items: "Dishes", rate: "tax rate", Rate: "Tax rate", rates: "tax rates", catalogue: "menu", hsn: "1905" },
 };
+
+// A business's own words (services/terms.js): its items ("plans & services",
+// "parts & services"), its list and its own HSN or SAC example.
+export const shopWords = (t) => ({
+  ...WORDS.shop,
+  item: t.lower("item"), items: t.lower("item", "many"), Item: t("item"), Items: t("item", "many"),
+  catalogue: t.lower("catalog"), hsn: t.ex("hsn"),
+});
 
 // A change as a whole: some of it still to come, in force, refused on its
 // date by the database (every item it named), or all cancelled.

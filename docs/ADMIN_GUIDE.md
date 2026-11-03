@@ -3516,13 +3516,15 @@ bills made before keep their rates. Entering and cancelling a change needs
 *Change prices, tax, categories, units and pack sizes* (`catalog.edit`);
 everyone who sees the catalogue sees the changes.
 
-The yearly change, step by step:
+The yearly change, step by step (the screens name the business's own items:
+a kirana's *products*, a gym's *plans & services*, a garage's *parts &
+services*):
 
 1. **New GST rate change**.
 2. **Which items**: pick them by the slab they are at now (*Now at*), a
    category (its sub-categories come with it), the first digits of their HSN
-   or SAC code, or a name or code; tick *Switched-off items too* to include
-   those.
+   or SAC code (the example is one of the business's own), or a name or code;
+   tick *Switched-off items too* to include those.
 3. **The change**: the slab they move to (*Moves to*; add it first under
    *Settings › Tax rates* if it is new) and the first day of the new rate
    (*From*, which starts on the next 1 April; any day from tomorrow, within
@@ -3586,7 +3588,8 @@ day and the reason, and needs *Change business settings* (`settings.edit`);
 itself, like an item's change. To change them from today, change them where
 they are kept (*Size × colour › More › GST on clothing by price*; *Settings ›
 Room types & rates*). A jewellery item's 3% and a fuel's nil slab are rules
-of GST law, not settings: no change moves them.
+of GST law, not settings: no change moves them, and a jeweller's or a fuel
+station's screen says so.
 
 ### Daily money, expenses and cashier shifts
 

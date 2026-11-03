@@ -1,11 +1,28 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NOTICE_RULE, noticeText, readCodeList } from '../src/modules/tax-changes/taxChanges.js';
+import { NOTICE_RULE, WORDS, noticeText, readCodeList, shopWords } from '../src/modules/tax-changes/taxChanges.js';
+import { defaultT, words } from './helpers/defaultWords.js';
 
 // GST rate changes on the staff screens: a notification's list as pasted or
 // read from a CSV file (one code and its rate a line, in the ways people write
-// them), and the notice an open quotation or sales order shows while a change
-// to come moves its items.
+// them), the notice an open quotation or sales order shows while a change to
+// come moves its items, and the words the screens use for a business's items.
+
+test("a business's change speaks of its own items and its own HSN or SAC example", () => {
+  const gym = shopWords(words({ item: ['Plan or service', 'Plans & services'], catalog: ['Plan list', 'Plans & services'], 'example.hsn': ['999723'] }));
+  assert.equal(gym.item, 'plan or service');
+  assert.equal(gym.items, 'plans & services');
+  assert.equal(gym.Items, 'Plans & services');
+  assert.equal(gym.catalogue, 'plan list');
+  assert.equal(gym.hsn, '999723');
+  // The slab's words are the law's, the same for every business.
+  assert.equal(gym.Rate, 'GST slab');
+  const shop = shopWords(defaultT);
+  assert.equal(shop.Item, 'Product');
+  assert.equal(shop.hsn, '1905');
+  // A restaurant's menu keeps its own.
+  assert.equal(WORDS.menu.item, 'dish');
+});
 
 test('a list is read as codes and rates, written as a notification or a spreadsheet writes them', () => {
   const { lines, skipped } = readCodeList('HSN code,Rate\r\n1905 31 00   5 %\n4820,12\n"6109";"5"\n9963\t18\n0402.10 5%\n\nnot a line\n12 5\n1905 rate');
