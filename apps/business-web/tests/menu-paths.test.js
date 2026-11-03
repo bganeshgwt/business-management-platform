@@ -53,7 +53,7 @@ const RETIRED = [
   ['Business settings › Modules', 'Settings › Business tools'],
   ['Lab › ', 'Lab orders › Tests & panels'],
   ['My profile › PIN', 'My profile › Personal PIN'],
-  ['Products › Units & pack sizes', 'Settings › Units & pack sizes'],
+  ['Products › Units & pack sizes', 'Settings › Units'],
   ['› Scale codes', '› Weighing-scale codes'],
   ['Floor → Captain sections', 'Tables & QR → Captain sections'],
   ['Kitchen display → Stations)', 'Kitchen display → Stations & routing'],
@@ -204,7 +204,7 @@ test('every menu path in the code leads to a place on the menus as drawn', () =>
 });
 
 // The shops' Settings area keeps its name for someone who may open only some
-// of its pages, so "Settings › Units & pack sizes" holds for a stock keeper.
+// of its pages, so "Settings › Units" holds for a stock keeper.
 test("the shops' Settings area keeps its name for everyone who may open a page in it", () => {
   const renamed = [];
   for (const type of SHOP_TYPES) {

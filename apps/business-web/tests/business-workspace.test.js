@@ -302,3 +302,21 @@ test('Your plan sits among the settings, for the business\'s owner and the resta
   const restaurant=restaurantMenu([{title:'Restaurant',links:[{to:'/restaurant/settings',label:'Settings'},{to:'/privacy',label:'Personal data'},{to:'/plan',label:'Your plan'}]}]);
   assert.deepEqual(restaurant.flatMap(g=>g.links).find(l=>l.label==='Settings').related.map(l=>l.to),['/restaurant/settings','/privacy','/plan']);
 });
+test('every business keeps its units under Settings; the label sheet is a goods shop\'s, with its stock',()=>{
+  const pages=(type,has=()=>true)=>businessMenu(33,type,()=>true,has).flatMap(g=>g.links).flatMap(l=>l.pages);
+  for(const type of TYPES){
+    const settings=businessMenu(33,type,()=>true,()=>true).flatMap(g=>g.links).find(l=>l.label==='Settings');
+    assert.ok(settings.pages.some(p=>p.to==='/business-admin/33/units'&&p.label==='Units'),`${type}: Units under Settings`);
+    assert.ok(pages(type,m=>m!=='inventory').some(p=>p.to.endsWith('/units')),`${type}: Units without Stock too`);
+  }
+  // Its new items start as goods: the labels with its products while Stock is on.
+  for(const type of ['grocery','supermarket','wholesale','fashion','pharmacy','garage','hardware','jewellery']){
+    assert.ok(pages(type).some(p=>p.to.endsWith('/labels')&&p.label==='Barcode labels'),`${type}: Barcode labels with its products`);
+    assert.ok(!pages(type,m=>m!=='inventory').some(p=>p.to.endsWith('/labels')),`${type}: no labels without Stock`);
+  }
+  // A business that sells its time and work keeps them off its menu, even with Stock on.
+  for(const type of ['salon','healthcare','memberships','laundry','rentals','lodging']){
+    assert.ok(!pages(type).some(p=>p.to.endsWith('/labels')),`${type}: no Barcode labels on the menu`);
+    assert.ok(typeAllows(sectionRule('labels',type),type),`${type}: a goods receipt's Print labels still opens the page`);
+  }
+});

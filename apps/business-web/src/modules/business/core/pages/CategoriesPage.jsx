@@ -14,45 +14,48 @@ import { OnlineCategoryField } from "../../shop/pages/OnlineItemFields";
 // The category tree: up to five levels, each name once under its parent.
 export default function CategoriesPage() {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const list = useServerList("categories", { gridId: "business-categories" });
   const [editing, setEditing] = useState(null);
   const [notice, setNotice] = useState("");
-  // Departments (a department store's Clothing, Home…): top-level categories belong to one.
-  const goods = biz.has("inventory");
+  // Departments (a department store's Menswear, Home & kitchen…): top-level
+  // categories belong to one. A business keeps them where its words give a
+  // department for an example; one that has some keeps managing them.
   const [departments, setDepartments] = useState([]);
   const loadDepartments = useCallback((signal) => {
-    if (!goods) return;
     businessRead(biz.id, "departments", undefined, signal).then(setDepartments).catch(() => {});
-  }, [biz.id, goods]);
+  }, [biz.id]);
   useEffect(() => {
     const controller = new AbortController();
     loadDepartments(controller.signal);
     return () => controller.abort();
   }, [loadDepartments]);
   const departmentName = useCallback((id) => departments.find((d) => String(d.id) === String(id))?.name || "", [departments]);
+  const keepsDepartments = t.ex("department") !== "" || departments.length > 0;
+  const example = t.ex("category");
 
   const columns = useMemo(() => [
     { key: "path", header: "Category", value: (c) => c.path, mobile: "title", pin: true,
       render: (c) => <span className="bz-tree" style={{ "--depth": c.depth - 1 }}>{c.depth > 1 && <span className="bz-tree-mark" aria-hidden="true">└</span>}<strong>{c.name}</strong></span> },
     { key: "parent", header: "Inside", value: (c) => c.parent_name || "", render: (c) => c.parent_name || <span className="muted">Top level</span>, mobile: "subtitle" },
     departments.length > 0 && { key: "department", header: "Department", value: (c) => departmentName(c.department_id), render: (c) => departmentName(c.department_id) || <span className="muted">—</span> },
-    { key: "products", header: "Products", type: "number", value: (c) => c.product_count, total: "sum", mobile: "show" },
+    { key: "products", header: t("item", "many"), type: "number", value: (c) => c.product_count, total: "sum", mobile: "show" },
     { key: "active", header: "Status", type: "status", value: (c) => (c.active ? "active" : "inactive"), render: (c) => <ActiveBadge active={c.active} /> },
     biz.can("catalog.edit") && { key: "actions", header: "", label: "Actions", type: "actions", render: (c) => <button type="button" className="chip-button" onClick={() => setEditing(c)}>Edit</button> },
-  ], [biz, departments.length, departmentName]);
+  ], [biz, t, departments.length, departmentName]);
 
   return (
     <div className="stack">
       <BusinessHeader icon="layers" title="Categories"
-        description="Group products the way your shelves and reports are arranged — Staples › Rice › Basmati. Up to five levels."
+        description={`Group ${t.lower("item", "many")} the way you find and report them${example ? `, e.g. ${example}` : ""}. Up to five levels.`}
         actions={biz.can("catalog.create") && <button type="button" className="button" onClick={() => setEditing({})}><Icon name="plus" size={16} /> Add category</button>} />
       <SuccessMessage message={notice} />
       <ErrorMessage message={list.error} />
-      {goods && <DepartmentsCard departments={departments} onChanged={(text) => { setNotice(text); loadDepartments(); list.reload(); }} />}
+      {keepsDepartments && <DepartmentsCard departments={departments} onChanged={(text) => { setNotice(text); loadDepartments(); list.reload(); }} />}
       <SectionCard flush icon="list" title="Category tree">
         <DataGrid {...list.gridProps} caption="Categories" columns={columns.filter(Boolean)} rowNoun={["category", "categories"]}
           rowClassName={(c) => (!c.active ? "dg-tone-muted" : "")} exportName={biz.can("catalog.export") ? `${biz.business.code}-categories` : undefined}
-          empty="No categories yet" emptyHint="Products without a category still sell; categories only help you find and report." emptyIcon="layers" />
+          empty="No categories yet" emptyHint={`${t("item", "many")} without a category still sell; categories only help you find and report.`} emptyIcon="layers" />
       </SectionCard>
       {editing && <CategoryDialog category={editing} departments={departments.filter((d) => d.active)} onClose={() => setEditing(null)}
         onSaved={(c) => { setEditing(null); setNotice(`${c.name} saved.`); list.reload(); }} />}
@@ -103,6 +106,7 @@ function CategoryDialog({ category, departments, onClose, onSaved }) {
 // (Staff & access); reports show sales and margin by department.
 function DepartmentsCard({ departments, onChanged }) {
   const biz = useOpenBusiness();
+  const example = biz.t.ex("department");
   const canEdit = biz.can("settings.edit");
   const [name, setName] = useState("");
   const [renaming, setRenaming] = useState(null);
@@ -116,7 +120,8 @@ function DepartmentsCard({ departments, onChanged }) {
   };
   if (!canEdit && !departments.length) return null;
   return (
-    <SectionCard icon="grid" title="Departments" description="For a store with departments (Clothing, Home, Grocery…). A top-level category belongs to one; staff can be tied to one in Staff & access.">
+    <SectionCard icon="grid" title="Departments"
+      description={`For a store with departments${example ? ` such as ${example}` : ""}. A top-level category belongs to one; staff can be tied to one in Staff & access.`}>
       <ErrorMessage message={error} />
       {departments.length > 0 && (
         <ul className="bz-departments">
@@ -148,7 +153,7 @@ function DepartmentsCard({ departments, onChanged }) {
       )}
       {canEdit && (
         <form className="rt-inline" onSubmit={(e) => { e.preventDefault(); if (name.trim()) run(() => businessWrite(biz.id, "departments", { name: name.trim() }), `${name.trim()} added.`); }}>
-          <input aria-label="New department" placeholder="e.g. Clothing" maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
+          <input aria-label="New department" placeholder={example ? `e.g. ${example}` : undefined} maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
           <button className="button button-secondary button-sm" disabled={busy || !name.trim()}><Icon name="plus" size={14} /> Add department</button>
         </form>
       )}

@@ -3315,13 +3315,13 @@ panel over it.
 | Daily work | The type's own counter and day: a shop's **Quick bill**, a pharmacy's **Prescription sale**, a salon's **New bill** and **Appointments** (the calendar), a clinic's **Today's patients**, a wholesaler's **Sales orders**, a garage's **Job cards**, a gym's **Check-in**, a laundry's **New order** and **Orders** (with Ready & racks and Unclaimed), a jeweller's **Jewellery bill** (with Quick bill) and **Today's rates** (with the Rate board), a rental business's **Bookings** (with Availability, Deposits held, Yard & fleet, Hirer register and Use & earnings), a fuel station's **Shift & readings** and **Tanks & dips** (with Tanker receipts and the Stock register), a hotel's **Front desk** (with Rooms & housekeeping, Reservations and Stays) and **Foreign guests (Form-III)** (with the Guest register) | Described with each type below. |
 | Daily work | **Sales history** (*Bill history* in a salon or clinic), with Quotations, Exchanges, Warranties and Orders for pickup where the type has them; **Customers** (*Clients*; a clinic's *Patients*), with Loyalty points (and a garage's Vehicles and Service due; a gym's **Members**, with Renewals and Member contacts; a fuel station's Fleet statements) | Post a sale at the server's prices, take payment with it or leave it on credit, return goods, refund. Customers carry a GSTIN, a credit limit and credit days; a customer over the limit cannot be given more credit. |
 | Daily work | **Udhaar** (*Customer dues* outside a kirana, a meat or weight-based shop, a general store, a hardware shop or a seeds and fertiliser shop), with *Payments received*; **Daily money**, with Expenses (and EMI & financiers) | What customers owe and what they paid; the day's money and paid expenses (below). |
-| Business | **Products & services** (named for the type: *Medicines & products*, *Books & stationery*…), with Categories, Barcode labels, Kits & bundles, Offers & discounts, price lists and the type's own (Drug master, Book details, Size × colour, Today's rates, Stylists & services, a laundry's Price list; a rental business's area opens on its Rental items) | Items with GST slab, unit, how they are tracked (quantity, batch and expiry, or serial number), reorder level. Categories nest up to five levels. |
+| Business | **Products & services** (named for the type: *Medicines & products*, *Books & stationery*, a gym's *Plans & services*…), with Categories, Barcode labels (a goods shop with Stock on), Kits & bundles, Offers & discounts, price lists and the type's own (Drug master, Book details, Size × colour, Today's rates, Stylists & services, a laundry's Price list; a rental business's area opens on its Rental items) | Items with GST slab, unit, how they are tracked (quantity, batch and expiry, or serial number), reorder level. Categories nest up to five levels. |
 | Business | **Purchases**, with Suppliers, Purchase orders (every business that keeps stock) and, for a wholesaler, Claims on suppliers | Record what was bought; stock goes up at once at its cost. |
 | Business | **Stock** (*Stock on hand*), with Stock movements, Stock counts, Expiring soon, Transfers and the type's own (Serial / IMEI register, Stock by weight, Cutting & processing, Wastage, Expiry, returns & recalls) | Stock by location and batch with its value; every change has a line in the movements ledger with its reason. A transfer is sent, is *on the way*, then is received (or cancelled). A count is entered over time and **approved** by someone allowed to; only then does stock change, and the differences become reasoned corrections. |
 | Business | The type's own records: **Registers & prescriptions** (pharmacy), **Booklists & orders** (books), **Repairs** (electronics), **Packages** (salon), **Lab orders** (clinic), **Farm inputs** (seeds, fertilisers & pesticides) | Described with each type below. |
 | Management | **Reports**, with the type's own reports, Staff commissions and Activity log | Money by day, locations compared, departments; who did what (what a guest did on the guests' site, such as a booking or an order sent online, shows as *Guest (online)*; what the business's own rules did on their own time, such as a request not answered in time expiring, shows as *Automatic*). |
 | Management | **Tasks** | See [Part 4](#part-4--tasks-issues--projects). |
-| Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units & pack sizes, Staff & rooms (*Doctors & rooms* in a clinic), Licences (with Licences & registrations on), Personal data, and Pharmacy settings, Clinic & lab settings, Farm input checks, Garage settings, Membership plans, Pumps & nozzles or Room types & rates; and Your plan, for the owner alone | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill (with a reason; the owner is not limited), and, where the business bills at Quick bill, whether a walk-in may leave a bill unpaid and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates; a new series is offered for the documents the business makes (a gym: Sale invoices, Credit notes, Memberships…). A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
+| Management | **Settings**: Business settings (with Business tools), Tax rates, Payment methods, Number series, Locations, Units (with the pack sizes once Stock is on), Staff & rooms (*Doctors & rooms* in a clinic), Licences (with Licences & registrations on), Personal data, and Pharmacy settings, Clinic & lab settings, Farm input checks, Garage settings, Membership plans, Pumps & nozzles or Room types & rates; and Your plan, for the owner alone | Legal name, GSTIN, prices with or without GST, rounding, financial year, the most a manager may take off a bill (with a reason; the owner is not limited), and, where the business bills at Quick bill, whether a walk-in may leave a bill unpaid and the shared till's PIN rule. Number series give each location its own bill numbers per financial year, with no gaps and no duplicates; a new series is offered for the documents the business makes (a gym: Sale invoices, Credit notes, Memberships…). A pack size turns "3 boxes" into 72 pieces exactly. A location holding stock cannot be closed. |
 | Management | **Staff & access**, with Roles & permissions | Give a person from your staff list a role in this business, change it or switch it off. |
 
 **Two rules people notice:** prices, tax and totals are always worked out by the
@@ -3496,7 +3496,7 @@ How a row finds a record already here:
 What goes in, by the same rules as the screens:
 
 - **GST slabs and units** are only the business's own (add one in *Settings ›
-  Tax rates* or *Settings › Units & pack sizes* first). An HSN or SAC code has
+  Tax rates* or *Settings › Units* first). An HSN or SAC code has
   4, 6 or 8 digits, and nothing is priced above its MRP. A GSTIN is checked
   character by character; the state follows from it, a *State* column must
   agree with it and a *PAN* column with the PAN inside it. Without a GSTIN,
@@ -3538,7 +3538,7 @@ What goes in, by the same rules as the screens:
   size, colour and fabric never change from a file.
 - **Pack sizes**: a *Pack unit* (box, case, dozen: one of your units, not the
   item's own) and *Units in pack* (how many of the item's unit it holds),
-  made as *Settings › Units & pack sizes* makes them, for a new item or one
+  made as *Settings › Units* makes them with Stock on, for a new item or one
   already here (another quantity changes it when you update items already
   here). A pack is billed at the price of what it holds.
 
@@ -3733,8 +3733,10 @@ For shops that sell goods, each where its tool is on:
   an optional limit on uses in all and per customer.
 - **Opening hours** for each location (Settings › Locations), shown in the
   list.
-- **Departments** (Products & services › Categories, for a store with departments such as
-  Clothing, Home, Grocery): a top-level category belongs to one. In Staff &
+- **Departments** (Products & services › Categories, for a store with
+  departments: where the business's words give one for an example, such as a
+  supermarket's Home & kitchen or a clothes shop's Menswear, and wherever some
+  are kept already): a top-level category belongs to one. In Staff &
   access a person can be tied to one department and then sees and changes its
   products and stock only (billing stays open to every item); a manager tied
   to a department gives access, and sets new passwords, only for the people
@@ -4169,9 +4171,13 @@ give a discount.
   the rest as an advance. *Remind* opens WhatsApp with the message, or records
   an SMS, call or visit. *Statement* prints or shares a running balance.
   Collections are numbered receipts and are never edited.
-- **Barcode labels** — give barcodes to items that have none, then print A4
-  label sheets (24, 40 or 65 a sheet, starting part-way on a used sheet).
-  Shops selling by weight also set each loose item's **weighing-scale code**.
+- **Barcode labels** (with the products of a business whose new items start
+  as goods, while Stock is on; elsewhere a goods receipt's *Print N labels*
+  opens it) — give barcodes to items that have none, then print A4 label
+  sheets (24, 40 or 65 a sheet, starting part-way on a used sheet), with or
+  without the price and the business's name; with Variants on, the garment
+  tag too. Shops selling by weight also set each loose item's
+  **weighing-scale code**.
 - **Book details** — title, author, publisher, edition and ISBN; the ISBN
   becomes the barcode and a wrong check digit is caught.
 - **Booklists & orders** (bookshops) — *School sets*: a school's list for a

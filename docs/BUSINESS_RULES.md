@@ -607,7 +607,7 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 - **Rule:** opening stock goes in through the item's own opening-stock path (a lot at the purchase price, *Opening stock* in the stock movements, needing `inventory.edit`), and only for a new item or one with no stock on record: an item with stock keeps it. A serial-numbered item's stock comes in through a purchase. An opening balance is the contact's own, as on its form, dated as the file says (today when empty, never later), and is set only on a contact that has none; Tally's Dr and Cr are read the right way round for a customer and for a supplier. Units and GST slabs are only the business's own (a new item without a rate takes the default slab); a GSTIN is checked as on the contact form, a State must be the GSTIN's and a PAN the one inside it; without a GSTIN the state ends the address.
 - **Why:** stock already on record is corrected by a count, which keeps the difference with its reason; a balance changed by a file could double what is owed. A slab or a unit the business does not keep would bill or count wrongly, and a GSTIN with a typing mistake costs the customer their input credit.
-- **Change it:** a stock count corrects stock; a contact's form changes its opening balance; a new slab or unit is added in *Settings › Tax rates* or *Settings › Units & pack sizes* before the import.
+- **Change it:** a stock count corrects stock; a contact's form changes its opening balance; a new slab or unit is added in *Settings › Tax rates* or *Settings › Units* before the import.
 
 ### What a type keeps its own details for is not imported
 
@@ -623,9 +623,9 @@ These rules apply to every business type but the restaurant. The goods rules app
 
 ### Pack sizes from a file
 
-- **Rule:** a *Pack unit* with its *Units in pack* (how many of the item's own unit a pack holds) is made as *Settings › Units & pack sizes* makes it, on a new item or one already here: the pack is one of the business's units other than the item's own, holds a whole number of a whole-unit item, and is not for a service. An item that has the pack with the same quantity is left as it is; another quantity changes it where the person chose to update matching records. Pack sizes from a file need `catalog.edit`, as on that screen. A pack is billed at the price of what it holds: it keeps no barcode or price of its own.
+- **Rule:** a *Pack unit* with its *Units in pack* (how many of the item's own unit a pack holds) is made as *Settings › Units* makes it (its pack sizes, with Stock on), on a new item or one already here: the pack is one of the business's units other than the item's own, holds a whole number of a whole-unit item, and is not for a service. An item that has the pack with the same quantity is left as it is; another quantity changes it where the person chose to update matching records. Pack sizes from a file need `catalog.edit`, as on that screen. A pack is billed at the price of what it holds: it keeps no barcode or price of its own.
 - **Why:** a wholesaler or a grocery buys and sells by the case and the box; the pack's quantity is what converts an order in cases to stock in pieces.
-- **Change it:** *Settings › Units & pack sizes* for a pack after the import; who may add them is the role's `catalog.edit`.
+- **Change it:** *Settings › Units* for a pack after the import; who may add them is the role's `catalog.edit`.
 
 ## Money and the day
 

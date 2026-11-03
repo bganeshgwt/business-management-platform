@@ -27,16 +27,18 @@ const SHEETS = {
 
 export default function LabelsPage() {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const list = useServerList("catalog", { gridId: "retail-label-items", params: { kind: "goods", active: "true" } });
   // A purchase receipt can open this page with the pieces that just arrived.
   const { state } = useLocation();
   const [queue, setQueue] = useState(() => (Array.isArray(state?.labels) ? state.labels : []));
   const [sheet, setSheet] = useState("a24");
-  // Garment tag (fashion): style, a large size, colour and the
-  // price including GST, instead of the shelf label.
-  const [template, setTemplate] = useState(state?.template === "garment" || biz.has("variants") ? "garment" : "shelf");
+  // The garment tag (style, a large size, colour and the price including
+  // GST), for goods in sizes and colours: offered with Variants on.
+  const garmentTags = biz.has("variants");
+  const [template, setTemplate] = useState(garmentTags ? "garment" : "shelf");
   const [showPrice, setShowPrice] = useState(true);
-  const [showShop, setShowShop] = useState(true);
+  const [showName, setShowName] = useState(true);
   const [skip, setSkip] = useState("0");
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -70,35 +72,37 @@ export default function LabelsPage() {
 
   const columns = useMemo(() => [
     { key: "label", header: "Item", value: (s) => s.label, mobile: "title", pin: true },
-    { key: "code", header: "SKU", value: (s) => s.code, className: "mono", mobile: "subtitle" },
+    { key: "code", header: t("item_code"), value: (s) => s.code, className: "mono", mobile: "subtitle" },
     { key: "barcode", header: "Barcode", value: (s) => s.barcode || "", className: "mono", render: (s) => s.barcode || <span className="muted">None yet</span>, mobile: "show" },
     { key: "price", header: "Price", type: "money", exact: true, value: (s) => Number(s.price), mobile: "show" },
     { key: "stock", header: "In stock", type: "number", value: (s) => Number(s.stock), render: (s) => quantity(s.stock, s.unit) },
     { key: "actions", header: "", label: "Actions", type: "actions", render: (s) => <button type="button" className="chip-button" onClick={() => add([s])}>Add to sheet</button> },
-  ], [add]);
+  ], [add, t]);
 
   const totalLabels = queue.reduce((s, q) => s + Math.max(0, Math.floor(Number(q.copies) || 0)), 0);
   const layout = SHEETS[sheet];
   const perSheet = layout.columns * layout.rows;
   const skipCount = Math.min(perSheet - 1, Math.max(0, Math.floor(Number(skip) || 0)));
   const sheets = Math.ceil((totalLabels + skipCount) / perSheet);
-  const shop = biz.settings.display_name || biz.business.name;
+  const businessName = biz.settings.display_name || biz.business.name;
 
   function labelHtml(item) {
     if (template === "garment") return garmentHtml(item);
     const code = item.barcode || item.code;
     let svg = "";
     try { svg = barcodeSvg(code).svg; } catch { svg = ""; }
-    return `<div class="lbl">${showShop ? `<div class="shop">${escapeHtml(shop)}</div>` : ""}<div class="name">${escapeHtml(item.label)}</div>
+    return `<div class="lbl">${showName ? `<div class="shop">${escapeHtml(businessName)}</div>` : ""}<div class="name">${escapeHtml(item.label)}</div>
       <div class="bc">${svg}</div><div class="foot"><span>${escapeHtml(code)}</span>${showPrice && Number(item.mrp) > Number(item.price) ? `<s>MRP ${escapeHtml(biz.exact(item.mrp))}</s>` : ""}${showPrice ? `<b>${escapeHtml(biz.exact(item.price))}${item.unit && item.unit !== "each" ? `/${escapeHtml(item.unit)}` : ""}</b>` : ""}</div></div>`;
   }
-  // A swing tag: brand, style, the size large, colour, MRP / price (incl. GST), barcode.
+  // A swing tag: brand (else the business's name), style, the size large,
+  // colour, MRP / price (incl. GST), barcode.
   function garmentHtml(item) {
     const code = item.barcode || item.code;
     let svg = "";
     try { svg = barcodeSvg(code).svg; } catch { svg = ""; }
     const marked = Number(item.mrp) > Number(item.price);
-    return `<div class="lbl tag"><div class="shop">${escapeHtml(item.brand || shop)}</div>
+    const top = item.brand || (showName ? businessName : "");
+    return `<div class="lbl tag">${top ? `<div class="shop">${escapeHtml(top)}</div>` : ""}
       <div class="tag-row"><div class="name">${escapeHtml(item.style || item.label)}${item.color ? `<br><span class="col">${escapeHtml(item.color)}</span>` : ""}</div>
       ${item.size ? `<div class="size">${escapeHtml(item.size)}</div>` : ""}</div>
       <div class="bc">${svg}</div><div class="foot"><span>${escapeHtml(code)}</span>${showPrice ? `<b>${marked ? `<s>MRP ${escapeHtml(biz.exact(item.mrp))}</s> ` : "MRP "}${escapeHtml(biz.exact(marked ? item.price : (item.mrp || item.price)))}</b>` : ""}</div>
@@ -141,7 +145,7 @@ export default function LabelsPage() {
               )}
             </>
           )}
-          empty="No goods in the catalogue yet" emptyIcon="tag" />
+          empty={`No ${t.lower("goods", "many")} in your ${t.lower("catalog")} yet`} emptyIcon="tag" />
       </SectionCard>
       {sheetOpen && <Modal title="Label sheet" icon="print" width={1000} onClose={() => setSheetOpen(false)}>
       <SectionCard icon="print" title={`Label sheet · ${totalLabels} ${totalLabels === 1 ? "label" : "labels"}${totalLabels ? ` on ${sheets} ${sheets === 1 ? "sheet" : "sheets"}` : ""}`}
@@ -161,18 +165,20 @@ export default function LabelsPage() {
               <Field label="Label sheet">
                 <select value={sheet} onChange={(e) => setSheet(e.target.value)}>{Object.entries(SHEETS).map(([key, s]) => <option key={key} value={key}>{s.label}</option>)}</select>
               </Field>
-              <Field label="Label style">
-                <select value={template} onChange={(e) => setTemplate(e.target.value)}>
-                  <option value="shelf">Shelf / product label</option>
-                  <option value="garment">Garment tag (size large, MRP incl. GST)</option>
-                </select>
-              </Field>
+              {garmentTags && (
+                <Field label="Label style">
+                  <select value={template} onChange={(e) => setTemplate(e.target.value)}>
+                    <option value="shelf">Shelf / product label</option>
+                    <option value="garment">Garment tag (size large, MRP incl. GST)</option>
+                  </select>
+                </Field>
+              )}
               <Field label="Start at label" hint="Skip labels already used on a part sheet."><input type="number" min="0" max={perSheet - 1} value={skip} onChange={(e) => setSkip(e.target.value)} /></Field>
               <label className="checkbox bz-check"><input type="checkbox" checked={showPrice} onChange={(e) => setShowPrice(e.target.checked)} /> Print the price</label>
-              <label className="checkbox bz-check"><input type="checkbox" checked={showShop} onChange={(e) => setShowShop(e.target.checked)} /> Print the shop name</label>
+              <label className="checkbox bz-check"><input type="checkbox" checked={showName} onChange={(e) => setShowName(e.target.checked)} /> Print the business name</label>
             </div>
             <div className="rt-label-preview" aria-label="Preview of the first labels">
-              {queue.slice(0, 4).map((q) => <LabelPreview key={q.id} item={q} shop={showShop ? (template === "garment" && q.brand ? q.brand : shop) : ""} price={showPrice ? biz.exact(q.price) : ""} garment={template === "garment"} />)}
+              {queue.slice(0, 4).map((q) => <LabelPreview key={q.id} item={q} shop={template === "garment" && q.brand ? q.brand : showName ? businessName : ""} price={showPrice ? biz.exact(q.price) : ""} garment={template === "garment"} />)}
             </div>
             <div className="form-actions bz-start">
               <button type="button" className="button" disabled={!totalLabels || totalLabels > 5000} onClick={print}><Icon name="print" size={16} /> Print {totalLabels} labels</button>
@@ -229,7 +235,7 @@ function ScaleCodes() {
       <DataGrid {...list.gridProps} caption="Weighing-scale codes" currency={biz.symbol} rowNoun={["code", "codes"]} columns={[
         { key: "plu_code", header: "Scale code", value: (r) => r.plu_code, render: (r) => <span className="mono">{r.plu_code}</span>, mobile: "title" },
         { key: "label", header: "Item", value: (r) => r.label, mobile: "subtitle" },
-        { key: "code", header: "SKU", value: (r) => r.code, className: "mono" },
+        { key: "code", header: biz.t("item_code"), value: (r) => r.code, className: "mono" },
         { key: "price", header: "Price", type: "money", exact: true, value: (r) => Number(r.price), render: (r) => `${biz.exact(r.price)} / ${r.unit}`, mobile: "show" },
         biz.can("catalog.edit") && { key: "actions", header: "", label: "Actions", type: "actions", render: (r) => <button type="button" className="link-button danger" onClick={() => remove(r)}>Remove</button> },
       ].filter(Boolean)} empty="No scale codes yet" emptyHint="Add one for each loose item you weigh on a label scale." emptyIcon="scale" />

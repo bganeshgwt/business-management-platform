@@ -327,7 +327,8 @@ export function businessSections(type, t = makeTerms()) {
       links: [
         { section: "products", label: t("catalog", "many"), icon: "products", need: "catalog.view" },
         { section: "categories", label: "Categories", icon: "categories", need: "catalog.view" },
-        { section: "units", label: "Units & pack sizes", icon: "units", need: "catalog.view" },
+        // Every business's units; with Stock on, the page holds its pack sizes too.
+        { section: "units", label: "Units", icon: "units", need: "catalog.view" },
         { section: "books", label: "Book details", icon: "categories", need: "catalog.view", module: "books" },
         { section: "labels", label: "Barcode labels", icon: "numbering", need: "catalog.print", module: "inventory" },
         { section: "variants", label: t("variant", "many"), icon: "modifiers", need: "catalog.view", module: "variants" },
@@ -461,7 +462,7 @@ export function businessMenu(businessId, type, can, has, owner = false, t = make
       // Every page of the area, for quick access and "Jump to…" (the menu shows the area once).
       const pages = available.map((item) => ({ to: to(item), label: workspaceLabel(item.section, type, item.label, t), icon: item.icon, end: item.end }));
       // Settings keeps its name whoever looks (a stock keeper's first page there is
-      // Units & pack sizes), so a hint can say "Settings › Units & pack sizes";
+      // Units), so a hint can say "Settings › Units";
       // so does a farm-input shop's Farm inputs area ("Farm inputs › Molecules").
       return { to: to(link), label: key === 'tasks' ? 'Tasks' : key === 'settings' ? 'Settings' : key === 'farm' ? 'Farm inputs' : workspaceLabel(link.section, type, link.label, t),
         icon: link.icon, end: link.end, section: link.section, activeSections: available.map((item) => item.section), pages };

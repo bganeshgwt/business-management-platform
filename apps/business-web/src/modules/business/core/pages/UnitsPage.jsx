@@ -14,14 +14,19 @@ const KINDS = { count: "Count (whole units)", weight: "Weight", volume: "Volume"
 // Units of measure and pack sizes. A unit may convert to a base unit of the
 // same kind (g → kg); a pack size says how many stock units one pack holds
 // for one product (1 strip = 10 tablets). Lines entered in packs are turned
-// into stock units exactly.
+// into stock units exactly. Pack sizes are for goods kept in stock: they show
+// with Stock on, and wherever some were made before Stock was switched off.
 export default function UnitsPage() {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const units = useServerList("units", { gridId: "business-units" });
   const packs = useServerList("pack-sizes", { gridId: "business-pack-sizes" });
   const [dialog, setDialog] = useState(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const keepsGoods = biz.has("inventory");
+  const packSizes = keepsGoods || (packs.data?.total ?? 0) > 0;
+  const example = t.ex("units");
 
   const unitColumns = useMemo(() => [
     { key: "name", header: "Unit", value: (u) => u.name, mobile: "title", pin: true },
@@ -29,10 +34,10 @@ export default function UnitsPage() {
     { key: "kind", header: "Measures", value: (u) => KINDS[u.kind] },
     { key: "decimals", header: "Decimals", type: "number", value: (u) => u.decimals },
     { key: "base", header: "Converts to", value: (u) => (u.base_unit_code ? `${Number(u.factor_to_base)} ${u.base_unit_code}` : ""), render: (u) => (u.base_unit_code ? `1 ${u.code} = ${Number(u.factor_to_base)} ${u.base_unit_code}` : <span className="muted">Base unit</span>) },
-    { key: "skus", header: "Items stocked in it", type: "number", value: (u) => u.sku_count },
+    { key: "skus", header: `${t("item", "many")} using it`, type: "number", value: (u) => u.sku_count },
     { key: "active", header: "Status", type: "status", value: (u) => (u.active ? "active" : "inactive"), render: (u) => <ActiveBadge active={u.active} /> },
     biz.can("catalog.edit") && { key: "actions", header: "", label: "Actions", type: "actions", render: (u) => <button type="button" className="chip-button" onClick={() => setDialog({ type: "unit", row: u })}>Edit</button> },
-  ], [biz]);
+  ], [biz, t]);
 
   const packColumns = useMemo(() => [
     { key: "label", header: "Item", value: (p) => p.label, mobile: "title", pin: true },
@@ -49,20 +54,22 @@ export default function UnitsPage() {
   const saved = (message) => { setDialog(null); setNotice(message); units.reload(); packs.reload(); };
   return (
     <div className="stack">
-      <BusinessHeader icon="scale" title="Units & pack sizes"
-        description="How each item is counted, and the packs you buy or sell it in. Buying 2 boxes of 24 adds 48 to stock."
+      <BusinessHeader icon="scale" title={packSizes ? "Units & pack sizes" : "Units"}
+        description={`The units each ${t.lower("item")} is counted or billed in${example ? `, such as ${example}` : ""}.${packSizes ? " A pack size turns a box or case into its pieces: buying 2 boxes of 24 adds 48 to stock." : ""}`}
         actions={biz.can("catalog.create") && <button type="button" className="button" onClick={() => setDialog({ type: "unit", row: {} })}><Icon name="plus" size={16} /> Add unit</button>} />
       <SuccessMessage message={notice} />
-      <ErrorMessage message={error || units.error || packs.error} />
+      <ErrorMessage message={error || units.error || (packSizes ? packs.error : "")} />
       <SectionCard flush icon="scale" title="Units">
         <DataGrid {...units.gridProps} caption="Units" columns={unitColumns.filter(Boolean)} rowNoun={["unit", "units"]}
           rowClassName={(u) => (!u.active ? "dg-tone-muted" : "")} empty="No units" />
       </SectionCard>
-      <SectionCard flush icon="box" title="Pack sizes" description="Per item: how many stock units are in one pack."
-        actions={biz.can("catalog.edit") && <button type="button" className="button button-secondary button-sm" onClick={() => setDialog({ type: "pack" })}><Icon name="plus" size={15} /> Add pack size</button>}>
-        <DataGrid {...packs.gridProps} caption="Pack sizes" columns={packColumns.filter(Boolean)} rowNoun={["pack size", "pack sizes"]}
-          rowClassName={(p) => (!p.active ? "dg-tone-muted" : "")} empty="No pack sizes yet" emptyHint="Add one to buy or sell an item by the box, strip or case." emptyIcon="box" />
-      </SectionCard>
+      {packSizes && (
+        <SectionCard flush icon="box" title="Pack sizes" description="Per item: how many stock units are in one pack."
+          actions={keepsGoods && biz.can("catalog.edit") && <button type="button" className="button button-secondary button-sm" onClick={() => setDialog({ type: "pack" })}><Icon name="plus" size={15} /> Add pack size</button>}>
+          <DataGrid {...packs.gridProps} caption="Pack sizes" columns={packColumns.filter(Boolean)} rowNoun={["pack size", "pack sizes"]}
+            rowClassName={(p) => (!p.active ? "dg-tone-muted" : "")} empty="No pack sizes yet" emptyHint="Add one to buy or sell an item in packs, such as a box of 24." emptyIcon="box" />
+        </SectionCard>
+      )}
       {dialog?.type === "unit" && <UnitDialog unit={dialog.row} onClose={() => setDialog(null)} onSaved={(u) => saved(`${u.name} saved.`)} />}
       {dialog?.type === "pack" && <PackDialog onClose={() => setDialog(null)} onSaved={() => saved("Pack size saved.")} />}
     </div>
@@ -71,6 +78,7 @@ export default function UnitsPage() {
 
 function UnitDialog({ unit, onClose, onSaved }) {
   const biz = useOpenBusiness();
+  const example = biz.t.ex("unit_code");
   const editing = Boolean(unit.id);
   const { options } = useOptions(editing ? [] : ["units"]);
   const [form, setForm] = useState({ code: "", name: unit.name || "", kind: "count", decimals: "0", baseUnitCode: "", factorToBase: "", active: unit.active ?? true });
@@ -82,7 +90,7 @@ function UnitDialog({ unit, onClose, onSaved }) {
   return (
     <FormDialog title={editing ? `Edit ${unit.name}` : "Add a unit"} icon="scale" width={560} onClose={onClose} onSaved={onSaved} onSubmit={submit}
       description={editing ? "The code, kind and conversion stay fixed: past bills and stock depend on them." : undefined}>
-      {!editing && <Field label="Code" hint="Short and lower-case, e.g. carton."><input required maxLength={20} value={form.code} onChange={set("code")} className="mono" /></Field>}
+      {!editing && <Field label="Code" hint={`Short and lower-case${example ? `, e.g. ${example}` : ""}.`}><input required maxLength={20} value={form.code} onChange={set("code")} className="mono" /></Field>}
       <Field label="Name"><input required maxLength={60} value={form.name} onChange={set("name")} /></Field>
       {!editing && (
         <>

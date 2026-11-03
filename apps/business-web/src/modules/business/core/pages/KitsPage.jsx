@@ -10,18 +10,20 @@ import { ActiveBadge, BusinessHeader, Field } from "./ui";
 import { useOpenBusiness, useServerList } from "./hooks";
 import "../styles/kits-finance.css";
 
-// Kits & bundles: "Mobile + cover + screen guard" sold
-// at one kit price. At the counter a kit sells as its parts: stock comes off
-// each part, the price is split over the parts in proportion to their own
-// prices (so GST and the HSN lines on the invoice are each part's), and the
-// IMEI / serial of a serial-numbered part is asked for.
+// Kits & bundles: a set of items (a service kit of oil and filters, a festive
+// hamper) sold at one kit price. At the counter a kit sells as its parts:
+// stock comes off each part, the price is split over the parts in proportion
+// to their own prices (so GST and the HSN lines on the invoice are each
+// part's), and the IMEI / serial of a serial-numbered part is asked for.
 
 const parts = (kit) => kit.components.map((c) => `${Number(c.quantity) > 1 ? `${Number(c.quantity)} × ` : ""}${c.label}`).join(" + ");
 
 export default function KitsPage() {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const list = useServerList("kits", { gridId: "business-kits" });
   const [editing, setEditing] = useState(null);
+  const example = t.ex("kit");
 
   const columns = useMemo(() => [
     { key: "label", header: "Kit", value: (k) => k.label, mobile: "title", pin: true,
@@ -29,24 +31,25 @@ export default function KitsPage() {
     { key: "parts", header: "Parts", value: parts, mobile: "subtitle", minWidth: 260 },
     { key: "price", header: "Kit price", type: "money", exact: true, value: (k) => Number(k.price), mobile: "show" },
     { key: "parts_value", header: "Parts at their own prices", type: "money", exact: true, value: (k) => Number(k.parts_value) },
-    { key: "saving", header: "Customer saves", type: "money", exact: true, value: (k) => Math.max(0, Number(k.parts_value) - Number(k.price)) },
+    { key: "saving", header: `${t("customer")} saves`, type: "money", exact: true, value: (k) => Math.max(0, Number(k.parts_value) - Number(k.price)) },
     { key: "available", header: "Can be made", type: "number", value: (k) => Number(k.available), mobile: "show" },
     { key: "active", header: "Status", type: "status", value: (k) => (k.active ? "active" : "inactive"), render: (k) => <ActiveBadge active={k.active} /> },
     biz.can("catalog.edit") && { key: "actions", header: "", label: "Actions", type: "actions", render: (k) => (
       <button type="button" className="chip-button" onClick={() => setEditing(k)}><Icon name="edit" size={14} /> Change</button>
     ) },
-  ].filter(Boolean), [biz]);
+  ].filter(Boolean), [biz, t]);
 
   return (
     <div className="stack">
       <BusinessHeader icon="box" title="Kits & bundles"
-        description="Several items sold together at one price. At the counter a kit takes stock from each part, splits its price over the parts for GST and asks the IMEI of a phone in it."
+        description={`Several items sold together at one price. At the ${t.lower("counter")} a kit takes stock from each part${biz.has("serials")
+          ? ", splits its price over the parts for GST and asks the serial or IMEI number of a part that has one" : " and splits its price over the parts for GST"}.`}
         primary={biz.can("catalog.create") && <button type="button" className="button" onClick={() => setEditing({})}><Icon name="plus" size={16} /> New kit</button>} />
       <ErrorMessage message={list.error} />
       <SectionCard flush icon="box" title="Kits">
         <DataGrid {...list.gridProps} search={{ ...list.gridProps.search, placeholder: "Kit name, code or barcode" }} caption="Kits and bundles" columns={columns}
           currency={biz.symbol} rowNoun={["kit", "kits"]} rowClassName={(k) => (k.active ? "" : "dg-tone-muted")}
-          empty="No kits yet" emptyHint="Make one from items you already sell, e.g. a phone with its cover and screen guard." emptyIcon="box" />
+          empty="No kits yet" emptyHint={`Make one from items you already sell${example ? `, e.g. ${example}` : ""}.`} emptyIcon="box" />
       </SectionCard>
       {editing && <KitDialog kit={editing.id ? editing : null} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); list.reload(); }} />}
     </div>
@@ -55,6 +58,8 @@ export default function KitsPage() {
 
 function KitDialog({ kit, onClose, onSaved }) {
   const biz = useOpenBusiness();
+  const { t } = biz;
+  const example = t.ex("kit");
   const [form, setForm] = useState(() => ({
     name: kit?.label || "", code: kit?.code || "", barcode: kit?.barcode || "", price: kit ? String(Number(kit.price)) : "",
     mrp: kit?.mrp ? String(Number(kit.mrp)) : "", active: kit ? kit.active : true,
@@ -70,13 +75,13 @@ function KitDialog({ kit, onClose, onSaved }) {
     <FormDialog title={kit ? `Change ${kit.label}` : "New kit"} icon="box" width={760} onClose={onClose} onSaved={onSaved}
       successMessage={kit ? "Kit saved" : "Kit added"}
       onSubmit={() => (kit ? businessWrite(biz.id, `kits/${kit.id}`, body(), "patch") : businessWrite(biz.id, "kits", body()))}
-      description="The kit's price is what the customer pays for the whole set. Each part's share of it follows the parts' own prices.">
-      <Field label="Kit name"><input required maxLength={150} value={form.name} onChange={set("name")} placeholder="e.g. Orbit 5G combo (phone + cover + glass)" /></Field>
-      {!kit && <Field label="Kit code"><input required maxLength={60} value={form.code} onChange={set("code")} placeholder="e.g. ORBKIT" /></Field>}
+      description={`The kit's price is what the ${t.lower("customer")} pays for the whole set. Each part's share of it follows the parts' own prices.`}>
+      <Field label="Kit name"><input required maxLength={150} value={form.name} onChange={set("name")} placeholder={example ? `e.g. ${example}` : undefined} /></Field>
+      {!kit && <Field label="Kit code"><input required maxLength={60} value={form.code} onChange={set("code")} /></Field>}
       {!kit && <Field label="Barcode (optional)"><input maxLength={80} value={form.barcode} onChange={set("barcode")} /></Field>}
       <Field label={`Kit price (${biz.settings.tax_mode === "inclusive" ? "with GST" : "before GST"})`}><input required type="number" min="0" step="0.01" value={form.price} onChange={set("price")} /></Field>
       <Field label="MRP (optional)"><input type="number" min="0.01" step="0.01" value={form.mrp} onChange={set("mrp")} /></Field>
-      {kit && <label className="checkbox bz-check"><input type="checkbox" checked={form.active} onChange={set("active")} /> Sold at the counter</label>}
+      {kit && <label className="checkbox bz-check"><input type="checkbox" checked={form.active} onChange={set("active")} /> Sold at the {t.lower("counter")}</label>}
       <div className="field-wide stack">
         <SearchPicker label="Add a part" placeholder="Item name, code or barcode" clearOnSelect minChars={2}
           search={(q, { signal }) => businessRead(biz.id, "catalog", { q, kind: "goods", active: "true", limit: 10 }, signal).then((page) => page.items.filter((s) => !s.is_kit))}
@@ -87,7 +92,7 @@ function KitDialog({ kit, onClose, onSaved }) {
           <ul className="bz-kit-parts">
             {items.map((c) => (
               <li key={c.skuId}>
-                <span className="bz-two-line"><strong>{c.label}</strong><small className="muted">{biz.exact(c.price)} · GST {Number(c.taxRate)}%{c.hsnCode ? ` · HSN ${c.hsnCode}` : ""}{c.tracking === "serial" ? " · IMEI / serial asked at the counter" : ""}</small></span>
+                <span className="bz-two-line"><strong>{c.label}</strong><small className="muted">{biz.exact(c.price)} · GST {Number(c.taxRate)}%{c.hsnCode ? ` · HSN ${c.hsnCode}` : ""}{c.tracking === "serial" ? ` · IMEI / serial asked at the ${t.lower("counter")}` : ""}</small></span>
                 <input aria-label={`Quantity of ${c.label}`} type="number" min="0.001" step="any" value={c.quantity} disabled={c.tracking === "serial"}
                   onChange={(e) => setItems((all) => all.map((x) => (x.skuId === c.skuId ? { ...x, quantity: e.target.value } : x)))} />
                 <button type="button" className="icon-button" aria-label={`Remove ${c.label}`} onClick={() => setItems((all) => all.filter((x) => x.skuId !== c.skuId))}><Icon name="x" size={14} /></button>
@@ -97,7 +102,7 @@ function KitDialog({ kit, onClose, onSaved }) {
         )}
         {items.length > 0 && (
           <p className="small">Parts at their own prices: <strong>{biz.exact(value)}</strong>
-            {Number(form.price) > 0 && value > Number(form.price) ? <> · the customer saves <strong>{biz.exact(value - Number(form.price))}</strong></> : null}</p>
+            {Number(form.price) > 0 && value > Number(form.price) ? <> · the {t.lower("customer")} saves <strong>{biz.exact(value - Number(form.price))}</strong></> : null}</p>
         )}
       </div>
     </FormDialog>

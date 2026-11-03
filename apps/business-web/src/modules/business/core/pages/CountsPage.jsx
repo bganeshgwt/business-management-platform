@@ -13,6 +13,7 @@ import { newKey, useOpenBusiness, useOptions, useServerList } from "./hooks";
 // and an approver posts the differences as corrections with reasons.
 export default function CountsPage() {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const navigate = useNavigate();
   const list = useServerList("counts", { gridId: "business-counts", period: true });
   const [starting, setStarting] = useState(false);
@@ -20,17 +21,17 @@ export default function CountsPage() {
   const columns = useMemo(() => [
     { key: "count_no", header: "Count", value: (c) => c.count_no, mobile: "title", pin: true, render: (c) => <Link className="mono" to={biz.path(`counts/${c.id}`)}>{c.count_no}</Link> },
     { key: "created_at", header: "Started", type: "datetime", value: (c) => c.created_at },
-    { key: "location", header: "Location", value: (c) => c.location_name, mobile: "subtitle" },
+    { key: "location", header: t("location"), value: (c) => c.location_name, mobile: "subtitle" },
     { key: "progress", header: "Counted", value: (c) => c.counted_count, render: (c) => `${c.counted_count} of ${c.line_count}`, mobile: "show" },
     { key: "corrected", header: "Corrections", type: "number", value: (c) => c.corrected_count },
     { key: "status", header: "Status", type: "status", value: (c) => c.status, render: (c) => <Badge status={c.status} label={c.status === "open" ? "Counting" : undefined} />, mobile: "show" },
     { key: "actions", header: "", label: "Actions", type: "actions", render: (c) => <Link className="chip-button" to={biz.path(`counts/${c.id}`)}>{c.status === "open" ? "Continue" : "Open"}</Link> },
-  ], [biz]);
+  ], [biz, t]);
 
   return (
     <div className="stack">
       <BusinessHeader icon="clipboard" title="Stock counts"
-        description="Count a location's shelves. Differences are posted only when someone approves the count, each with a reason, against the stock at that moment."
+        description={`Count a ${t.lower("location")}'s shelves. Differences are posted only when someone approves the count, each with a reason, against the stock at that moment.`}
         actions={biz.can("stock_counts.create") && <button type="button" className="button" onClick={() => setStarting(true)}><Icon name="plus" size={16} /> Start a count</button>} />
       <ErrorMessage message={list.error} />
       <SectionCard flush icon="list" title="Counts in this period">
@@ -45,6 +46,8 @@ export default function CountsPage() {
 
 function StartDialog({ onClose, onSaved }) {
   const biz = useOpenBusiness();
+  const { t } = biz;
+  const example = t.ex("count");
   const { options } = useOptions(["categories?active=true"]);
   const [requestKey] = useState(newKey);
   const locations = biz.locations.filter((l) => l.active);
@@ -52,9 +55,9 @@ function StartDialog({ onClose, onSaved }) {
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
   return (
     <FormDialog title="Start a stock count" icon="clipboard" width={540} submitLabel="Start" onClose={onClose} onSaved={onSaved}
-      description="The sheet lists every batch at the location. Sales can go on while you count."
+      description={`The sheet lists every batch at the ${t.lower("location")}. Sales can go on while you count.`}
       onSubmit={() => businessWrite(biz.id, "counts", { ...form, categoryId: form.categoryId || undefined, notes: form.notes || undefined, requestKey })}>
-      <Field label="Location">
+      <Field label={t("location")}>
         <select required value={form.locationId} onChange={set("locationId")}>
           {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
         </select>
@@ -65,7 +68,7 @@ function StartDialog({ onClose, onSaved }) {
           {(options?.["categories?active=true"] || []).map((c) => <option key={c.id} value={c.id}>{c.path}</option>)}
         </select>
       </Field>
-      <Field label="Notes" wide><input maxLength={500} value={form.notes} onChange={set("notes")} placeholder="e.g. Month-end count, aisle 1–4" /></Field>
+      <Field label="Notes" wide><input maxLength={500} value={form.notes} onChange={set("notes")} placeholder={example ? `e.g. ${example}` : undefined} /></Field>
     </FormDialog>
   );
 }
