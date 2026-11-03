@@ -77,8 +77,9 @@ function libraryList(scope, query = {}) {
     .map((t) => shapeLibrary(t));
 }
 
-function libraryOne(scope, code) {
-  const t = library.get(String(code || ""), scope);
+// `made`: for a task or schedule already made from it, read even where its modules are no longer used.
+function libraryOne(scope, code, { made = false } = {}) {
+  const t = library.get(String(code || ""), scope, { made });
   if (!t) fail(404, "Template not found");
   return shapeLibrary(t, true);
 }
@@ -191,6 +192,8 @@ async function copy(scope, body) {
 }
 
 // The template a task or schedule is made from: { name, category, items, … }.
+// `allowArchived`: for a schedule already made (its own template archived, or a
+// library one about stock where no stock is kept now, still reads).
 async function resolve(db, scope, { templateId, libraryCode, allowArchived = false }) {
   if (templateId) {
     const { row, items } = await loadOwn(db, scope, templateId);
@@ -199,7 +202,7 @@ async function resolve(db, scope, { templateId, libraryCode, allowArchived = fal
       priority: row.priority, requiresReview: row.requires_review, items };
   }
   if (libraryCode) {
-    const t = libraryOne(scope, libraryCode);
+    const t = libraryOne(scope, libraryCode, { made: allowArchived });
     return { templateId: null, libraryCode: t.code, name: t.name, description: t.description, category: t.category, priority: t.priority,
       requiresReview: t.requiresReview, items: t.items };
   }

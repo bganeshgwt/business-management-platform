@@ -128,10 +128,12 @@ const projectIn = (template, t) => ({ ...template, name: inWords(template.name, 
 // { businessType, t (its words), has(module) }.
 const forType = (scope) => TEMPLATES.filter((t) => t.types.includes(scope.businessType) && shownTo(t, scope.has))
   .sort((a, b) => Number(a.common) - Number(b.common)).map((t) => templateIn(t, scope.t));
-// One template, whether this business sees it, in its words; null for none.
-const get = (code, scope) => {
+// One template of this business's type, in its words; null for none. Offered
+// (the library, a copy, a new task) only where its modules are used; a task or
+// schedule already made from it still reads it (`made`).
+const get = (code, scope, { made = false } = {}) => {
   const template = byCode.get(code);
-  return template && template.types.includes(scope.businessType) && shownTo(template, scope.has) ? templateIn(template, scope.t) : null;
+  return template && template.types.includes(scope.businessType) && (made || shownTo(template, scope.has)) ? templateIn(template, scope.t) : null;
 };
 const projects = (scope) => PROJECT_TEMPLATES.filter((t) => shownTo(t, scope.has)).map((t) => projectIn(t, scope.t));
 const getProject = (code, scope) => {

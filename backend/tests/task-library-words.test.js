@@ -38,8 +38,10 @@ test('a template about stock shows only to a business that keeps it', () => {
   assert.ok(library.get('common.supplier_order', grocer));
   assert.ok(!library.projects(gym).some((template) => template.code === 'project.annual_audit'));
   assert.ok(library.projects(grocer).some((template) => template.code === 'project.annual_audit'));
-  // Another type's template is not this business's.
+  // A schedule already made from it still reads it; another type's template is never this business's.
+  assert.equal(library.get('common.supplier_order', gym, { made: true }).name, 'Supplier order placement');
   assert.equal(library.get('grocery.udhaar_followup', gym), null);
+  assert.equal(library.get('grocery.udhaar_followup', gym, { made: true }), null);
 });
 
 test('dues and projects in the business\'s words', () => {
