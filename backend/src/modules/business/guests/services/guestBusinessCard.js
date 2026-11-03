@@ -2,6 +2,7 @@ const repo = require("../../core/repositories/business.repository");
 const { DAYS, openState } = require("./guestHours");
 const privacyRef = require("./privacyRef");
 const privacyNotice = require("../../../personal-data/services/privacyNotice");
+const businessWords = require("../../core/services/businessWords.service");
 
 // What a guest page shows of a business (ARCHITECTURE.md › Build a guest
 // page for a business): the band at its top and the seller details at its
@@ -12,6 +13,9 @@ const privacyNotice = require("../../../personal-data/services/privacyNotice");
 //
 //   {
 //     name, type, logoUrl,              the name guests know it by, its type, an https logo or null
+//     look: { icon, accent, kindName }, its mark and colour (Platform › Business types), for its band
+//     terms: { customer, appointment, provider: { one, many } },
+//                                       its words for the people it serves, a booking and who serves at one
 //     takingOrders,                     the business and the location are open and its plan has not
 //                                       ended: false, the page says it takes nothing now and gives the phone
 //     location: { name, address, city, postalCode, phone },
@@ -62,11 +66,14 @@ async function guestBusinessCard(db, businessId, locationId) {
   const notice = await repo.one(db, `SELECT id,version,bills_text,reminders_text,offers_text,contact_name,contact_phone,contact_email
     FROM business_privacy_notices WHERE business_id=$1 ORDER BY version DESC LIMIT 1`, [row.id]);
   const ownAddress = Boolean(text(row.address_line1) || text(row.city) || text(row.postal_code));
+  const [look, words] = await Promise.all([businessWords.lookOf({ id: row.id }, db), businessWords.wordsOf({ id: row.id }, db)]);
 
   return {
     name: text(row.display_name) || row.name,
     type: row.business_type,
     logoUrl: logoUrlOf(row.logo_path),
+    look: look ? { icon: look.icon, accent: look.accent, kindName: look.kindName } : null,
+    terms: Object.fromEntries(["customer", "appointment", "provider"].map((key) => [key, words[key]])),
     takingOrders: row.status === "active" && row.location_active && !["ended", "off"].includes(row.plan_state),
     location: {
       name: row.location_name,

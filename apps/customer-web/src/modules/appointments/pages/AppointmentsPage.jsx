@@ -22,9 +22,11 @@ import "../../../styles/guest.css";
 import "../styles/appointments.css";
 
 const CALM = ["feature_off", "booking_off", "not_taking_orders"];
-const PEOPLE = { salon: ["stylist", "Stylist"], healthcare: ["doctor", "Doctor"], optical: ["optometrist", "Optometrist"], garage: ["bay", "Bay"],
-  memberships: ["trainer", "Trainer"], electronics: ["technician", "Technician"] };
-const personWord = (type, capital = false) => (PEOPLE[type] || ["person", "Person"])[capital ? 1 : 0];
+// Who serves at a booking, in the business's own words (its card's terms, as
+// the platform and the owner set them): a salon's stylist, a clinic's doctor,
+// a gym's trainer. Mid-sentence, so in lower case but for words in capitals.
+const personWord = (page) => String(page.card?.terms?.provider?.one || "Person").split(" ")
+  .map((part) => (/^[A-Z0-9]{2,}$/.test(part.replace(/[^A-Za-z0-9]/g, "")) ? part : part.toLowerCase())).join(" ");
 const timeOfIso = (iso) => new Date(iso).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
 
 export default function AppointmentsPage() {
@@ -195,7 +197,7 @@ function BookingFlow() {
   const canGoOn = ready[current];
   const summary = [
     visit.labels.length ? `${visit.labels.join(" + ")}${visit.minutes ? ` · ${minutesText(visit.minutes)}` : ""}` : null,
-    current !== "service" && current !== "person" ? (chosenPerson ? chosenPerson.name : person === "any" ? `Any ${personWord(page.type)}` : null) : null,
+    current !== "service" && current !== "person" ? (chosenPerson ? chosenPerson.name : person === "any" ? `Any ${personWord(page)}` : null) : null,
     date && time ? `${dayLabelOf(date)}, ${clockLabelOf(time)}` : null,
   ].filter(Boolean);
 
@@ -206,13 +208,13 @@ function BookingFlow() {
           {steps.map((s, index) => (
             <li key={s} className={index < step ? "is-done" : index === step ? "is-now" : ""} aria-current={index === step ? "step" : undefined}>
               <span className="ap-progress-bar" aria-hidden="true" />
-              <span className="ap-progress-label">{STEP_TITLES[s].replace("Choose who", `Choose the ${personWord(page.type)}`)}</span>
+              <span className="ap-progress-label">{STEP_TITLES[s].replace("Choose who", `Choose the ${personWord(page)}`)}</span>
             </li>
           ))}
         </ol>
         {page.link.guestNote && step === 0 && <p className="ap-note"><Icon name="info" size={16} /> {page.link.guestNote}</p>}
         {page.memberClasses && step === 0 && <p className="ap-note"><Icon name="users" size={16} /> Members book their classes with the desk for now: booking a class online needs a member sign-in, which is coming. Here you can book a free trial.</p>}
-        <h1 className="ap-title">{current === "person" ? (page.kind === "clinic" ? "Choose your doctor" : `Choose your ${personWord(page.type)}`) : current === "service" && page.asks.trial ? "Book a free trial" : STEP_TITLES[current]}</h1>
+        <h1 className="ap-title">{current === "person" ? (page.kind === "clinic" ? "Choose your doctor" : `Choose your ${personWord(page)}`) : current === "service" && page.asks.trial ? "Book a free trial" : STEP_TITLES[current]}</h1>
 
         {current === "service" && (
           <ServiceStep page={page} chosen={serviceIds} onChange={(ids) => { setServiceIds(ids); setPerson(null); setDate(""); setTime(""); }}
@@ -295,7 +297,7 @@ function ServiceStep({ page, chosen, onChange, onPicked }) {
   };
   return (
     <div className="ap-services">
-      {multi && <p className="ap-hint">Choose up to {page.asks.multi}: they are done one after another, by the same {personWord(page.type)}.</p>}
+      {multi && <p className="ap-hint">Choose up to {page.asks.multi}: they are done one after another, by the same {personWord(page)}.</p>}
       {groups.map(([group, list]) => (
         <section key={group} className="ap-group">
           {groups.length > 1 && <h2 className="ap-group-title">{group}</h2>}
@@ -327,7 +329,7 @@ function ServiceStep({ page, chosen, onChange, onPicked }) {
 function PersonStep({ page, people, any, chosen, onPick }) {
   const clinic = page.kind === "clinic";
   if (!people.length) {
-    return <GuestEmpty icon="users" title={`No ${personWord(page.type)} takes this online`}>Please go back and choose again, or call the business.</GuestEmpty>;
+    return <GuestEmpty icon="users" title={`No ${personWord(page)} takes this online`}>Please go back and choose again, or call the business.</GuestEmpty>;
   }
   return (
     <ul className="ap-options ap-people" role="list">
@@ -335,7 +337,7 @@ function PersonStep({ page, people, any, chosen, onPick }) {
         <li>
           <button type="button" className={`ap-option ${chosen === "any" ? "is-on" : ""}`} aria-pressed={chosen === "any"} onClick={() => onPick("any")}>
             <span className="ap-avatar is-any" aria-hidden="true"><Icon name="users" size={18} /></span>
-            <span className="ap-option-main"><strong>Any {personWord(page.type)}</strong><span className="ap-option-meta">The first free, so you get the most times</span></span>
+            <span className="ap-option-main"><strong>Any {personWord(page)}</strong><span className="ap-option-meta">The first free, so you get the most times</span></span>
           </button>
         </li>
       )}

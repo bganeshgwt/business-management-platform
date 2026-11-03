@@ -297,8 +297,11 @@ test('guest foundation', { timeout: 600000 }, async (t) => {
     await A('PATCH', S(`locations/${salonMain.id}`), { name: salonMain.name, openingHours: days });
     card = await guests.guestBusinessCard(pool, salon.id, salonMain.id);
     const clock = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
-    assert.deepEqual(Object.keys(card).sort(), ['hours', 'location', 'logoUrl', 'name', 'privacy', 'seller', 'takingOrders', 'type']);
+    assert.deepEqual(Object.keys(card).sort(), ['hours', 'location', 'logoUrl', 'look', 'name', 'privacy', 'seller', 'takingOrders', 'terms', 'type']);
     assert.deepEqual([card.name, card.type, card.logoUrl, card.takingOrders], ['Shine Salon', 'salon', 'https://cdn.example.com/shine.png', true]);
+    // Its mark and the words its guest pages use (Platform › Business types, Business settings › Words).
+    assert.deepEqual(card.look, { icon: 'scissors', accent: 'fuchsia', kindName: null });
+    assert.deepEqual(card.terms, { customer: { one: 'Client', many: 'Clients' }, appointment: { one: 'Appointment', many: 'Appointments' }, provider: { one: 'Stylist', many: 'Stylists' } });
     // The location has no address of its own: the business's.
     assert.deepEqual(card.location, { name: salonMain.name, address: 'Plot 12, Road 3, Banjara Hills', city: 'Hyderabad', postalCode: '500034', phone: '040 2345 6789' });
     assert.deepEqual(card.seller, { legalName: 'Shine Beauty Services LLP', gstin: '36ABCDE1234F1Z1', address: 'Plot 12, Road 3, Banjara Hills, Hyderabad, 500034' });
