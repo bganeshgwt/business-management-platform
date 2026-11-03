@@ -12,9 +12,11 @@ import useTasks from "./useTasks";
 import ItemsEditor from "./ItemsEditor";
 import { AssignField, CategorySelect, PeoplePicker, PhotoButton, PlaceSelect } from "./parts";
 import { fromLocalInput, itemsForApi, todayText, withKeys } from "./taskWords";
+import useTaskExamples, { listPlaceholder } from "./taskExamples";
 
 // The three "+ Create" dialogs: a task (from a template or blank), an issue
-// (with photos), a project (blank or from a project template).
+// (with photos), a project (blank or from a project template). Their examples
+// are the business's own (taskExamples.js).
 
 // "+ Create" → Task / Issue / Project, as this person may.
 export function CreateMenu({ onCreated, compact = false }) {
@@ -42,6 +44,7 @@ export function CreateMenu({ onCreated, compact = false }) {
 // A new task, or a change to one (`task`). `preset` fills fields (a project, a template).
 export function TaskFormDialog({ task, preset = {}, convertIssue, onClose, onSaved }) {
   const t = useTasks();
+  const examples = useTaskExamples();
   const navigate = useNavigate();
   const editing = Boolean(task);
   const [library, setLibrary] = useState([]);
@@ -128,7 +131,7 @@ export function TaskFormDialog({ task, preset = {}, convertIssue, onClose, onSav
       <form className="form-grid tk-form" onSubmit={submit}>
         {!editing && (
           <div className="field-wide">
-            <SearchPicker label="From a template" hint="Optional. Its checklist is copied into the task." placeholder="Opening checklist, temperature log, FSSAI…"
+            <SearchPicker label="From a template" hint="Optional. Its checklist is copied into the task." placeholder={listPlaceholder(examples.templates, "Find a template")}
               options={options} value={template ? options.find((o) => o.key === (template.source === "own" ? `own:${template.id}` : `lib:${template.code}`)) || template : null}
               getKey={(o) => o.key} getLabel={(o) => o.name} getDescription={(o) => `${o.group} · ${t.categoryName(o.category)} · ${o.itemCount} checks`}
               getKeywords={(o) => `${o.description || ""} ${t.categoryName(o.category)}`} minChars={0} onChange={pick} />
@@ -180,6 +183,7 @@ const toLocal = (iso) => {
 // Report an issue: what is wrong, how bad, where, a photo.
 export function IssueFormDialog({ issue, onClose, onSaved }) {
   const t = useTasks();
+  const examples = useTaskExamples();
   const navigate = useNavigate();
   const editing = Boolean(issue);
   const [form, setForm] = useState(() => ({
@@ -226,7 +230,7 @@ export function IssueFormDialog({ issue, onClose, onSaved }) {
     <Modal title={editing ? `Change ${issue.code}` : "Report an issue"} icon="alert" onClose={onClose} width={620} dismissible={!busy}>
       <form className="form-grid tk-form" onSubmit={submit}>
         <FormField label="What is wrong" wide>
-          <input value={form.title} maxLength={200} required placeholder="Walk-in freezer not cooling, scale showing wrong weight…" onChange={(e) => set("title", e.target.value)} />
+          <input value={form.title} maxLength={200} required placeholder={listPlaceholder(examples.issue)} onChange={(e) => set("title", e.target.value)} />
         </FormField>
         <FormField label="Details" optional wide>
           <textarea rows={3} maxLength={2000} value={form.description} onChange={(e) => set("description", e.target.value)} />
@@ -239,7 +243,7 @@ export function IssueFormDialog({ issue, onClose, onSaved }) {
         </FormField>
         <CategorySelect value={form.category} onChange={(v) => set("category", v)} />
         <PlaceSelect value={form.placeId} onChange={(v) => set("placeId", v)} />
-        <FormField label="Equipment / asset" optional hint="Walk-in freezer, scale 2, van KA-01-AB-1234">
+        <FormField label="Equipment / asset" optional hint={examples.asset || "The machine, room or vehicle it is about"}>
           <input value={form.assetLabel} maxLength={120} onChange={(e) => set("assetLabel", e.target.value)} />
         </FormField>
         {t.can("issues.assign") && (

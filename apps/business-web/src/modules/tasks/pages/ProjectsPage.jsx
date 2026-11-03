@@ -8,14 +8,18 @@ import { getErrorMessage } from "../../../services/api";
 import useTasks from "./useTasks";
 import { Progress, StatusPill } from "./parts";
 import { ProjectFormDialog } from "./forms";
+import useTaskExamples from "./taskExamples";
 
 // Projects: bigger jobs with an owner, members, milestones and task lists.
-// Progress is done tasks of all tasks (cancelled ones left out).
+// Progress is done tasks of all tasks (cancelled ones left out). The page's
+// examples are the business's own projects (taskExamples.js).
 
 const SHOW = [["live", "Current"], ["completed", "Completed"], ["", "All"]];
+const lowerFirst = (text) => `${text.charAt(0).toLowerCase()}${text.slice(1)}`;
 
 export default function ProjectsPage() {
   const t = useTasks();
+  const examples = useTaskExamples();
   const navigate = useNavigate();
   const [show, setShow] = useState("live");
   const [rows, setRows] = useState(null);
@@ -38,10 +42,13 @@ export default function ProjectsPage() {
     { key: "start", header: "Starts", type: "date", value: (r) => r.startOn, defaultHidden: true },
     { key: "place", header: t.placeWord, value: (r) => r.placeName || "Whole business", defaultHidden: true },
   ];
+  // An empty list suggests the ready plans by name (a restaurant's), or the business's own kind of project.
+  const startHint = examples.plans ? `Start one from a ready plan: ${examples.plans}…`
+    : `Start one blank or from a ready plan${examples.project ? `: ${lowerFirst(examples.project)}…` : "."}`;
 
   return (
     <div className="stack tk-page">
-      <PageHeader title="Projects" icon="layers" description="A new outlet, a festival sale, the annual stock audit: milestones, task lists and who is on it."
+      <PageHeader title="Projects" icon="layers" description={`${examples.project || "Bigger jobs"}: milestones, task lists and who is on it.`}
         primary={t.can("projects.create") && <button type="button" className="button" onClick={() => setCreating(true)}><Icon name="plus" size={16} /> New project</button>} />
       <div className="segmented tk-status-filter" role="group" aria-label="Show" data-motion-tabs>
         {SHOW.map(([code, label]) => <button key={code} type="button" className={`segment ${show === code ? "is-active" : ""}`} aria-pressed={show === code} onClick={() => setShow(code)}>{label}</button>)}
@@ -49,7 +56,7 @@ export default function ProjectsPage() {
       <DataGrid id="tasks-projects" caption="Projects" columns={columns} rows={rows || []} loading={!rows && !error} error={error || undefined} onRetry={load}
         rowNoun={["project", "projects"]} exportName="projects" onRowClick={(r) => navigate(t.link(`projects/${r.id}`))}
         rowClassName={(r) => (r.late ? "dg-tone-danger" : ["completed", "cancelled"].includes(r.status) ? "dg-tone-muted" : "")}
-        empty="No projects yet" emptyIcon="layers" emptyHint={t.can("projects.create") ? "Start one from a ready plan: New outlet opening, Festival sale set-up, Annual stock audit…" : "Projects you are a member of show here."} />
+        empty="No projects yet" emptyIcon="layers" emptyHint={t.can("projects.create") ? startHint : "Projects you are a member of show here."} />
       {creating && <ProjectFormDialog onClose={() => setCreating(false)} onSaved={() => setCreating(false)} />}
     </div>
   );

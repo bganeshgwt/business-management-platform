@@ -9,12 +9,14 @@ import toast from "../../../services/toast";
 import useTasks from "./useTasks";
 import { AssignField, CategorySelect, PlaceSelect } from "./parts";
 import { FREQUENCIES, WEEKDAYS, todayText } from "./taskWords";
+import useTaskExamples, { listPlaceholder } from "./taskExamples";
 
 // A recurring task: what (a template or just a title), who, where, how often
 // (every day, working days, chosen weekdays, a date each month, every few
 // days, every shift), at what times, from when until when.
 export default function ScheduleFormDialog({ schedule, template, onClose, onSaved }) {
   const t = useTasks();
+  const examples = useTaskExamples();
   const editing = Boolean(schedule);
   const suggested = template?.suggested;
   const [library, setLibrary] = useState([]);
@@ -85,7 +87,7 @@ export default function ScheduleFormDialog({ schedule, template, onClose, onSave
     <Modal title={editing ? "Change recurring task" : "New recurring task"} icon="refresh" onClose={onClose} width={720} dismissible={!busy}>
       <form className="form-grid tk-form" onSubmit={submit}>
         <div className="field-wide">
-          <SearchPicker label="Checklist (template)" hint="Optional. Each day's task gets a fresh copy of it." placeholder="Opening checklist, temperature log…"
+          <SearchPicker label="Checklist (template)" hint="Optional. Each day's task gets a fresh copy of it." placeholder={listPlaceholder(examples.templates, "Find a template")}
             options={options} value={chosen} getKey={(o) => o.key} getLabel={(o) => o.name} getDescription={(o) => `${o.group} · ${t.categoryName(o.category)} · ${o.itemCount} checks`}
             minChars={0} onChange={(o) => { setSource(o); if (o) setForm((f) => ({ ...f, title: f.title || o.name, category: o.category, priority: o.priority || f.priority })); }} />
         </div>

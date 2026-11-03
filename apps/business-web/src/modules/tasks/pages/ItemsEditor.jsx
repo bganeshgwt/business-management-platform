@@ -1,13 +1,17 @@
 import Icon from "@bmp/ui/Icon";
 import { ITEM_KINDS, blankItem as blank } from "./taskWords";
+import useTaskExamples from "./taskExamples";
 
 // The checklist builder: one row per item, sections between them. Each kind
 // shows only the settings it uses (a reading's range and unit, a choice's
-// options and which fail, yes/no's passing answer).
+// options and which fail, yes/no's passing answer). Its examples are the
+// business's own (taskExamples.js).
 
 const numberOrNull = (v) => (v === "" || v === null || v === undefined ? null : Number(v));
+const withExample = (text, example) => (example ? `${text}, e.g. ${example}` : text);
 
 export default function ItemsEditor({ items, onChange }) {
+  const examples = useTaskExamples();
   const set = (key, patch) => onChange(items.map((i) => (i.key === key ? { ...i, ...patch } : i)));
   const move = (index, by) => {
     const next = [...items];
@@ -29,7 +33,8 @@ export default function ItemsEditor({ items, onChange }) {
             <li key={item.key} className={`tk-edit-item ${item.kind === "section" ? "is-section" : ""}`}>
               <div className="tk-edit-main">
                 <span className="tk-edit-no" aria-hidden="true">{item.kind === "section" ? "§" : number}</span>
-                <input aria-label={item.kind === "section" ? "Section heading" : `Item ${number}`} placeholder={item.kind === "section" ? "Section heading, e.g. Kitchen" : "What to check, e.g. Walk-in chiller temperature"}
+                <input aria-label={item.kind === "section" ? "Section heading" : `Item ${number}`}
+                  placeholder={item.kind === "section" ? withExample("Section heading", examples.checklistSection) : withExample("What to check", examples.checklistItem)}
                   value={item.label} maxLength={200} required onChange={(e) => set(item.key, { label: e.target.value })} />
                 <select aria-label="Answer kind" value={item.kind} onChange={(e) => set(item.key, { ...blank(e.target.value), key: item.key, label: item.label })}>
                   {ITEM_KINDS.map(([code, label]) => <option key={code} value={code}>{label}</option>)}

@@ -8144,6 +8144,9 @@ control, deep clean, hiring and induction for everyone). For each: **Preview**,
 yes/no with the passing answer, reading with lowest/highest OK and unit, text,
 photo, signature, choice with the answers that fail, sections; each item can be
 required, need a photo, be critical, and raise an issue of a chosen severity).
+Its examples are the business's own: a gym's section *Gym floor* and check
+*Treadmill belts wiped*, a clinic's *OPD* and *Autoclave cycle logged*, a
+restaurant's *Kitchen* and *Walk-in chiller temperature*.
 Archive a template to hide it; tasks already made keep their own copy.
 
 ## Recurring tasks
@@ -8161,8 +8164,9 @@ no background job — and never twice.
 
 **Report issue**: what is wrong, how serious (low: when there is time; medium:
 this week; high: today; critical: stop and fix now), category, outlet, the
-equipment ("Walk-in freezer", "Scale 2", "Van KA-01-AB-1234"), fix-by date, who,
-and photos. Numbered ISS-0001… The life of an issue: **Open → Being fixed →
+equipment (a restaurant's "Walk-in freezer", "Scale 2", "Van KA-01-AB-1234"),
+fix-by date, who, and photos; *What is wrong* suggests the business's own
+(a gym's "Treadmill 3 belt slipping"). Numbered ISS-0001… The life of an issue: **Open → Being fixed →
 Fixed** (say what was done) **→ Closed** (a manager checks); **Reopen** if it
 comes back. **Make a task** gives the fix to someone as a task that points back
 to the issue. In a restaurant, a log-book follow-up has a **Raise issue**
