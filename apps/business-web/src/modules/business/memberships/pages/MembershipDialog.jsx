@@ -50,7 +50,7 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
   const [approval, setApproval] = useState(emptyApproval);
   const [requestKey] = useState(newKey);
   const today = businessToday(biz.business.timezone);
-  const { options } = useOptions(["member-plans/plans?active=true"]);
+  const { options, error: plansError } = useOptions(["member-plans/plans?active=true"]);
   const plans = useMemo(() => (options?.["member-plans/plans?active=true"] || []), [options]);
   const [chosen, setChosen] = useState(member || (lead?.contact_id ? { id: lead.contact_id, name: lead.name } : null));
   const [form, setForm] = useState(() => ({
@@ -145,9 +145,11 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
         </>
       )}
       {(member || membership) && <Field label="Member"><input readOnly value={member?.name || membership?.member_name || ""} /></Field>}
-      <Field label={mode === "upgrade" ? "New plan" : "Plan"}>
-        <select required value={form.planId} onChange={(e) => setForm((f) => ({ ...f, planId: e.target.value, joining: null, instalments: [] }))}>
-          <option value="">Choose the plan…</option>
+      <Field label={mode === "upgrade" ? "New plan" : "Plan"} hint={plansError ? `The plans could not be read: ${plansError}` : undefined}>
+        {/* Off until the plans have come: a renewal's plan is set already (its bill is worked
+            out meanwhile), and an empty list must not stop it as "Choose plan". */}
+        <select required disabled={!options} value={form.planId} onChange={(e) => setForm((f) => ({ ...f, planId: e.target.value, joining: null, instalments: [] }))}>
+          <option value="">{options ? "Choose the plan…" : plansError ? "No plans to choose from" : "Loading the plans…"}</option>
           {choices.map((p) => <option key={p.id} value={p.id}>{p.name} · {termWords(p)} · {biz.exact(p.price)}{Number(p.tax_rate) ? ` + GST ${Number(p.tax_rate)}%` : ""}</option>)}
         </select>
       </Field>
