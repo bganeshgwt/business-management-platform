@@ -55,6 +55,8 @@ export default function QuotationDialog({ quotation, initial, onClose, onSaved }
   const set = (name) => (event) => setForm((f) => ({ ...f, [name]: event.target.value, ...(name === "contactId" ? { siteId: "" } : {}) }));
   // A kit is one line, priced as on a bill and billed as its parts; items kept for services are not sold.
   const items = useMemo(() => (options?.["catalog?active=true"] || []).filter((s) => !s.internal_use), [options]);
+  // Goods are scanned in; a business with no goods to sell gets no barcode box.
+  const scannable = items.some((s) => s.kind === "goods");
   const customers = options?.["contacts?kind=customer&active=true"] || [];
   const units = options?.units || [];
   const skuOf = (line) => items.find((s) => String(s.id) === String(line.skuId));
@@ -161,7 +163,7 @@ export default function QuotationDialog({ quotation, initial, onClose, onSaved }
 
   const columns = [
     { key: "item", header: "Item", minWidth: 250, render: (l, ctx) => (
-      <SearchPicker aria-label={ctx.label} required={Boolean(l.skuId) || filled.length === 0} options={items} value={skuOf(l) || null} placeholder="Name, code or barcode"
+      <SearchPicker aria-label={ctx.label} required={Boolean(l.skuId) || filled.length === 0} options={items} value={skuOf(l) || null} placeholder={scannable ? "Name, code or barcode" : "Name or code"}
         getLabel={(s) => s.label} getKeywords={(s) => `${s.code} ${s.barcode || ""} ${s.product_name || ""}`}
         getDescription={(s) => `${s.code} · ${biz.exact(s.price)}${s.mrp ? ` · MRP ${biz.exact(s.mrp)}` : ""}${s.kind === "service" ? " · service" : s.is_kit ? " · kit" : ` · ${quantity(s.stock, s.unit)} in stock`}`}
         onChange={(s) => setLine(l.key, "skuId", s ? String(s.id) : "")} />
@@ -186,16 +188,17 @@ export default function QuotationDialog({ quotation, initial, onClose, onSaved }
     ) },
   ];
 
-  const customerWord = biz.t("customer");
+  const { t } = biz;
+  const customerWord = t("customer");
   return (
     <>
     <FormDialog title={editing ? `Revise ${quotation.quotation_no}` : "New quotation"} icon="clipboard" width={1080}
       description={editing
         ? "The lines are priced again at today's prices; the number stays and the revision goes up."
-        : `Priced exactly as a sale of these lines would be now${biz.settings.tax_mode === "inclusive" ? " (prices include GST)" : ""}. Nothing leaves stock until the bill is made.`}
+        : `Priced exactly as ${t.a("sale")} of these lines would be now${biz.settings.tax_mode === "inclusive" ? " (prices include GST)" : ""}.${scannable ? " Nothing leaves stock until the bill is made." : ""}`}
       submitLabel={editing ? "Save revision" : "Save quotation"} onSubmit={submit} onClose={onClose} onSaved={onSaved} disabled={!options}>
       <FormError message={error} />
-      {!options && !error && <div className="field-wide"><Loading label="Loading items and customers…" /></div>}
+      {!options && !error && <div className="field-wide"><Loading label={`Loading ${t.lower("item", "many")} and ${t.lower("customer", "many")}…`} /></div>}
       {!editing && locations.length > 1 && (
         <Field label="Location">
           <select required value={form.locationId} onChange={set("locationId")}>
@@ -219,14 +222,20 @@ export default function QuotationDialog({ quotation, initial, onClose, onSaved }
       <Field label="Valid until" hint="The quoted prices hold until this date; after it, revise them first.">
         <input type="date" required min={today} max={addDays(today, MAX_VALID_DAYS)} value={form.validUntil} onChange={set("validUntil")} />
       </Field>
-      <div className="field-wide bz-scan-line">
-        <input aria-label="Scan a barcode to add a line" placeholder="Scan a barcode or type a code, then Enter" value={scan} autoComplete="off"
-          onChange={(e) => setScan(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") scanAdd(e); }} />
-        <button type="button" className="button button-secondary button-sm" onClick={scanAdd}>Add</button>
-        {usesCalculators(biz) && <button type="button" className="button button-secondary button-sm" onClick={() => setCalculating(true)}><Icon name="grid" size={14} /> Calculators</button>}
-        {workings.length > 0 && <small className="muted">{workings.length} calculator working{workings.length === 1 ? "" : "s"} kept with this quotation</small>}
-        {scanError && <small className="bz-due">{scanError}</small>}
-      </div>
+      {(scannable || usesCalculators(biz)) && (
+        <div className="field-wide bz-scan-line">
+          {scannable && (
+            <>
+              <input aria-label="Scan a barcode to add a line" placeholder="Scan a barcode or type a code, then Enter" value={scan} autoComplete="off"
+                onChange={(e) => setScan(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") scanAdd(e); }} />
+              <button type="button" className="button button-secondary button-sm" onClick={scanAdd}>Add</button>
+            </>
+          )}
+          {usesCalculators(biz) && <button type="button" className="button button-secondary button-sm" onClick={() => setCalculating(true)}><Icon name="grid" size={14} /> Calculators</button>}
+          {workings.length > 0 && <small className="muted">{workings.length} calculator working{workings.length === 1 ? "" : "s"} kept with this quotation</small>}
+          {scanError && <small className="bz-due">{scanError}</small>}
+        </div>
+      )}
       <div className="field-wide bz-lines">
         <DataGrid variant="editor" caption="Lines" rows={lines} rowKey={(l) => l.key} columns={columns.filter(Boolean)} currency={biz.symbol} />
         <div className="bz-lines-foot">

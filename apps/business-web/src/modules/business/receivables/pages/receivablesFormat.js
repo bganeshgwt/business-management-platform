@@ -1,6 +1,6 @@
-import { escapeHtml, printDocument } from "../../../../services/print";
+import { escapeHtml, printDocument } from "../../../../services/print.js";
 import { dateShort, dateTime, moneyExact } from "@bmp/shared/format";
-import { privacyLine } from "../../../personal-data/printLine";
+import { privacyLine } from "../../../personal-data/printLine.js";
 
 // Plain helpers for the receivables screens (no components here).
 
@@ -66,16 +66,21 @@ export function printReceipt(receipt, biz) {
   });
 }
 
-export const STATEMENT_KINDS = { sale: "Bill", return: "Credit note", payment: "Payment", collection: "Collection", refund: "Refund", opening: "Opening balance", bounce: "Cheque returned", bounce_charge: "Bank charge" };
+// A statement's entries, in the business's words (a gym's "Fee payment").
+export const statementKind = (t, kind) => ({ sale: "Bill", return: "Credit note", payment: "Payment", collection: t("collection"), refund: "Refund",
+  opening: "Opening balance", bounce: "Cheque returned", bounce_charge: "Bank charge" })[kind] || kind;
+// A statement's title as the business words it: "Udhaar statement", "Statement of account".
+export const statementTitle = (t) => t.ex("phrase.statement") || "Statement of account";
 
 // One or more statements, each on its own page (bulk: every overdue customer).
 export function printStatements(statements, biz) {
+  const { t } = biz;
   const page = (data) => {
     const seller = data.seller || {};
-    const rows = data.entries.map((e) => `<tr><td>${escapeHtml(dateShort(e.day, { year: true }))}</td><td>${escapeHtml(STATEMENT_KINDS[e.kind] || e.kind)} · ${escapeHtml(e.reference)}</td><td class="r">${Number(e.debit) ? escapeHtml(biz.exact(e.debit)) : ""}</td>
+    const rows = data.entries.map((e) => `<tr><td>${escapeHtml(dateShort(e.day, { year: true }))}</td><td>${escapeHtml(statementKind(t, e.kind))} · ${escapeHtml(e.reference)}</td><td class="r">${Number(e.debit) ? escapeHtml(biz.exact(e.debit)) : ""}</td>
       <td class="r">${Number(e.credit) ? escapeHtml(biz.exact(e.credit)) : ""}</td><td class="r">${escapeHtml(biz.exact(e.balance))}</td></tr>`).join("");
     return `<section class="page"><h1>${escapeHtml(seller.legal_name || seller.display_name || biz.business.name)}</h1>${seller.gstin ? `<small>GSTIN ${escapeHtml(seller.gstin)}</small>` : ""}
-      <p><strong>Statement of account</strong> · ${escapeHtml(data.contact.name)}${data.contact.phone ? ` · ${escapeHtml(data.contact.phone)}` : ""} · ${escapeHtml(dateShort(data.from, { year: true }))} to ${escapeHtml(dateShort(data.to, { year: true }))}</p>
+      <p><strong>${escapeHtml(statementTitle(t))}</strong> · ${escapeHtml(data.contact.name)}${data.contact.phone ? ` · ${escapeHtml(data.contact.phone)}` : ""} · ${escapeHtml(dateShort(data.from, { year: true }))} to ${escapeHtml(dateShort(data.to, { year: true }))}</p>
       <table><thead><tr><th>Date</th><th>Particulars</th><th class="r">Debit</th><th class="r">Credit</th><th class="r">Balance</th></tr></thead>
       <tbody><tr><td>${escapeHtml(dateShort(data.from, { year: true }))}</td><td>Brought forward</td><td></td><td></td><td class="r">${escapeHtml(biz.exact(data.opening))}</td></tr>${rows}</tbody></table>
       <p style="text-align:right"><strong>Closing balance ${escapeHtml(biz.exact(data.closing))}</strong></p></section>`;

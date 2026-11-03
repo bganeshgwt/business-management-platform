@@ -4,7 +4,7 @@ import SectionCard from "../../../../components/SectionCard";
 import Modal from "../../../../components/Modal";
 import { ErrorMessage } from "../../../../components/Feedback";
 import { Field } from "../../core/pages/ui";
-import { printReceipt } from "../../retail/pages/retail";
+import { onAccount, printReceipt, sentence } from "../../retail/pages/retail";
 import { qrSvg, upiPayLink } from "../../../restaurant/orders/services/upi";
 import { priceBill, money } from "../services/tillPricing.js";
 import { dayOf } from "../services/tillRules.js";
@@ -22,12 +22,14 @@ import "../styles/till.css";
 // the cashier, items the till does not hold.
 //
 // Keys as on Quick bill: F2 items · F4 customer · F6 cash · F7 UPI · F8 card ·
-// F9 udhaar · F12 or Ctrl+Enter take it · after a bill, Enter the next, P print.
+// F9 on account (udhaar) · F12 or Ctrl+Enter take it · after a bill, Enter
+// the next, P print.
 
 const CASH_LIMIT = 20000000;
 const PAN_ABOVE = 20000000;
 const WEIGHT_STEPS = [250, 500, 1000, 2000];
-const TENDERS = [["cash", "Cash", "F6"], ["upi", "UPI", "F7"], ["card", "Card", "F8"], ["split", "Split", ""], ["udhaar", "Udhaar", "F9"]];
+// The bill left on the customer's account is named in the business's word ("Udhaar", "On account").
+const TENDERS = [["cash", "Cash", "F6"], ["upi", "UPI", "F7"], ["card", "Card", "F8"], ["split", "Split", ""], ["udhaar", null, "F9"]];
 const key = () => crypto.randomUUID();
 const paise = (value) => Math.round(Number(value || 0) * 100);
 const trim = (n) => String(Number(Number(n).toFixed(3)));
@@ -45,6 +47,7 @@ function udhaarFrom(items, contactId) {
 }
 
 export default function TillCounter({ biz, till, carried = null, onCarried, onBusy }) {
+  const { t } = biz;
   const { snapshot, settings } = till;
   const tz = biz.business.timezone;
   const day = dayOf(till.now, tz);
@@ -172,8 +175,11 @@ export default function TillCounter({ biz, till, carried = null, onCarried, onBu
     if (waitingWeight.length) return `Enter the weight of ${waitingWeight.map((l) => l.item.label).join(", ")}.`;
     if (!biz.can("sales.create")) return "Your role does not bill.";
     if (customer?.gstin && settings.einvoicing) return `${customer.name} has a GSTIN, and this business e-invoices: a bill to them needs the network (the IRP).`;
-    if (tender === "udhaar" && !customer) return "Udhaar: pick the customer who will pay later.";
-    if (!customer && onCredit > 0 && !settings.walkInCredit) return canPay ? "A walk-in pays the whole bill now. To give udhaar, pick the customer." : "Your role takes no payments: a walk-in's bill needs someone who does.";
+    if (tender === "udhaar" && !customer) return `${t("on_account")}: pick the ${t.lower("customer")} who will pay later.`;
+    if (!customer && onCredit > 0 && !settings.walkInCredit) {
+      return canPay ? `${sentence(t.a("walk_in"))} pays the whole bill now. To put it ${onAccount(t)}, pick the ${t.lower("customer")}.`
+        : `Your role takes no payments: a bill without ${t.a("customer")} needs someone who does.`;
+    }
     if (customer && onCredit > 0 && limit !== null && balance + onCredit > limit) {
       return `${customer.name} would owe ${biz.exact((balance + onCredit) / 100)}, over their limit of ${biz.exact(limit / 100)}. Take more now, or raise the limit online.`;
     }
@@ -198,8 +204,8 @@ export default function TillCounter({ biz, till, carried = null, onCarried, onBu
         buyer: panNeeded ? (buyer.panDeclaration ? { panDeclaration: true } : { pan: panText }) : null,
         discountReason: cart.discount?.reason || "",
       });
-      const udhaar = customer && onCredit > 0 ? { earlier: balance / 100, thisBill: onCredit / 100, total: (balance + onCredit) / 100 } : null;
-      setPosted({ ...saved, change, total, paid: paidNow, udhaar, item: saved.item });
+      const dues = customer && onCredit > 0 ? { earlier: balance / 100, thisBill: onCredit / 100, total: (balance + onCredit) / 100 } : null;
+      setPosted({ ...saved, change, total, paid: paidNow, dues, item: saved.item });
     } catch (err) {
       setError(err.message || "The bill could not be kept on this computer.");
     } finally {
@@ -211,7 +217,7 @@ export default function TillCounter({ biz, till, carried = null, onCarried, onBu
     setPartPaid(""); setBuyer({ pan: "", panDeclaration: false }); setPosted(null); setError(""); setNote(""); setQuery("");
     setTimeout(() => scanRef.current?.focus(), 0);
   }
-  const print = () => posted && printReceipt(posted.receipt, biz, { change: posted.change / 100, udhaar: posted.udhaar });
+  const print = () => posted && printReceipt(posted.receipt, biz, { change: posted.change / 100, dues: posted.dues });
 
   // Keyboard, as on Quick bill.
   const keys = useRef({});
@@ -327,7 +333,7 @@ export default function TillCounter({ biz, till, carried = null, onCarried, onBu
                 </ul>
               )}
           </SectionCard>
-          <SectionCard icon="user" title="Customer" description={customer ? undefined : "Walk-in pays in full. Pick a customer for udhaar. New customers need the network."}
+          <SectionCard icon="user" title={t("customer")} description={customer ? undefined : `${sentence(t.a("walk_in"))} pays in full. Pick ${t.a("customer")} to put the bill ${onAccount(t)}. New ${t.lower("customer", "many")} need the network.`}
             actions={customer && <button type="button" className="link-button" onClick={() => { setCustomer(null); if (tender === "udhaar") setTender("cash"); }}>Change</button>}>
             {customer ? (
               <div className="stack">
@@ -340,9 +346,9 @@ export default function TillCounter({ biz, till, carried = null, onCarried, onBu
               </div>
             ) : (
               <div className="till-find">
-                <input id="till-customer" className="rt-find" value={findCustomer} onChange={(e) => setFindCustomer(e.target.value)} placeholder="Name or phone  (F4)" aria-label="Find a customer by name or phone" autoComplete="off" />
+                <input id="till-customer" className="rt-find" value={findCustomer} onChange={(e) => setFindCustomer(e.target.value)} placeholder="Name or phone  (F4)" aria-label={`Find ${t.a("customer")} by name or phone`} autoComplete="off" />
                 {customerHits.length > 0 && (
-                  <ul className="till-find-list" role="listbox" aria-label="Customers">
+                  <ul className="till-find-list" role="listbox" aria-label={t("customer", "many")}>
                     {customerHits.map((c) => (
                       <li key={c.id}><button type="button" role="option" aria-selected="false" onClick={() => { setCustomer(c); setFindCustomer(""); }}>
                         <strong>{c.name}</strong><small className="muted">{[c.phone, Number(c.balance) > 0.004 ? `owes ${biz.exact(c.balance)}` : null].filter(Boolean).join(" · ")}</small>
@@ -378,7 +384,7 @@ export default function TillCounter({ biz, till, carried = null, onCarried, onBu
             <div className="segmented rt-tender rt-tender-grid" role="group" aria-label="Paid by">
               {TENDERS.map(([m, word, k]) => (
                 <button key={m} type="button" className={`segment ${tender === m ? "is-active" : ""}`} aria-pressed={tender === m}
-                  disabled={(m !== "udhaar" && !canPay) || (["upi", "card"].includes(m) && !methodOf(m))} onClick={() => setTender(m)}>{word} {k && <kbd>{k}</kbd>}</button>
+                  disabled={(m !== "udhaar" && !canPay) || (["upi", "card"].includes(m) && !methodOf(m))} onClick={() => setTender(m)}>{word || t("on_account")} {k && <kbd>{k}</kbd>}</button>
               ))}
             </div>
             <form className="stack rt-pay-form" onSubmit={(e) => { e.preventDefault(); take(); }}>
@@ -392,7 +398,7 @@ export default function TillCounter({ biz, till, carried = null, onCarried, onBu
                   {upiLink ? (
                     <>
                       <span className="till-upi-qr" dangerouslySetInnerHTML={{ __html: qrSvg(upiLink, { label: `UPI QR for ${money(total)}` }) }} />
-                      <p className="small">Ask the customer to scan and pay <strong>{biz.exact(total / 100)}</strong> to {settings.upiId}. Take the bill once the money shows on your phone or sound box.</p>
+                      <p className="small">Ask the {t.lower("customer")} to scan and pay <strong>{biz.exact(total / 100)}</strong> to {settings.upiId}. Take the bill once the money shows on your phone or sound box.</p>
                     </>
                   ) : <p className="small">Take {biz.exact(total / 100)} on your UPI QR stand, then take the bill once the money shows.</p>}
                   <Field label="UPI reference (optional)"><input maxLength={60} value={reference} onChange={(e) => setReference(e.target.value)} /></Field>
@@ -408,14 +414,14 @@ export default function TillCounter({ biz, till, carried = null, onCarried, onBu
                 </div>
               )}
               {tender === "udhaar" && customer && canPay && (
-                <Field label="Paid now in cash (optional)" hint={`${biz.exact(onCredit / 100)} goes on ${customer.name}'s udhaar.`}>
+                <Field label="Paid now in cash (optional)" hint={`${biz.exact(onCredit / 100)} is added to ${customer.name}'s ${t.lower("dues")}.`}>
                   <input type="number" min="0" step="0.01" value={partPaid} onChange={(e) => setPartPaid(e.target.value)} />
                 </Field>
               )}
               {settings.pinEveryBill && <p className="small muted"><Icon name="lock" size={13} /> This business asks the biller's PIN for every bill: it cannot be checked offline, so the bill is marked "made offline, no PIN" for the manager.</p>}
               {blocked && priced && <p className="small rt-warn" role="status">{blocked}</p>}
               <button type="submit" className="button rt-post" disabled={!ready}>
-                {saving ? "Keeping the bill…" : tender === "udhaar" ? `Put ${biz.exact(onCredit / 100)} on udhaar` : `Take ${biz.exact(total / 100)}${tender !== "cash" && tender !== "split" ? ` by ${tender === "upi" ? "UPI" : "card"}` : ""}`} <kbd>F12</kbd>
+                {saving ? "Keeping the bill…" : tender === "udhaar" ? `Put ${biz.exact(onCredit / 100)} ${onAccount(t)}` : `Take ${biz.exact(total / 100)}${tender !== "cash" && tender !== "split" ? ` by ${tender === "upi" ? "UPI" : "card"}` : ""}`} <kbd>F12</kbd>
               </button>
             </form>
           </SectionCard>
@@ -427,7 +433,7 @@ export default function TillCounter({ biz, till, carried = null, onCarried, onBu
             <div><span className="muted">Total</span><strong>{biz.exact(posted.total / 100)}</strong></div>
             <div><span className="muted">Paid</span><strong>{biz.exact(posted.paid / 100)}</strong></div>
             {posted.change > 0 && <div className="rt-change"><span>Give back</span><strong>{biz.exact(posted.change / 100)}</strong></div>}
-            {posted.udhaar && <div><span className="muted">On {customer?.name}'s udhaar</span><strong>{biz.exact(posted.udhaar.thisBill)} · now owes {biz.exact(posted.udhaar.total)}</strong></div>}
+            {posted.dues && <div><span className="muted">On {customer?.name}'s {t.lower("dues")}</span><strong>{biz.exact(posted.dues.thisBill)} · now owes {biz.exact(posted.dues.total)}</strong></div>}
           </div>
           <p className="small muted till-kept"><Icon name="clock" size={14} /> Saved on this computer before printing; it goes to the server by itself when the internet is back.</p>
           <div className="form-actions bz-start">

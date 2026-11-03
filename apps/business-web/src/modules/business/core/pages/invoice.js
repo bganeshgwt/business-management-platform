@@ -1,16 +1,27 @@
-import { escapeHtml, printDocument } from "../../../../services/print";
+import { escapeHtml, printDocument } from "../../../../services/print.js";
 import { amountInWords, moneyExact } from "@bmp/shared/format";
-import { privacyLine } from "../../../personal-data/printLine";
+import { privacyLine } from "../../../personal-data/printLine.js";
 
-// The one GST tax invoice every Business Admin type prints: A4 for the file
-// and the buyer, 80 mm for the till. Everything on it is what was posted —
-// lines, HSN, MRP, rates, discounts, GST, round-off — never recalculated;
-// only the CGST / SGST halves are split here, to the paisa, so they always
-// add up to the GST that was charged.
+// The one bill every Business Admin type prints: A4 for the file and the
+// buyer, 80 mm for the till. Everything on it is what was posted — lines,
+// HSN, MRP, rates, discounts, GST, round-off — never recalculated; only the
+// CGST / SGST halves are split here, to the paisa, so they always add up to
+// the GST that was charged. Its heading is what the law calls it (billTitle);
+// the buyer, the walk-in, the item column and the line under the bill are in
+// the business's own words (biz.t).
 //
-//   printTaxInvoice(doc, biz, { paper: "a4" | "80mm", change, udhaar })
+//   printTaxInvoice(doc, biz, { paper: "a4" | "80mm", change, dues })
 //   doc:    GET /businesses/:id/documents/:docId (with seller, retail extras)
-//   change: cash given back (till); udhaar: { earlier, thisBill, total } (till)
+//   change: cash given back (till)
+//   dues:   { earlier, thisBill, total }: what the customer owed before, what
+//           this bill leaves unpaid and what they owe now (till)
+
+// A bill left unpaid on someone's name, mid-sentence: "on account", "on
+// udhaar" (the business's word with its "on").
+export const onAccount = (t) => {
+  const word = t.lower("on_account");
+  return /^on\s/.test(word) ? word : `on ${word}`;
+};
 
 // GST state codes (the first two digits of a GSTIN).
 export const GST_STATES = {
@@ -123,12 +134,32 @@ function invoiceFacts(doc, symbol = "₹") {
   const paid = doc.payments.reduce((s, x) => s + p(x.amount), 0);
   const returned = (doc.returns || []).reduce((s, x) => s + p(x.total), 0);
   const refunded = (doc.refunds || []).reduce((s, x) => s + p(x.amount), 0);
+  const title = billTitle(doc);
   return {
     seller, sale, pos, interstate, lines, summary: summaryRows.sort((a, b) => a.rate - b.rate || a.hsn.localeCompare(b.hsn)),
     taxable: sum("taxable"), cgst: sum("cgst"), sgst: sum("sgst"), igst: sum("igst"), tax: p(doc.tax), roundOff: p(doc.round_off), total: p(doc.total),
     discount: sum("discount"), paid, due: p(doc.total) - returned - paid + refunded,
-    title: sale ? (seller.gstin ? "Tax invoice" : "Invoice") : "Purchase receipt",
+    // A bill of supply charges no GST, so it has no GST columns or summary.
+    title, untaxed: title === "Bill of supply",
   };
+}
+
+// What the bill is called, as the law names it, from the seller's
+// registration and the bill's own taxes (CGST Act section 31; CGST Rules 46,
+// 46A and 49):
+//   - a registered business (a GSTIN) issues a tax invoice;
+//   - of exempt or nil-rated supplies only, a bill of supply (a clinic's
+//     consultations, a bookshop's printed books);
+//   - of taxable and exempt supplies together, to a buyer with no GSTIN, one
+//     invoice-cum-bill of supply (rule 46A);
+//   - a business with no GSTIN issues no GST document: a bill.
+export function billTitle(doc) {
+  if (doc.kind !== "sale") return "Purchase receipt";
+  if (!doc.seller?.gstin) return "Bill";
+  const exempt = doc.lines.filter((line) => Number(line.tax_rate) === 0 && p(line.tax) === 0).length;
+  if (exempt > 0 && exempt === doc.lines.length) return "Bill of supply";
+  if (exempt > 0 && !doc.contact_gstin) return "Invoice-cum-bill of supply";
+  return "Tax invoice";
 }
 
 // Also the quotation's print (quotations/pages/quotationPrint.js), so both read alike.
@@ -198,21 +229,29 @@ function farmerBox(doc, date) {
 
 function a4(doc, biz, f) {
   const { seller } = f;
+  const { t } = biz;
   const money = (paise) => escapeHtml(moneyExact(r(paise), biz.symbol));
   const date = (value) => escapeHtml(businessDate(value, seller.date_format, biz.business.timezone));
   const sellerName = seller.legal_name || seller.display_name || biz.business.name;
   const address = (parts) => parts.filter(Boolean).map(escapeHtml).join(", ");
   const taxHead = f.interstate ? "<th class=\"r\">IGST</th>" : "<th class=\"r\">CGST</th><th class=\"r\">SGST</th>";
+  const taxCells = (l) => (l.exempt ? (f.interstate ? '<td class="r">—</td>' : '<td class="r">—</td><td class="r">—</td>')
+    : f.interstate ? `<td class="r">${money(l.igst)}</td>` : `<td class="r">${money(l.cgst)}</td><td class="r">${money(l.sgst)}</td>`);
   const rows = f.lines.map((l) => `<tr><td>${l.n}</td>
     <td>${escapeHtml(l.label)}${l.lot ? `<br><small>${escapeHtml(l.lot)}</small>` : ""}${l.kit ? `<br><small>Part of ${escapeHtml(l.kit)}</small>` : ""}${l.mrp ? `<br><small>MRP ${money(l.mrp)}</small>` : ""}${l.note ? `<br><small>${escapeHtml(l.note)}</small>` : ""}</td>
     <td>${escapeHtml(l.hsn || "—")}</td><td class="r">${escapeHtml(l.quantity)}</td><td class="r">${l.free ? "Free" : escapeHtml(`${biz.symbol}${RATE.format(l.rate)}`)}</td>
-    <td class="r">${l.discount ? money(l.discount) : "—"}</td><td class="r">${money(l.taxable)}</td><td class="r">${l.exempt ? "Exempt" : `${l.gstRate}%`}</td>
-    ${l.exempt ? (f.interstate ? '<td class="r">—</td>' : '<td class="r">—</td><td class="r">—</td>') : f.interstate ? `<td class="r">${money(l.igst)}</td>` : `<td class="r">${money(l.cgst)}</td><td class="r">${money(l.sgst)}</td>`}
+    <td class="r">${l.discount ? money(l.discount) : "—"}</td>
+    ${f.untaxed ? "" : `<td class="r">${money(l.taxable)}</td><td class="r">${l.exempt ? "Exempt" : `${l.gstRate}%`}</td>${taxCells(l)}`}
     <td class="r">${money(l.amount)}</td></tr>`).join("");
   const dash = f.interstate ? '<td class="r">—</td>' : '<td class="r">—</td><td class="r">—</td>';
-  const hsnRows = f.summary.map((s) => `<tr><td>${escapeHtml(s.hsn || "—")}</td><td class="r">${money(s.taxable)}</td><td class="r">${s.exempt ? "Exempt" : `${s.rate}%`}</td>
+  const hsnRows = f.untaxed ? "" : f.summary.map((s) => `<tr><td>${escapeHtml(s.hsn || "—")}</td><td class="r">${money(s.taxable)}</td><td class="r">${s.exempt ? "Exempt" : `${s.rate}%`}</td>
     ${s.exempt ? `${dash}<td class="r">—</td>` : `${f.interstate ? `<td class="r">${money(s.igst)}</td>` : `<td class="r">${money(s.cgst)}</td><td class="r">${money(s.sgst)}</td>`}<td class="r">${money(s.tax)}</td>`}</tr>`).join("");
   const savings = Number(doc.retail?.savings || 0);
+  // The buyer as the business calls them (a patient, a member); a walk-in, a
+  // buyer with a GSTIN (a firm) and a supplier as the paper calls them.
+  const buyer = !f.sale ? "Supplier" : doc.contact_id && !doc.contact_gstin ? t("customer") : "Bill to";
+  // The line the business prints under its bills (a shop's exchange policy; none for a clinic).
+  const note = f.sale ? t.ex("phrase.bill_note") : "";
   return `<div class="top"><div><h1>${escapeHtml(sellerName)}</h1>
       ${seller.legal_name && seller.display_name && seller.legal_name !== seller.display_name ? `<div class="muted">${escapeHtml(seller.display_name)}</div>` : ""}
       ${seller.branch_name ? `<div class="muted">${escapeHtml(seller.branch_name)}</div>` : ""}
@@ -223,24 +262,23 @@ function a4(doc, biz, f) {
     <div class="right"><h2>${escapeHtml(f.title)}</h2><div>No. <strong>${escapeHtml(doc.document_no)}</strong></div><div>Date ${date(doc.created_at)}</div>
       ${f.sale && doc.contact_id && doc.due_on && f.due > 0 ? `<div>Due ${date(doc.due_on)}</div>` : ""}
       ${doc.supplier_bill_no ? `<div>Supplier bill ${escapeHtml(doc.supplier_bill_no)}${doc.supplier_bill_date ? ` · ${date(String(doc.supplier_bill_date).slice(0, 10))}` : ""}</div>` : ""}</div></div>
-  ${f.sale && !seller.gstin ? '<div class="warn">This business has no GSTIN in Business settings, so this is not a GST tax invoice. Add the GSTIN to print tax invoices.</div>' : ""}
-  <div class="parties"><div class="box"><b>${f.sale ? "Bill to" : "Supplier"}</b><strong>${escapeHtml(doc.contact_name || "Walk-in customer")}</strong>
+  <div class="parties"><div class="box"><b>${escapeHtml(buyer)}</b><strong>${escapeHtml(doc.contact_name || t("walk_in"))}</strong>
       ${doc.contact_address ? `<div>${escapeHtml(doc.contact_address)}</div>` : ""}${doc.contact_phone ? `<div>Ph ${escapeHtml(doc.contact_phone)}</div>` : ""}
-      ${doc.contact_gstin ? `<div>GSTIN <strong>${escapeHtml(doc.contact_gstin)}</strong></div>` : f.sale ? '<div class="muted">Unregistered (no GSTIN)</div>' : ""}
+      ${doc.contact_gstin ? `<div>GSTIN <strong>${escapeHtml(doc.contact_gstin)}</strong></div>` : f.sale && seller.gstin && !f.untaxed ? '<div class="muted">Unregistered (no GSTIN)</div>' : ""}
       ${doc.buyer_pan ? `<div>PAN <strong>${escapeHtml(doc.buyer_pan)}</strong></div>` : doc.pan_declaration ? '<div>No PAN: the buyer\'s declaration (Form 97) is held</div>' : ""}</div>
-    <div class="box"><b>${f.sale ? "Place of supply" : "Received at"}</b>${f.sale ? `<strong>${escapeHtml(stateName(f.pos) || "—")}</strong><div>${f.interstate ? "Inter-state supply: IGST" : "Within the state: CGST + SGST"}</div>` : ""}
-      <div>${escapeHtml(doc.location_name || "")}</div>${doc.tax_mode === "inclusive" && f.sale ? '<div class="muted">Prices include GST</div>' : ""}</div></div>
+    <div class="box"><b>${f.sale ? "Place of supply" : "Received at"}</b>${f.sale ? `<strong>${escapeHtml(stateName(f.pos) || "—")}</strong>${f.untaxed ? "" : `<div>${f.interstate ? "Inter-state supply: IGST" : "Within the state: CGST + SGST"}</div>`}` : ""}
+      <div>${escapeHtml(doc.location_name || "")}</div>${doc.tax_mode === "inclusive" && f.sale && !f.untaxed ? '<div class="muted">Prices include GST</div>' : ""}</div></div>
   ${transportBox(doc, date)}
   ${siteBox(doc)}
   ${farmerBox(doc, date)}
-  <table><thead><tr><th>#</th><th>Item</th><th>HSN/SAC</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Discount</th><th class="r">Taxable value</th><th class="r">GST</th>${taxHead}<th class="r">Amount</th></tr></thead>
+  <table><thead><tr><th>#</th><th>${escapeHtml(t("item"))}</th><th>HSN/SAC</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Discount</th>${f.untaxed ? "" : `<th class="r">Taxable value</th><th class="r">GST</th>${taxHead}`}<th class="r">Amount</th></tr></thead>
     <tbody>${rows}</tbody></table>
   <div class="totals"><div>
       ${hsnRows ? `<table><thead><tr><th>HSN/SAC</th><th class="r">Taxable value</th><th class="r">Rate</th>${taxHead}<th class="r">Total tax</th></tr></thead><tbody>${hsnRows}</tbody></table>` : ""}
       <p class="words"><strong>Amount in words:</strong> ${escapeHtml(amountInWords(r(f.total)))}</p>
       ${savings > 0 ? `<p>Offers and points on this bill: ${money(p(savings))}</p>` : ""}</div>
     <table><tbody>
-      <tr><td>Taxable value</td><td class="r">${money(f.taxable)}</td></tr>
+      ${f.untaxed ? "" : `<tr><td>Taxable value</td><td class="r">${money(f.taxable)}</td></tr>`}
       ${f.interstate ? (f.igst ? `<tr><td>IGST</td><td class="r">${money(f.igst)}</td></tr>` : "") : `${f.cgst ? `<tr><td>CGST</td><td class="r">${money(f.cgst)}</td></tr>` : ""}${f.sgst ? `<tr><td>SGST</td><td class="r">${money(f.sgst)}</td></tr>` : ""}`}
       ${f.roundOff ? `<tr><td>Round-off</td><td class="r">${money(f.roundOff)}</td></tr>` : ""}
       <tr class="grand"><td>Total</td><td class="r">${money(f.total)}</td></tr>
@@ -251,7 +289,7 @@ function a4(doc, biz, f) {
   ${jewelleryNote(doc)}
   ${seller.invoice_footer ? `<p><small>${escapeHtml(seller.invoice_footer)}</small></p>` : ""}
   ${privacyLine(biz) ? `<p><small>${escapeHtml(privacyLine(biz))}</small></p>` : ""}
-  <div class="sign"><small>Certified that the particulars given above are true and correct.${f.sale ? " Goods once sold are subject to the shop's exchange policy." : ""}</small>
+  <div class="sign"><small>Certified that the particulars given above are true and correct.${note ? ` ${escapeHtml(note)}` : ""}</small>
     <div class="r">For ${escapeHtml(sellerName)}<br><br><br>Authorised signatory</div></div>`;
 }
 
@@ -288,8 +326,9 @@ const TILL_STYLES = `body{font:12px/1.35 ui-monospace,Menlo,Consolas,monospace;c
   .small{font-size:11px} hr{border:0;border-top:1px dashed #000;margin:6px 0} .you{font-weight:700;text-align:center;margin:6px 0}
   .words{font-size:10.5px;font-style:italic}`;
 
-function till(doc, biz, f, { change = 0, udhaar = null } = {}) {
+function till(doc, biz, f, { change = 0, dues = null } = {}) {
   const { seller } = f;
+  const { t } = biz;
   const money = (paise) => escapeHtml(moneyExact(r(paise), biz.symbol));
   const discounts = doc.retail?.discounts || [];
   const lineRows = f.lines.map((l, i) => {
@@ -318,15 +357,15 @@ function till(doc, biz, f, { change = 0, udhaar = null } = {}) {
     ${doc.buyer_pan ? `<div class="small">PAN ${escapeHtml(doc.buyer_pan)}</div>` : doc.pan_declaration ? '<div class="small">No PAN: Form 97 declaration held</div>' : ""}
     ${f.interstate ? `<div class="small">Place of supply ${escapeHtml(stateName(f.pos))}</div>` : ""}<hr>
     ${lineRows}
-    <div class="row small"><span>Taxable value</span><span>${money(f.taxable)}</span></div>${gstRows}
+    ${f.untaxed ? "" : `<div class="row small"><span>Taxable value</span><span>${money(f.taxable)}</span></div>${gstRows}`}
     ${f.roundOff ? `<div class="row small"><span>Round-off</span><span>${money(f.roundOff)}</span></div>` : ""}
     <div class="row tot"><span>TOTAL</span><span>${money(f.total)}</span></div>
     <div class="words">${escapeHtml(amountInWords(r(f.total)))}</div>
     ${doc.payments.map((x) => `<div class="row small"><span>${x.method === "finance" ? `On EMI · ${escapeHtml(financeWords(doc))}` : `Paid · ${escapeHtml(paidWords(x))}`}</span><span>${money(p(x.amount))}</span></div>`).join("")}
     ${changeBack(doc, change) > 0 ? `<div class="row small"><span>Change returned (cash)</span><span>${money(changeBack(doc, change))}</span></div>` : ""}
-    ${udhaar ? `<hr><div class="row small"><span>Earlier udhaar</span><span>${money(p(udhaar.earlier))}</span></div>
-      <div class="row small"><span>This bill on udhaar</span><span>${money(p(udhaar.thisBill))}</span></div>
-      <div class="row"><strong>Total udhaar now</strong><strong>${money(p(udhaar.total))}</strong></div>`
+    ${dues ? `<hr><div class="row small"><span>${escapeHtml(`Earlier ${t.lower("dues")}`)}</span><span>${money(p(dues.earlier))}</span></div>
+      <div class="row small"><span>${escapeHtml(`This bill ${onAccount(t)}`)}</span><span>${money(p(dues.thisBill))}</span></div>
+      <div class="row"><strong>${escapeHtml(`Total ${t.lower("dues")} now`)}</strong><strong>${money(p(dues.total))}</strong></div>`
     : f.due > 0 ? `<div class="row"><span>Balance due</span><span>${money(f.due)}</span></div>` : ""}
     ${savings > 0 ? `<div class="you">You saved ${money(p(savings))} today</div>` : ""}
     ${redeemed ? `<div class="row small"><span>Points redeemed</span><span>${escapeHtml(String(-redeemed.points))}</span></div>` : ""}
@@ -355,13 +394,18 @@ export function printTaxInvoices(docs, biz) {
   });
 }
 
-export function printTaxInvoice(doc, biz, { paper = "a4", ...extra } = {}) {
+// One bill as it prints ({ title, styles, body }), on A4 or the till's paper.
+export function taxInvoiceDocument(doc, biz, { paper = "a4", ...extra } = {}) {
   const facts = invoiceFacts(doc, biz.symbol);
-  printDocument({
+  return {
     title: doc.document_no,
     styles: paper === "80mm" ? tillStyles(biz) : A4_STYLES,
     body: paper === "80mm" ? till(doc, biz, facts, extra) : a4(doc, biz, facts),
-  });
+  };
+}
+
+export function printTaxInvoice(doc, biz, options) {
+  printDocument(taxInvoiceDocument(doc, biz, options));
 }
 
 // The till receipt on the business's own paper (Business settings › Rules:

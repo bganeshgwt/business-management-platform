@@ -13,7 +13,7 @@ import { balanceText, dateShort, relative } from "@bmp/shared/format";
 import { toast } from "../../../../services/toast";
 import FormDialog from "../../core/pages/FormDialog";
 import { Badge, Field, FormError } from "../../core/pages/ui";
-import { CHEQUE_STATUS, STATEMENT_KINDS, chequeWord, printStatements, reminderText, whatsappLink } from "./receivablesFormat";
+import { CHEQUE_STATUS, chequeWord, printStatements, reminderText, statementKind, whatsappLink } from "./receivablesFormat";
 import "../../../../styles/business-trade.css";
 import { businessToday, newKey, useOpenBusiness, useOptions } from "../../core/pages/hooks";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
@@ -34,6 +34,8 @@ import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 // yet. A cheque carries its date and bank.
 export function CollectionDialog({ contactId: fixedContact, documentId, onClose, onSaved }) {
   const biz = useOpenBusiness();
+  const { t } = biz;
+  // A wholesaler's customers are on routes and beats, and are found by them too.
   const wholesale = biz.has("sales_orders") && biz.can("sales_orders.view");
   const customerPath = wholesale ? "customer-beats" : "contacts?kind=customer&active=true";
   const { options, error } = useOptions([customerPath, ...(wholesale ? ["salespeople?active=true", "routes?active=true"] : [])]);
@@ -88,23 +90,23 @@ export function CollectionDialog({ contactId: fixedContact, documentId, onClose,
   });
   const quick = [owes > 0 && { label: `Full ${biz.exact(owes)}`, value: owes }, overdue > 0 && overdue < owes && { label: `Overdue ${biz.exact(overdue)}`, value: overdue }].filter(Boolean);
   return (
-    <FormDialog title={`Record ${biz.t.a("collection")}`} icon="wallet" width={780} submitLabel="Save receipt"
+    <FormDialog title={`Record ${t.a("collection")}`} icon="wallet" width={780} submitLabel="Save receipt"
       onSubmit={submit} onClose={onClose} onSaved={onSaved} disabled={!options}
-      description="A numbered receipt is issued. Money is put against the customer's bills; anything left over stays as their advance.">
+      description={`A numbered receipt is issued. Money is put against the ${t.lower("customer")}'s bills; anything left over stays as their advance.`}>
       <FormError message={error} />
       {!options && !error && <div className="field-wide"><Loading /></div>}
       <div className="field">
-        <SearchPicker label="Customer" required value={customer} disabled={Boolean(fixedContact)} options={customers}
+        <SearchPicker label={t("customer")} required value={customer} disabled={Boolean(fixedContact)} options={customers}
           onChange={(c) => { setForm((f) => ({ ...f, contactId: c ? String(c.id) : "", amount: "", salespersonId: "", routeId: "" })); setBills(null); setAccount(null); }}
           getKey={(c) => c.id} getLabel={(c) => c.name} getKeywords={(c) => `${c.phone || ""} ${c.route_name || ""} ${c.beat_name || ""} ${c.gstin || ""}`}
           getDescription={(c) => [balanceText(c.balance), c.route_name && `${c.route_name}${c.beat_name ? ` · ${c.beat_name}` : ""}`].filter(Boolean).join(" · ")}
-          placeholder="Name, phone or route" name="contact_id" />
+          placeholder={wholesale ? "Name, phone or route" : "Name or phone"} name="contact_id" />
       </div>
       {locations.length > 1 ? (
         <Field label="Received at">
           <select required value={form.locationId} onChange={set("locationId")}>{locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select>
         </Field>
-      ) : <div className="field bz-owes-card" aria-live="polite">{account ? <OwesLine summary={account.summary} /> : <span className="muted small">Choose a customer to see what they owe.</span>}</div>}
+      ) : <div className="field bz-owes-card" aria-live="polite">{account ? <OwesLine summary={account.summary} /> : <span className="muted small">Choose {t.a("customer")} to see what they owe.</span>}</div>}
       {locations.length > 1 && account && <div className="field-wide bz-owes-card"><OwesLine summary={account.summary} /></div>}
       <Field label="Amount received" hint={quick.length ? undefined : customer ? balanceText(owes) : undefined}>
         <input required type="number" min="0.01" step="0.01" inputMode="decimal" value={form.amount} onChange={set("amount")} />
@@ -153,7 +155,7 @@ export function CollectionDialog({ contactId: fixedContact, documentId, onClose,
       </Field>
       {form.mode === "choose" && (
         <div className="field-wide bz-lines">
-          {!form.contactId ? <p className="muted small">Choose the customer first.</p> : !bills ? <Loading /> : (
+          {!form.contactId ? <p className="muted small">Choose the {t.lower("customer")} first.</p> : !bills ? <Loading /> : (
             <DataGrid variant="editor" caption="Open bills" rows={bills} rowKey={(b) => b.id} currency={biz.symbol} empty="No open bills" columns={[
               { key: "no", header: "Bill", value: (b) => b.document_no, render: (b) => <span className="mono">{b.document_no}</span> },
               { key: "date", header: "Date", type: "date", value: (b) => b.created_at },
@@ -195,6 +197,7 @@ export function FollowUpDialog({ customer, onClose, onSaved }) {
   const set = (name) => (event) => setForm((f) => ({ ...f, [name]: event.target.value }));
   const gate = useConsentGate(useShopPrivacy());
   const person = { id: customer.contact_id || customer.id, name: customer.name };
+  const promise = biz.t.ex("promise");
   const submit = async () => {
     if (REMINDER_CHANNELS.includes(form.channel) && !(await gate.ensure("reminders", person, { sending: false }))) throw notAgreed(customer.name, "reminders");
     return businessWrite(biz.id, `receivables/customers/${person.id}/follow-ups`, {
@@ -213,7 +216,7 @@ export function FollowUpDialog({ customer, onClose, onSaved }) {
       </Field>
       <Field label="Promised to pay on (optional)"><input type="date" min={today} value={form.promisedOn} onChange={set("promisedOn")} /></Field>
       <Field label="Amount promised (optional)"><input type="number" min="0.01" step="0.01" value={form.promisedAmount} onChange={set("promisedAmount")} /></Field>
-      <Field label="Note (optional)" wide><input maxLength={250} value={form.note} onChange={set("note")} placeholder="e.g. Will send cheque with the salesman" /></Field>
+      <Field label="Note (optional)" wide><input maxLength={250} value={form.note} onChange={set("note")} placeholder={promise ? `e.g. ${promise}` : undefined} /></Field>
     </FormDialog>
   );
 }
@@ -237,6 +240,7 @@ export function ChequeActionDialog({ cheque, action, onClose, onSaved }) {
   const set = (name) => (event) => setForm((f) => ({ ...f, [name]: event.target.value }));
   const titles = { deposit: "Deposit cheque", clear: "Cheque cleared", bounce: "Cheque bounced" };
   const amount = biz.exact(cheque.amount);
+  const { t } = biz;
   return (
     <FormDialog title={`${titles[action]} · ${cheque.cheque_no}`} icon="wallet" width={540} onClose={onClose} onSaved={onSaved}
       submitLabel={{ deposit: "Mark deposited", clear: "Mark cleared", bounce: "Mark bounced" }[action]}
@@ -252,15 +256,15 @@ export function ChequeActionDialog({ cheque, action, onClose, onSaved }) {
       {action === "bounce" && (
         <>
           <Field label="Why it bounced" wide><input required maxLength={300} value={form.reason} onChange={set("reason")} placeholder="e.g. Funds insufficient" /></Field>
-          <Field label="Bank charge to the customer" hint={`Your setting is ${biz.exact(rules?.bounce_charge ?? 500)}. Change it for this cheque, or 0 for none.`}>
+          <Field label={`Bank charge to the ${t.lower("customer")}`} hint={`Your setting is ${biz.exact(rules?.bounce_charge ?? 500)}. Change it for this cheque, or 0 for none.`}>
             <input type="number" min="0" max="100000" step="0.01" required value={form.charge} onChange={set("charge")} />
           </Field>
           {rules?.bounce_hold_count ? (
-            <p className="field-wide muted small"><Icon name="shield" size={13} /> {rules.bounce_hold_count} bounced cheques in {rules.bounce_hold_days} days put a customer on credit hold for new orders.</p>
+            <p className="field-wide muted small"><Icon name="shield" size={13} /> {rules.bounce_hold_count} bounced cheques in {rules.bounce_hold_days} days put {t.a("customer")} on credit hold for new orders.</p>
           ) : null}
         </>
       )}
-      {action === "clear" && <p className="field-wide muted">The money is in the bank. Nothing else changes on the customer's account.</p>}
+      {action === "clear" && <p className="field-wide muted">The money is in the bank. Nothing else changes on the {t.lower("customer")}'s account.</p>}
     </FormDialog>
   );
 }
@@ -354,7 +358,7 @@ export function AccountDialog({ contactId, onClose, onChanged }) {
               </SectionCard>
             )}
             <div className="form-actions bz-start">
-              {biz.can("receivables.create") && <button type="button" className="button" onClick={() => setAction("collect")}><Icon name="wallet" size={16} /> Record collection</button>}
+              {biz.can("receivables.create") && <button type="button" className="button" onClick={() => setAction("collect")}><Icon name="wallet" size={16} /> Record {biz.t.a("collection")}</button>}
               {biz.can("receivables.create") && advance > 0 && account.items.some((i) => i.document_id) && <button type="button" className="button button-secondary" disabled={busy} onClick={applyAdvance}>Put advance against bills</button>}
               <button type="button" className="button button-secondary" onClick={() => setAction("statement")}><Icon name="file" size={15} /> Statement</button>
               {account.contact.phone && (
@@ -390,14 +394,15 @@ function StatementDialog({ contact, from, onClose }) {
       .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
     return () => controller.abort();
   }, [biz.id, contact.id, range]);
+  const { t } = biz;
   const columns = useMemo(() => [
     { key: "day", header: "Date", type: "date", value: (e) => e.day, mobile: "subtitle" },
-    { key: "kind", header: "What", value: (e) => STATEMENT_KINDS[e.kind] || e.kind, mobile: "title" },
+    { key: "kind", header: "What", value: (e) => statementKind(t, e.kind), mobile: "title" },
     { key: "reference", header: "Reference", value: (e) => e.reference, mobile: "show" },
     { key: "debit", header: "Debit", type: "money", exact: true, value: (e) => Number(e.debit) || null, total: "sum", mobile: "show" },
     { key: "credit", header: "Credit", type: "money", exact: true, value: (e) => Number(e.credit) || null, total: "sum", mobile: "show" },
     { key: "balance", header: "Balance", type: "money", exact: true, value: (e) => Number(e.balance), total: "none" },
-  ], []);
+  ], [t]);
   return (
     <Modal title={`Statement · ${contact.name}`} icon="file" width={900} onClose={onClose}
       description={data ? `Brought forward ${biz.exact(data.opening)} · closing ${biz.exact(data.closing)}` : undefined}>

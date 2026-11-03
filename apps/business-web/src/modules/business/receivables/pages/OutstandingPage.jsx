@@ -24,15 +24,9 @@ import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 // Call, WhatsApp and promise on each row, the last reminder and promise,
 // statements for every overdue customer at once; every amount to the paisa.
 
-const SHOW = [
-  { value: "owing", label: "Owing" },
-  { value: "overdue", label: "Overdue" },
-  { value: "advance", label: "Advances" },
-  { value: "all", label: "All customers" },
-];
-
 export default function OutstandingPage() {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const privacy = useShopPrivacy();
   const [params, setParams] = useSearchParams();
   const [show, setShow] = useState("owing");
@@ -49,12 +43,18 @@ export default function OutstandingPage() {
   useEffect(() => {
     if (params.get("customer")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);
-  const title = biz.t("dues_list", "many");
-  const t = list.data?.totals;
+  const title = t("dues_list", "many");
+  const totals = list.data?.totals;
   const today = businessToday(biz.business.timezone);
+  const choices = [
+    { value: "owing", label: "Owing" },
+    { value: "overdue", label: "Overdue" },
+    { value: "advance", label: "Advances" },
+    { value: "all", label: `All ${t.lower("customer", "many")}` },
+  ];
 
   const columns = useMemo(() => [
-    { key: "name", header: "Customer", value: (r) => r.name, mobile: "title", pin: true,
+    { key: "name", header: t("customer"), value: (r) => r.name, mobile: "title", pin: true,
       render: (r) => <button type="button" className="link-button bz-link-left" onClick={() => setAccount(r.contact_id)}>{r.name}</button> },
     { key: "phone", header: "Phone", value: (r) => r.phone || "", mobile: "subtitle",
       render: (r) => (r.phone ? <a href={`tel:${r.phone}`}>{r.phone}</a> : <span className="muted">—</span>) },
@@ -85,7 +85,7 @@ export default function OutstandingPage() {
         </div>
       );
     } },
-  ], [biz, show, today, privacy]);
+  ], [biz, t, show, today, privacy]);
 
   // Every overdue customer's statement from their oldest unpaid bill, one per page.
   const printOverdue = async () => {
@@ -111,29 +111,29 @@ export default function OutstandingPage() {
   return (
     <div className="stack">
       <BusinessHeader icon="wallet" title={title}
-        description="What each customer owes, by age from the bill date, and what is past its due date. Money received is put against the oldest bills first; any advance lowers what they owe."
-        primary={biz.can("receivables.create") && <button type="button" className="button" onClick={() => setCollecting(true)}><Icon name="plus" size={16} /> Record collection</button>}
+        description={`What each ${t.lower("customer")} owes, by age from the bill date, and what is past its due date. Money received is put against the oldest bills first; any advance lowers what they owe.`}
+        primary={biz.can("receivables.create") && <button type="button" className="button" onClick={() => setCollecting(true)}><Icon name="plus" size={16} /> Record {t.a("collection")}</button>}
         more={[
-          ...(biz.can("receivables.print") ? [{ label: printing ? "Preparing statements…" : "Print statements for overdue customers", icon: "print", onClick: printOverdue, disabled: printing }] : []),
+          ...(biz.can("receivables.print") ? [{ label: printing ? "Preparing statements…" : `Print statements for overdue ${t.lower("customer", "many")}`, icon: "print", onClick: printOverdue, disabled: printing }] : []),
           ...(routes ? [{ label: "Credit hold rules", icon: "shield", onClick: () => setHoldRules(true) }] : []),
         ]} />
       <ErrorMessage message={list.error} />
-      {t && (
+      {totals && (
         <div className="bz-ageing" role="list" aria-label="Totals">
-          {[["Owed in all", t.outstanding, "danger"], [biz.ages.first, t.days_0_30], [biz.ages.second, t.days_31_60], [biz.ages.third, t.days_61_90], [biz.ages.over, t.days_over_90, Number(t.days_over_90) > 0 ? "danger" : ""], ["Overdue", t.overdue, Number(t.overdue) > 0 ? "warning" : ""]].map(([label, value, tone]) => (
+          {[["Owed in all", totals.outstanding, "danger"], [biz.ages.first, totals.days_0_30], [biz.ages.second, totals.days_31_60], [biz.ages.third, totals.days_61_90], [biz.ages.over, totals.days_over_90, Number(totals.days_over_90) > 0 ? "danger" : ""], ["Overdue", totals.overdue, Number(totals.overdue) > 0 ? "warning" : ""]].map(([label, value, tone]) => (
             <div key={label} role="listitem" className={`bz-ageing-cell ${tone ? `is-${tone}` : ""}`}><small>{label}</small><strong>{biz.exact(value)}</strong></div>
           ))}
         </div>
       )}
-      {t && Number(t.uncleared_cheques) > 0 && (
-        <p className="muted small"><Icon name="info" size={13} /> Cheques in hand not yet cleared: {biz.exact(t.uncleared_cheques)}{Number(t.post_dated_cheques) > 0 ? ` (post-dated ${biz.exact(t.post_dated_cheques)})` : ""}. They already lower what is owed; a bounce adds them back.</p>
+      {totals && Number(totals.uncleared_cheques) > 0 && (
+        <p className="muted small"><Icon name="info" size={13} /> Cheques in hand not yet cleared: {biz.exact(totals.uncleared_cheques)}{Number(totals.post_dated_cheques) > 0 ? ` (post-dated ${biz.exact(totals.post_dated_cheques)})` : ""}. They already lower what is owed; a bounce adds them back.</p>
       )}
-      <SectionCard flush icon="list" title={show === "advance" ? "Customers holding an advance" : "Customers"}>
-        <DataGrid {...list.gridProps} caption={title} columns={columns} currency={biz.symbol} rowNoun={["customer", "customers"]}
-          server={{ ...list.gridProps.server, totals: t ? { balance: show === "advance" ? -Number(t.balance) : Number(t.balance), d30: Number(t.days_0_30), d60: Number(t.days_31_60), d90: Number(t.days_61_90), d90p: Number(t.days_over_90), overdue: Number(t.overdue) } : undefined }}
+      <SectionCard flush icon="list" title={show === "advance" ? `${t("customer", "many")} holding an advance` : t("customer", "many")}>
+        <DataGrid {...list.gridProps} caption={title} columns={columns} currency={biz.symbol} rowNoun={[t.lower("customer"), t.lower("customer", "many")]}
+          server={{ ...list.gridProps.server, totals: totals ? { balance: show === "advance" ? -Number(totals.balance) : Number(totals.balance), d30: Number(totals.days_0_30), d60: Number(totals.days_31_60), d90: Number(totals.days_61_90), d90p: Number(totals.days_over_90), overdue: Number(totals.overdue) } : undefined }}
           toolbar={(
             <>
-              <Segmented label="Show" value={show} options={SHOW} onChange={setShow} />
+              <Segmented label="Show" value={show} options={choices} onChange={setShow} />
               <label className="field">
                 <span>Order</span>
                 <select value={sort} onChange={(e) => setSort(e.target.value)}>

@@ -34,7 +34,8 @@ export default function CollectionsPage() {
   useEffect(() => {
     if (params.get("new") || params.get("tab")) setParams((p) => new URLSearchParams(p.get("open") ? { open: p.get("open") } : {}), { replace: true });
   }, [params, setParams]);
-  const title = biz.t("collection", "many");
+  const { t } = biz;
+  const title = t("collection", "many");
   const saved = (c) => {
     setCreating(false);
     toast.success(`Receipt ${c.collection_no} saved for ${biz.exact(c.amount)}${Number(c.unallocated) ? `; ${biz.exact(c.unallocated)} kept as advance` : ""}`);
@@ -43,8 +44,8 @@ export default function CollectionsPage() {
   return (
     <div className="stack">
       <BusinessHeader icon="wallet" title={title}
-        description="Every receipt of money from customers, with the bills it settled. Cheques are tracked until they clear; a bounced cheque opens the bills again."
-        primary={biz.can("receivables.create") && <button type="button" className="button" onClick={() => setCreating(true)}><Icon name="plus" size={16} /> Record collection</button>} />
+        description={`Every receipt of money from ${t.lower("customer", "many")}, with the bills it settled. Cheques are tracked until they clear; a bounced cheque opens the bills again.`}
+        primary={biz.can("receivables.create") && <button type="button" className="button" onClick={() => setCreating(true)}><Icon name="plus" size={16} /> Record {t.a("collection")}</button>} />
       <Segmented label="Show" value={tab} options={tabs} onChange={setTab} />
       {tab === "receipts" && <Receipts key={version} wholesale={wholesale} onOpen={setOpenId} />}
       {tab === "cheques" && <Cheques key={version} onChanged={() => setVersion((n) => n + 1)} />}
@@ -64,11 +65,12 @@ function Receipts({ wholesale, onOpen }) {
   const params = { ...(method ? { method } : {}), ...(salesperson ? { salesperson } : {}), ...(route ? { route } : {}) };
   const list = useServerList("collections", { gridId: "receivables-collections", period: true, params });
   const today = businessToday(biz.business.timezone);
+  const { t } = biz;
   const columns = useMemo(() => [
     { key: "collection_no", header: "Receipt", value: (k) => k.collection_no, mobile: "title", pin: true,
       render: (k) => <button type="button" className="link-button mono" onClick={() => onOpen(k.id)}>{k.collection_no}</button> },
     { key: "created_at", header: "Received", type: "datetime", value: (k) => k.created_at, mobile: "subtitle", render: (k) => dateTime(k.created_at) },
-    { key: "contact_name", header: "Customer", value: (k) => k.contact_name, mobile: "show" },
+    { key: "contact_name", header: t("customer"), value: (k) => k.contact_name, mobile: "show" },
     { key: "method", header: "Paid by", value: (k) => receiptMethod(k), render: (k) => (
       <span className="bz-two-line">{receiptMethod(k)}{k.cheque_status && <small><Badge tone={CHEQUE_STATUS[k.cheque_status]?.tone} label={chequeWord({ status: k.cheque_status, cheque_date: k.cheque_date }, today)} /></small>}</span>
     ) },
@@ -86,7 +88,7 @@ function Receipts({ wholesale, onOpen }) {
       render: (k) => (k.settled ? <Badge tone="success" label="Settled" /> : k.salesperson_id ? <Badge tone="warning" label="Not yet" /> : <span className="muted">—</span>) },
     { key: "by", header: "Recorded by", value: (k) => k.created_by_name, defaultHidden: true },
     { key: "location", header: "At", value: (k) => k.location_name, defaultHidden: biz.locations.length < 2 },
-  ].filter(Boolean), [biz, onOpen, today, wholesale]);
+  ].filter(Boolean), [biz, t, onOpen, today, wholesale]);
   return (
     <>
       <ErrorMessage message={list.error} />
@@ -124,7 +126,7 @@ function Receipts({ wholesale, onOpen }) {
             </>
           )}
           exportName={biz.can("receivables.export") ? `${biz.business.code}-collections` : undefined}
-          empty="No collections in these dates" emptyHint="Pick other dates above, or record one." emptyIcon="wallet" />
+          empty={`No ${t.lower("collection", "many")} in these dates`} emptyHint="Pick other dates above, or record one." emptyIcon="wallet" />
       </SectionCard>
     </>
   );
@@ -146,9 +148,10 @@ function Cheques({ onChanged }) {
   const list = useServerList("cheques", { gridId: "receivables-cheques", params: chequeParams(show) });
   const [acting, setActing] = useState(null);
   const today = businessToday(biz.business.timezone);
+  const { t } = biz;
   const columns = useMemo(() => [
     { key: "cheque_no", header: "Cheque no.", value: (c) => c.cheque_no, mobile: "title", pin: true, render: (c) => <span className="mono">{c.cheque_no}</span> },
-    { key: "contact", header: "Customer", value: (c) => c.contact_name, mobile: "subtitle" },
+    { key: "contact", header: t("customer"), value: (c) => c.contact_name, mobile: "subtitle" },
     { key: "amount", header: "Amount", type: "money", exact: true, value: (c) => Number(c.amount), total: "sum", mobile: "show" },
     { key: "date", header: "Cheque date", type: "date", value: (c) => c.cheque_date, mobile: "show" },
     { key: "bank", header: "Bank", value: (c) => c.bank || "" },
@@ -162,7 +165,7 @@ function Cheques({ onChanged }) {
         {biz.can("receivables.approve") && ["received", "deposited"].includes(c.status) && <button type="button" className="chip-button danger" onClick={() => setActing({ cheque: c, action: "bounce" })}>Bounced</button>}
       </div>
     ) },
-  ], [biz, today]);
+  ], [biz, t, today]);
   return (
     <>
       <ErrorMessage message={list.error} />

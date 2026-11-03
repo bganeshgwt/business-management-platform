@@ -10,11 +10,12 @@ import { monthStart } from "@bmp/shared/dates";
 import { BusinessHeader } from "./ui";
 import { businessToday, useOpenBusiness } from "./hooks";
 
-const LABELS = {
+// Each kind of money event, with the people paid and paying in the business's words.
+const labels = (t) => ({
   sale: "Sales", purchase: "Purchases received", sale_return: "Sales returns", purchase_return: "Returns to suppliers",
-  sale_payment: "Collected from customers", purchase_payment: "Paid to suppliers", sale_refund: "Refunded to customers", purchase_refund: "Refunds from suppliers",
+  sale_payment: `Collected from ${t.lower("customer", "many")}`, purchase_payment: "Paid to suppliers", sale_refund: `Refunded to ${t.lower("customer", "many")}`, purchase_refund: "Refunds from suppliers",
   expense: 'Paid expenses', expense_reversal: 'Expense reversals', collection_bounced: 'Bounced collections', finance_payout: 'Received from financiers',
-};
+});
 
 // Money events by the day they were posted: sales, returns, collections and
 // refunds each on their own date. An operational register, not a GST return.
@@ -38,9 +39,10 @@ export default function ReportsPage() {
     const sum = (kind, field = "total") => (report?.rows || []).filter((r) => r.kind === kind).reduce((s, r) => s + Number(r[field]), 0);
     return { sales: sum("sale") - sum("sale_return"), tax: sum("sale", "tax") - sum("sale_return", "tax"), collected: sum("sale_payment") + sum('finance_payout') - sum("sale_refund") - sum('collection_bounced'), purchases: sum("purchase") - sum("purchase_return"), expenses: sum('expense') - sum('expense_reversal') };
   }, [report]);
+  const words = labels(biz.t);
   const columns = [
     { key: "day", header: "Date", type: "date", value: (r) => r.day, mobile: "subtitle" },
-    { key: "kind", header: "What", value: (r) => LABELS[r.kind] || r.kind, mobile: "title" },
+    { key: "kind", header: "What", value: (r) => words[r.kind] || r.kind, mobile: "title" },
     { key: "entries", header: "Entries", type: "number", value: (r) => r.entries, total: "sum" },
     { key: "net", header: "Before tax", type: "money", exact: true, value: (r) => Number(r.net) },
     { key: "tax", header: "Tax", type: "money", exact: true, value: (r) => Number(r.tax) },

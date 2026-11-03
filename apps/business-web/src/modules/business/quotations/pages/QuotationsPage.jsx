@@ -17,7 +17,7 @@ import { Badge, BusinessHeader, Field, PeriodFilter } from "../../core/pages/ui"
 import { businessToday, newKey, quantity, useOpenBusiness, useOptions, useServerList } from "../../core/pages/hooks";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import { Segmented } from "../../wholesale/pages/shared";
-import { whatsappLink } from "../../retail/pages/retail";
+import { sentence, whatsappLink } from "../../retail/pages/retail";
 // A hardware shop's tinted lines and the calculators' workings kept with the quotation.
 import { TintedLines, Workings } from "../../hardware/pages/BillExtras";
 import FitterField from "../../hardware/pages/FitterField";
@@ -91,7 +91,7 @@ export default function QuotationsPage() {
   return (
     <div className="stack">
       <BusinessHeader icon="clipboard" title="Quotations"
-        description="Estimates at today's prices with a date they hold until. Print one or send it on WhatsApp; once the customer agrees, make the bill at the quoted prices."
+        description={`Estimates at today's prices with a date they hold until. Print one or send it on WhatsApp; once the ${biz.t.lower("customer")} agrees, make the bill at the quoted prices.`}
         primary={biz.can("quotations.create") && <button type="button" className="button" onClick={() => setCreating({})}><Icon name="plus" size={16} /> New quotation</button>} />
       <ErrorMessage message={list.error} />
       <SectionCard flush icon="list" title="Quotations in this period">
@@ -265,6 +265,7 @@ export function QuotationDetail({ quotationId, onClose, onChanged }) {
 // parts, need their numbers.
 function BillDialog({ quotation: q, onClose, onSaved }) {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const methods = usePaymentMethods();
   const [requestKey] = useState(newKey);
   const left = q.lines.filter((l) => Number(l.left_quantity) > 0);
@@ -281,6 +282,9 @@ function BillDialog({ quotation: q, onClose, onSaved }) {
   };
   const value = Math.round(chosen.reduce((sum, l) => sum + valueOf(l), 0) * 100) / 100;
   const serialLines = chosen.filter((l) => l.tracking === "serial" && !l.kit_parts);
+  // Goods kept in stock (a kit by its parts) leave this location with the bill; services take nothing.
+  const kept = (tracking) => Boolean(tracking) && tracking !== "none";
+  const takesStock = chosen.some((l) => (l.kit_parts ? l.kit_parts.some((p) => kept(p.tracking)) : kept(l.tracking)));
   const serialParts = chosen.filter((l) => l.kit_parts).flatMap((l) => l.kit_parts.filter((p) => p.tracking === "serial").map((p) => ({ line: l, part: p })));
   const stockPaths = [...new Set([...left.filter((l) => l.tracking === "serial" && !l.kit_parts).map((l) => l.sku_id),
     ...left.flatMap((l) => (l.kit_parts || []).filter((p) => p.tracking === "serial").map((p) => p.skuId))])].map((sku) => `stock?sku=${sku}&location=${q.location_id}&in_stock=true`);
@@ -344,7 +348,7 @@ function BillDialog({ quotation: q, onClose, onSaved }) {
     <>
     <FormDialog title={`Make the bill for ${q.quotation_no}`} icon="receipt" width={680} onClose={onClose} onSaved={onSaved} onSubmit={submit}
       submitLabel={everything && !q.bills.length ? `Make the bill · ${biz.exact(q.total)}` : `Make the bill · about ${biz.exact(value)}`}
-      description={`${q.customer_name} · at the quoted prices. Bill every line that is left, or only some lines or less of them now: the rest stays open on the quotation. Stock leaves this location now.`}>
+      description={`${q.customer_name} · at the quoted prices. Bill every line that is left, or only some lines or less of them now: the rest stays open on the quotation.${takesStock ? " Stock leaves this location now." : ""}`}>
       <fieldset className="field-wide bz-fieldset qt-take">
         <legend className="small">What goes on this bill</legend>
         {left.map((l) => {
@@ -386,9 +390,9 @@ function BillDialog({ quotation: q, onClose, onSaved }) {
           </Field>
         );
       })}
-      {mustPay && <p className="field-wide small muted">{q.customer_name} is not a saved customer, so the whole bill is paid now. To give credit, save them as a customer and quote them again.</p>}
+      {mustPay && <p className="field-wide small muted">{q.customer_name} is not a saved {t.lower("customer")}, so the whole bill is paid now. To give credit, save them as {t.a("customer")} and quote them again.</p>}
       {canPay && !mustPay && (
-        <Field label="Collected now (optional)" hint="Leave empty and the bill goes on the customer's dues.">
+        <Field label="Collected now (optional)" hint={`Leave empty and the bill goes on the ${t.lower("customer")}'s ${t.lower("dues")}.`}>
           <input type="number" min="0" step="0.01" max={value} value={form.paidNow} onChange={set("paidNow")} />
         </Field>
       )}
@@ -400,7 +404,7 @@ function BillDialog({ quotation: q, onClose, onSaved }) {
         </Field>
       )}
       {canPay && (mustPay || Number(form.paidNow) > 0) && <Field label="Reference (optional)"><input maxLength={100} value={form.reference} onChange={set("reference")} placeholder="UPI or card reference" /></Field>}
-      {mustPay && !canPay && <p className="field-wide bz-due small">A walk-in pays the whole bill, and your role does not take payments. Ask someone who takes payments to make the bill.</p>}
+      {mustPay && !canPay && <p className="field-wide bz-due small">{sentence(t.a("walk_in"))} pays the whole bill, and your role does not take payments. Ask someone who takes payments to make the bill.</p>}
       {panNeeded && (
         <>
           <Field label="Buyer's PAN" hint="A bill over ₹2,00,000 records the buyer's PAN.">

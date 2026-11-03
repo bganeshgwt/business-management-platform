@@ -12,7 +12,7 @@ import { dateShort } from "@bmp/shared/format";
 import { BusinessHeader, Field } from "../../core/pages/ui";
 import { DocumentDetail } from "../../core/pages/DocumentsPage";
 import { businessToday, newKey, quantity as qtyText, useDirtyGuard, useOpenBusiness } from "../../core/pages/hooks";
-import { methodWord, paymentWord, printReceipt } from "./retail";
+import { methodWord, onAccount, paymentWord, printReceipt, sentence } from "./retail";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
 import { CustomerBox, PayBar, PhoneLines, ReturnFinder, VariantPicker } from "./counterParts";
 import { BillerButton, BillerDialog, FinanceFields } from "./counterPay";
@@ -89,7 +89,9 @@ const TENDERS = [["cash", "F6"], ["upi", "F7"], ["card", "F8"], ["udhaar", "F9"]
 // (F6 address bar, F7 caret browsing, F11 full screen).
 const ALT_TENDERS = { Digit1: "cash", Digit2: "upi", Digit3: "card", Digit4: "udhaar" };
 const ALT_KEY = { cash: "Alt+1", upi: "Alt+2", card: "Alt+3", udhaar: "Alt+4" };
-const TENDER_WORDS = { udhaar: "Udhaar", emi: "EMI" };
+// The tenders that are not payment methods: a bill left on the customer's
+// account, in the business's word ("Udhaar", "On account"), and EMI.
+const tenderWord = (t, tender) => ({ udhaar: t("on_account"), emi: "EMI" })[tender];
 // A kit's serial-numbered parts make it one kit per line.
 const kitHasSerial = (line) => (line.kit || []).some((c) => c.tracking === "serial");
 // Notes a customer hands over: the exact amount and the next round sums above it.
@@ -101,6 +103,7 @@ function cashChips(total) {
 
 export default function CounterPage() {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const { user, switchUser } = useAuth();
   // The counter as an app of its own on the shop's computer or tablet.
   const install = useInstall("counter");
@@ -321,7 +324,7 @@ export default function CounterPage() {
       if (tender) chooseTender(tender);
       else if (key === "F4") document.getElementById("counter-customer")?.focus();
       setScanError("");
-      setScanTip(`${key} is a key at the top of your keyboard: press it instead of typing "${text}".${tender ? ` Payment set to ${TENDER_WORDS[tender] || methods.label(tender)}.` : ""}`);
+      setScanTip(`${key} is a key at the top of your keyboard: press it instead of typing "${text}".${tender ? ` Payment set to ${tenderWord(t, tender) || methods.label(tender)}.` : ""}`);
       return true;
     }
     try {
@@ -512,10 +515,10 @@ export default function CounterPage() {
       const detail = await businessRead(biz.id, `documents/${doc.id}`);
       const paid = detail.payments.reduce((s, p) => s + Number(p.amount), 0);
       const thisBill = Math.max(0, Number(detail.total) - paid);
-      const udhaarLines = customer && (thisBill > 0.004 || before > 0.004) ? { earlier: before, thisBill, total: before + thisBill } : null;
+      const dues = customer && (thisBill > 0.004 || before > 0.004) ? { earlier: before, thisBill, total: before + thisBill } : null;
       writeLast(biz.id, doc.id);
       weightTools.current?.posted(doc.id);
-      setPosted({ doc: { ...detail, warranties: doc.warranties || [] }, change: doc.change !== undefined ? Number(doc.change) : change, udhaar: udhaarLines, warnings: doc.warnings || [] });
+      setPosted({ doc: { ...detail, warranties: doc.warranties || [] }, change: doc.change !== undefined ? Number(doc.change) : change, dues, warnings: doc.warnings || [] });
       setSold({ skuIds: [...new Set(lines.flatMap((l) => [l.sku.id, ...(l.kit || []).map((c) => c.skuId)]).map(String))] });
     } catch (err) {
       const reason = err?.response?.data?.data?.reason;
@@ -528,7 +531,7 @@ export default function CounterPage() {
       setPosting(false);
     }
   }
-  const printPosted = () => posted && printReceipt(posted.doc, biz, { change: posted.change, udhaar: posted.udhaar });
+  const printPosted = () => posted && printReceipt(posted.doc, biz, { change: posted.change, dues: posted.dues });
 
   // Keyboard: the counter is run from the keyboard and the scanner.
   const keys = useRef({});
@@ -700,8 +703,8 @@ export default function CounterPage() {
             ))}
             {posted.doc.finance?.map((f) => <div key={f.id}><span className="muted">EMI loan</span><strong>{f.financier_name} · {f.loan_no}{f.do_no ? ` · DO ${f.do_no}` : ""}</strong></div>)}
             {posted.change > 0 && <div className="rt-change"><span>Give back</span><strong>{biz.exact(posted.change)}</strong></div>}
-            {posted.udhaar && posted.udhaar.thisBill > 0.004 && <div><span className="muted">On {posted.doc.contact_name}'s udhaar</span><strong>{biz.exact(posted.udhaar.thisBill)} · now owes {biz.exact(posted.udhaar.total)}</strong></div>}
-            {Number(posted.doc.retail?.savings || 0) > 0 && <div><span className="muted">Customer saved</span><strong>{biz.exact(posted.doc.retail.savings)}</strong></div>}
+            {posted.dues && posted.dues.thisBill > 0.004 && <div><span className="muted">On {posted.doc.contact_name}'s {t.lower("dues")}</span><strong>{biz.exact(posted.dues.thisBill)} · now owes {biz.exact(posted.dues.total)}</strong></div>}
+            {Number(posted.doc.retail?.savings || 0) > 0 && <div><span className="muted">{t("customer")} saved</span><strong>{biz.exact(posted.doc.retail.savings)}</strong></div>}
             {earned && <div><span className="muted">Points earned</span><strong>{earned.points}</strong></div>}
             {posted.doc.warranties.map((w) => <div key={w.id}><span className="muted">Warranty registered</span><strong>{w.serial} · until {dateShort(w.ends_on, { year: true })}</strong></div>)}
           </div>
@@ -799,7 +802,7 @@ export default function CounterPage() {
             </SectionCard>
           )}
           {panNeeded && (
-            <SectionCard icon="shield" title="Buyer's PAN" description="A bill over ₹2,00,000 records the buyer's PAN. Save it with the customer to skip this next time.">
+            <SectionCard icon="shield" title="Buyer's PAN" description={`A bill over ₹2,00,000 records the buyer's PAN. Save it with the ${t.lower("customer")} to skip this next time.`}>
               <div className="rt-inline">
                 <Field label="PAN"><input maxLength={10} className="mono" placeholder="ABCDE1234F" disabled={buyer.panDeclaration} value={buyer.pan}
                   onChange={(e) => setBuyer((b) => ({ ...b, pan: e.target.value.toUpperCase() }))} /></Field>
@@ -834,7 +837,7 @@ export default function CounterPage() {
                 : Number(bill.tax) === 0 && bill.lines.every((x) => Number(x.taxRate) === 0)
                   ? "No GST on these items."
                   : `${biz.settings.tax_mode === "inclusive" ? `Includes GST ${biz.exact(bill.tax)}` : `${biz.exact(bill.subtotal)} + GST ${biz.exact(bill.tax)}`}${Number(bill.roundOff) !== 0 ? ` · round-off ${biz.exact(bill.roundOff)}` : ""}`}</p>
-              {bill && Number(bill.savings) > 0 && <p className="small rt-saving rt-tax-line">Customer saves {biz.exact(bill.savings)}</p>}
+              {bill && Number(bill.savings) > 0 && <p className="small rt-saving rt-tax-line">{t("customer")} saves {biz.exact(bill.savings)}</p>}
               {stale && <small className="muted">Updating…</small>}
             </div>
             {canDiscount && lines.length > 0 && (
@@ -899,24 +902,24 @@ export default function CounterPage() {
             <div className="segmented rt-tender rt-tender-grid" role="group" aria-label="Paid by">
               {[...TENDERS, ...(canEmi ? [["emi", ""]] : [])].map(([m, key]) => {
                 // A kind the business has switched every method of off is not offered.
-                const off = !TENDER_WORDS[m] && methods.ready && !methods.has(m);
-                const word = m === "card" ? "Card" : TENDER_WORDS[m] || methods.label(m);
+                const off = !tenderWord(t, m) && methods.ready && !methods.has(m);
+                const word = m === "card" ? "Card" : tenderWord(t, m) || methods.label(m);
                 return (
                   <button key={m} type="button" className={`segment ${method === m ? "is-active" : ""}`} aria-pressed={method === m}
-                    disabled={off} title={m === "udhaar" && !customer ? "Udhaar: pick the customer who will pay later" : off ? `No ${methodWord(m)} method is switched on (Settings › Payment methods)` : m === "emi" ? "EMI / finance through a financier" : `${word} (${key} or ${ALT_KEY[m]})`}
+                    disabled={off} title={m === "udhaar" && !customer ? `${word}: pick the ${t.lower("customer")} who will pay later` : off ? `No ${methodWord(m)} method is switched on (Settings › Payment methods)` : m === "emi" ? "EMI / finance through a financier" : `${word} (${key} or ${ALT_KEY[m]})`}
                     onClick={() => chooseTender(m)}>{word} {key && <kbd>{key}</kbd>}</button>
                 );
               })}
             </div>
             {wantUdhaar && !customer && (
-              <p className="small rt-warn" role="status">Udhaar: pick the customer who will pay later in the Customer box below (F4 or Alt+C). The bill goes on their udhaar as soon as you pick them.</p>
+              <p className="small rt-warn" role="status">{t("on_account")}: pick the {t.lower("customer")} who will pay later in the {t("customer")} box below (F4 or Alt+C). The bill goes {onAccount(t)} as soon as you pick them.</p>
             )}
             <details className="small rt-key-hint">
               <summary className="muted">Keyboard shortcuts</summary>
               <dl className="rt-keys">
                 <dt>Find an item</dt><dd><kbd>F2</kbd> or <kbd>Alt+S</kbd></dd>
-                <dt>Customer</dt><dd><kbd>F4</kbd> or <kbd>Alt+C</kbd></dd>
-                <dt>Cash, UPI, card, udhaar</dt><dd><kbd>F6</kbd>–<kbd>F9</kbd> or <kbd>Alt+1</kbd>–<kbd>Alt+4</kbd></dd>
+                <dt>{t("customer")}</dt><dd><kbd>F4</kbd> or <kbd>Alt+C</kbd></dd>
+                <dt>Cash, UPI, card, {t.lower("on_account")}</dt><dd><kbd>F6</kbd>–<kbd>F9</kbd> or <kbd>Alt+1</kbd>–<kbd>Alt+4</kbd></dd>
                 <dt>Hold the bill</dt><dd><kbd>F10</kbd> or <kbd>Alt+H</kbd></dd>
                 <dt>Take the payment</dt><dd><kbd>F12</kbd> or <kbd>Ctrl+Enter</kbd></dd>
               </dl>
@@ -943,18 +946,18 @@ export default function CounterPage() {
                 </>
               )}
               {emi && <FinanceFields biz={biz} value={finance} onChange={setFinance} toPay={toPay} />}
-              {emi && !customer && <p className="small muted">The financier needs the customer: pick them, or give the buyer's name below.</p>}
+              {emi && !customer && <p className="small muted">The financier needs the {t.lower("customer")}: pick them, or give the buyer's name below.</p>}
               {udhaar && customer && (
                 <>
-                  <p className="small">The unpaid amount goes on <strong>{customer.name}</strong>'s udhaar.</p>
+                  <p className="small">The unpaid amount is added to <strong>{customer.name}</strong>'s {t.lower("dues")}.</p>
                   {warnings.length > 0 && <div className="rt-warn" role="alert"><Icon name="alert" size={14} /> {warnings.join(" ")}</div>}
                   {canPay && <Field label="Paid now in cash (optional)"><input type="number" min="0" step="0.01" value={partPaid} onChange={(e) => setPartPaid(e.target.value)} /></Field>}
                 </>
               )}
-              {!canPay && <p className="muted small">Your role records bills but not payments{customer ? "; the bill stays to collect." : walkInCredit ? "." : ". A walk-in pays in full, so pick the customer or ask someone who takes payments."}</p>}
+              {!canPay && <p className="muted small">Your role records bills but not payments{customer ? "; the bill stays to collect." : walkInCredit ? "." : `. ${sentence(t.a("walk_in"))} pays in full, so pick the ${t.lower("customer")} or ask someone who takes payments.`}</p>}
               <ErrorMessage message={postError} />
               <button type="submit" className="button rt-post" disabled={!ready}>
-                {posting ? "Saving…" : udhaar ? `Put ${biz.exact(onCredit)} on udhaar` : toPay <= 0 && fromVoucher > 0 ? "Pay with the voucher"
+                {posting ? "Saving…" : udhaar ? `Put ${biz.exact(onCredit)} ${onAccount(t)}` : toPay <= 0 && fromVoucher > 0 ? "Pay with the voucher"
                   : toPay <= 0 && fromAdvance > 0 ? "Pay from the advance"
                   : emi ? `Take ${biz.exact(downSum.paid)} · ${biz.exact(Math.max(0, toPay - downSum.paid))} on EMI`
                   : `Take ${biz.exact(toPay)}${method !== "cash" ? ` by ${methods.name(methodKeys[method] || method, [method])}` : ""}`} <kbd>F12</kbd>

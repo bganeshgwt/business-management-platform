@@ -1,10 +1,15 @@
-import { printTaxInvoice } from "../../core/pages/invoice";
+import { printTaxInvoice } from "../../core/pages/invoice.js";
 import { dateShort } from "@bmp/shared/format";
 
 // Shared by the retail screens (Quick bill, Udhaar, Offers, Loyalty, Books,
 // Barcode labels, Retail reports): words, receipt printing and messages.
 
-export { GOODS as GOODS_TYPES } from "../../../../services/businessNav";
+export { GOODS as GOODS_TYPES } from "../../../../services/businessNav.js";
+// "on account", "on udhaar": a bill left unpaid, in the business's word.
+export { onAccount } from "../../core/pages/invoice.js";
+// A phrase made of a business's words, at the start of a sentence: "a
+// walk-in customer" → "A walk-in customer".
+export const sentence = (text) => `${String(text).charAt(0).toUpperCase()}${String(text).slice(1)}`;
 const METHOD_WORDS = { cash: "Cash", upi: "UPI", card: "Card", bank: "Bank transfer", cheque: "Cheque", credit_note: "Credit note", finance: "EMI (financier)" };
 export const methodWord = (method) => METHOD_WORDS[method] || method;
 // A payment as taken: the business's own method name (PhonePe) where it was recorded.
@@ -78,18 +83,21 @@ export function whatsappLink(phone, text) {
   return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
 }
 
-export function udhaarMessage({ name, shop, balance, promisedOn, phone }) {
+// The reminder a customer reads on WhatsApp, in the business's words: "your
+// udhaar balance", "your dues balance"; paid "at the counter", "at the service desk".
+export function duesMessage(t, { name, shop, balance, promisedOn, phone }) {
+  const pay = `You can pay at the ${t.lower("counter")} or by UPI.`;
   return [
     `Namaste ${name},`,
-    `This is a gentle reminder from ${shop}: your udhaar (credit) with us is ${balance}.`,
+    `This is a gentle reminder from ${shop}: your ${t.lower("dues")} balance with us is ${balance}.`,
     promisedOn ? `You said you would pay by ${dateWords(promisedOn, true)}.` : "Please clear it at your earliest convenience.",
-    phone ? `You can pay in the shop or by UPI. For any question call ${phone}.` : "You can pay in the shop or by UPI.",
+    phone ? `${pay} For any question call ${phone}.` : pay,
     "Thank you!",
   ].join("\n");
 }
 
 // The till receipt: the shared GST invoice on 80 mm paper (core/pages/invoice.js),
-// from what was posted, never recalculated. extra: { change, udhaar }.
+// from what was posted, never recalculated. extra: { change, dues }.
 export function printReceipt(doc, biz, extra = {}) {
   printTaxInvoice(doc, biz, { paper: "80mm", ...extra });
 }

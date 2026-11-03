@@ -98,7 +98,7 @@ export default function TillPanel({ biz, till, open, onClose, locationId, instal
           <>
             <dl className="till-facts">
               <div><dt>Now</dt><dd><StatusBadge tone={till.online ? "success" : "warning"} label={till.online ? "Online" : `Offline since ${timeOf(record.lastContactAt)}`} /></dd></div>
-              <div><dt>Counter</dt><dd>{record.locationName || location?.name || "—"}</dd></div>
+              <div><dt>{biz.t("counter")}</dt><dd>{record.locationName || location?.name || "—"}</dd></div>
               <div><dt>Items and prices</dt><dd>{till.snapshot ? `As of ${timeOf(till.snapshot.savedAt)} (${snapshotAge(till.snapshot.savedAt)})` : "Not read yet"}
                 {till.online && <button type="button" className="link-button" disabled={till.syncing} onClick={() => act(till.refresh)}>{till.syncing ? "Reading…" : "Read again"}</button>}</dd></div>
               <div><dt>Last reached the server</dt><dd>{timeOf(record.lastContactAt)}</dd></div>
@@ -172,13 +172,14 @@ function Setup({ biz, canManage, location, name, setName, busy, onSubmit }) {
       </div>
     );
   }
+  const { t } = biz;
   return (
     <form className="stack till-setup-form" onSubmit={onSubmit}>
-      <p>Set up this computer as an offline till of <strong>{location?.name || "this counter"}</strong>. It gets a code of its own (T1, T2 …): the bills it makes offline are numbered in its own series, like <span className="mono">T1/2627/00001</span>, as GST rules allow.</p>
-      <Field label="Name of this till" hint="What the staff call it: Counter 1, Billing desk…"><input required maxLength={60} value={name} onChange={(e) => setName(e.target.value)} placeholder="Counter 1" /></Field>
+      <p>Set up this computer as an offline till of <strong>{location?.name || `this ${t.lower("counter")}`}</strong>. It gets a code of its own (T1, T2 …): the bills it makes offline are numbered in its own series, like <span className="mono">T1/2627/00001</span>, as GST rules allow.</p>
+      <Field label="Name of this till" hint={`What the staff call it: ${t("counter")} 1, Billing desk…`}><input required maxLength={60} value={name} onChange={(e) => setName(e.target.value)} placeholder={`${t("counter")} 1`} /></Field>
       <ul className="till-setup-points small">
-        <li>It keeps the items, prices and customers it needs, and reads them again every few minutes.</li>
-        <li>Offline it takes cash, UPI, card, split and udhaar within each customer's limit; offers, returns and new customers wait for the network.</li>
+        <li>It keeps the items, prices and {t.lower("customer", "many")} it needs, and reads them again every few minutes.</li>
+        <li>Offline it takes cash, UPI, card, split and {t.lower("on_account")} within each {t.lower("customer")}'s limit; offers, returns and new {t.lower("customer", "many")} wait for the network.</li>
         <li>Its secret stays on this computer only. Retire it from Settings › Tills if the computer is replaced or lost.</li>
       </ul>
       <div className="form-actions bz-start"><button type="submit" className="button" disabled={busy || !name.trim()}><Icon name="check" size={15} /> Set up offline billing on this computer</button></div>

@@ -4,7 +4,7 @@ import { business, LOGINS, signIn } from "../../../../e2e/fixture.mjs";
 
 // Business Admin at work, at a desktop's width in light and a phone's in
 // dark. In the test books shop, as its owner: a book is added to the
-// catalogue, received from a new supplier, sold on udhaar at Quick bill to a
+// catalogue, received from a new supplier, sold on account at Quick bill to a
 // new customer, collected, taken back and refunded; and a form with unsaved
 // changes asks before it is thrown away. As the shop manager, who works in a
 // few of the owner's businesses (e2e/test-data.mjs): the header's switcher
@@ -62,7 +62,7 @@ for (const { viewport, colorScheme, phone } of SCREENS) {
   test.describe(`at ${viewport.width} px, ${colorScheme}`, () => {
     test.use({ viewport, colorScheme });
 
-    test("a book from the catalogue to a refund: add, receive, sell on udhaar, collect, take back, refund", async ({ page }, testInfo) => {
+    test("a book from the catalogue to a refund: add, receive, sell on account, collect, take back, refund", async ({ page }, testInfo) => {
       const problems = watch(page);
       const books = business("books");
       const tag = `${viewport.width}-${Date.now().toString(36)}`;
@@ -114,7 +114,7 @@ for (const { viewport, colorScheme, phone } of SCREENS) {
       await page.screenshot({ path: testInfo.outputPath("stock.png"), fullPage: true });
 
       // Sold at Quick bill, reached from Sales, to a customer added there,
-      // and put on their udhaar.
+      // and left on their account.
       await open(page, books, "sales", "Sales");
       await page.getByRole("link", { name: "New bill", exact: true }).click();
       await expect(page.getByRole("heading", { level: 1, name: "Quick bill", exact: true })).toBeVisible({ timeout: 30_000 });
@@ -127,10 +127,11 @@ for (const { viewport, colorScheme, phone } of SCREENS) {
       await newCustomer.getByLabel("Name", { exact: true }).fill(customer);
       await newCustomer.getByRole("button", { name: "Add customer", exact: true }).click();
       await expect(page.locator(".rt-customer")).toContainText(customer);
-      await page.getByRole("group", { name: "Paid by" }).getByRole("button", { name: /^Udhaar/ }).click();
-      await page.getByRole("button", { name: /^Put ₹120\.00 on udhaar/ }).click();
+      // A bookshop leaves a bill "on account" (a kirana says "udhaar").
+      await page.getByRole("group", { name: "Paid by" }).getByRole("button", { name: /^On account/ }).click();
+      await page.getByRole("button", { name: /^Put ₹120\.00 on account/ }).click();
       const saved = page.getByRole("dialog", { name: /^Bill \S+ saved$/ });
-      await expect(saved).toContainText(`On ${customer}'s udhaar`);
+      await expect(saved).toContainText(`On ${customer}'s dues`);
       const number = (await saved.getByRole("heading", { level: 2 }).innerText()).replace(/^Bill (\S+) saved$/, "$1");
       await saved.getByRole("button", { name: /^Next bill/ }).click();
       await expect(saved).toHaveCount(0);
@@ -139,7 +140,7 @@ for (const { viewport, colorScheme, phone } of SCREENS) {
       await open(page, books, "sales", "Sales");
       await page.getByTitle(`Open ${number}`, { exact: true }).click();
       const sale = page.getByRole("dialog", { name: `Sale ${number}` });
-      await sale.getByRole("button", { name: "Record collection", exact: true }).click();
+      await sale.getByRole("button", { name: "Record a payment received", exact: true }).click();
       // A bookshop's word for money received against dues.
       const collection = page.getByRole("dialog", { name: "Record a payment received" });
       // From the bill, the amount still open on it.
@@ -147,7 +148,7 @@ for (const { viewport, colorScheme, phone } of SCREENS) {
       await collection.getByRole("button", { name: "Save receipt", exact: true }).click();
       await expect(collection).toHaveCount(0);
       await expect(sale.getByRole("button", { name: "Take back items", exact: true })).toBeVisible();
-      await expect(sale.getByRole("button", { name: "Record collection", exact: true })).toHaveCount(0);
+      await expect(sale.getByRole("button", { name: "Record a payment received", exact: true })).toHaveCount(0);
 
       await sale.getByRole("button", { name: "Take back items", exact: true }).click();
       const back = page.getByRole("dialog", { name: "Take back items" });

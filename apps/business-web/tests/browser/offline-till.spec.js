@@ -9,7 +9,7 @@ import { account, business, fixture, OFFLINE_TILL, signIn } from "../../../../e2
 //     keeps (items, prices, customers);
 //   - the internet goes: the counter bills from what the till keeps: cash
 //     with a printed receipt, UPI with the till's QR, a split of cash and
-//     card, udhaar within the customer's limit; a bill is voided with a
+//     card, on account within the customer's limit; a bill is voided with a
 //     reason; a copy of the waiting bills is downloaded;
 //   - the browser reloads with no server: the counter opens from this
 //     device's copies and bills again, numbered on;
@@ -130,7 +130,7 @@ test.describe("the offline till", () => {
     await expect(page).toHaveURL(/\/login/);
   });
 
-  test("with no internet the cashier bills on the till: cash with a receipt, UPI, split, udhaar within the limit; a void; a copy of the waiting bills", async () => {
+  test("with no internet the cashier bills on the till: cash with a receipt, UPI, split, on account within the limit; a void; a copy of the waiting bills", async () => {
     test.setTimeout(180_000);
     await signIn(page, "TILL_BILLER");
     await page.goto(counter());
@@ -176,22 +176,22 @@ test.describe("the offline till", () => {
     await page.getByLabel(/^Rest/).selectOption("card");
     await (await takeBill(page, billNo(3))).getByRole("button", { name: /Next bill/ }).click();
 
-    // 4 · Udhaar within the customer's limit: dal weighed, the customer from what the till keeps.
+    // 4 · On account within the customer's limit (a supermarket's word; a kirana says udhaar): dal weighed, the customer from what the till keeps.
     await addItem(page, "TOOR");
     await page.getByLabel(`Weight of ${OFFLINE_TILL.items[1].name}`).fill("1.5");
     await page.getByLabel("Find a customer by name or phone").fill("Lakshmi");
     await page.getByRole("option", { name: new RegExp(customer.name) }).click();
-    await page.getByRole("button", { name: /^Udhaar/ }).click();
-    await expect(page.getByRole("button", { name: "Put ₹252.00 on udhaar F12" })).toBeVisible();
-    const udhaar = await takeBill(page, billNo(4));
-    await expect(udhaar).toContainText(`On ${customer.name}'s udhaar`);
-    await udhaar.getByRole("button", { name: /Next bill/ }).click();
+    await page.getByRole("button", { name: /^On account/ }).click();
+    await expect(page.getByRole("button", { name: "Put ₹252.00 on account F12" })).toBeVisible();
+    const onAccount = await takeBill(page, billNo(4));
+    await expect(onAccount).toContainText(`On ${customer.name}'s dues`);
+    await onAccount.getByRole("button", { name: /Next bill/ }).click();
 
     // Over the limit is refused on the till.
     await addItem(page, "ATTA5", 11);
     await page.getByLabel("Find a customer by name or phone").fill("Lakshmi");
     await page.getByRole("option", { name: new RegExp(customer.name) }).click();
-    await page.getByRole("button", { name: /^Udhaar/ }).click();
+    await page.getByRole("button", { name: /^On account/ }).click();
     await expect(page.getByText(/over their limit of ₹3,000\.00/)).toBeVisible();
     await page.getByRole("button", { name: "Clear" }).click();
     await page.getByRole("button", { name: "Change" }).click();

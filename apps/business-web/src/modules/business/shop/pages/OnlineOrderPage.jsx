@@ -16,7 +16,7 @@ import ReasonDialog from "../../core/pages/ReasonDialog";
 import { Badge, Field } from "../../core/pages/ui";
 import { newKey, useOpenBusiness } from "../../core/pages/hooks";
 import { usePaymentMethods } from "../../core/pages/paymentMethods";
-import { whatsappLink } from "../../retail/pages/retail";
+import { onAccount, whatsappLink } from "../../retail/pages/retail";
 import { DocumentDetail } from "../../core/pages/DocumentsPage";
 import { privacyLine } from "../../../personal-data/printLine";
 import { addLine, answerByPhone, editLine, onlineOrder, orderAction, removeLine, replaceLine, shopItems } from "../services/onlineShop.service";
@@ -87,20 +87,21 @@ function SerialsDialog({ line, onSubmit, onClose, onDone }) {
 
 function CompleteDialog({ order, onClose, onDone }) {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const methods = usePaymentMethods();
   const [method, setMethod] = useState(order.paymentMode === "upi_on_delivery" ? "upi" : "cash");
   const [reference, setReference] = useState("");
-  const [onAccount, setOnAccount] = useState(false);
+  const [unpaid, setUnpaid] = useState(false);
   const [key] = useState(newKey);
   const due = order.document ? order.document.total - order.document.paid - order.document.returned : order.finalTotal;
   const kinds = ["cash", "upi", "card"];
   const kind = methods.kindOf(method, kinds);
   return (
     <FormDialog title={order.service === "pickup" ? `Collected: ${order.orderNo}` : `Delivered: ${order.orderNo}`} icon="check-circle" width={520}
-      description={onAccount ? `${biz.exact(due)} goes on ${order.name}'s account (udhaar).` : `${biz.exact(due)} received, recorded on the bill.`}
-      submitLabel={onAccount ? "Completed, on account" : "Completed and paid"} onClose={onClose} onSaved={onDone}
-      onSubmit={() => orderAction(biz.id, order.id, "complete", onAccount ? { requestKey: key, onAccount: true } : { requestKey: key, payment: { ...methods.body(method, kinds), reference: reference.trim() || null } })}>
-      {!onAccount && (
+      description={unpaid ? `${biz.exact(due)} is added to ${order.name}'s ${t.lower("dues")}.` : `${biz.exact(due)} received, recorded on the bill.`}
+      submitLabel={unpaid ? `Completed, ${onAccount(t)}` : "Completed and paid"} onClose={onClose} onSaved={onDone}
+      onSubmit={() => orderAction(biz.id, order.id, "complete", unpaid ? { requestKey: key, onAccount: true } : { requestKey: key, payment: { ...methods.body(method, kinds), reference: reference.trim() || null } })}>
+      {!unpaid && (
         <>
           <Field label="Paid by">
             <select value={methods.resolve(method, kinds)} onChange={(event) => setMethod(event.target.value)}>
@@ -110,7 +111,7 @@ function CompleteDialog({ order, onClose, onDone }) {
           {kind !== "cash" && <Field label={kind === "upi" ? "UPI reference (UTR, optional)" : "Reference (optional)"}><input maxLength={100} inputMode={kind === "upi" ? "numeric" : undefined} value={reference} onChange={(event) => setReference(event.target.value)} /></Field>}
         </>
       )}
-      {biz.can("sales.edit") && <label className="checkbox bz-check field-wide"><input type="checkbox" checked={onAccount} onChange={(event) => setOnAccount(event.target.checked)} /> Not paid now: put it on their account</label>}
+      {biz.can("sales.edit") && <label className="checkbox bz-check field-wide"><input type="checkbox" checked={unpaid} onChange={(event) => setUnpaid(event.target.checked)} /> Not paid now: put it {onAccount(t)}</label>}
     </FormDialog>
   );
 }
@@ -361,7 +362,7 @@ export default function OnlineOrderPage() {
               </span>
               {order.service === "delivery" && <p><Icon name="home" size={14} /> {[order.address, order.landmark, order.pinCode].filter(Boolean).join(", ")}</p>}
               {order.slot && <p><Icon name="calendar" size={14} /> Slot {order.slot.date} · {order.slot.from}–{order.slot.to}</p>}
-              <p><Icon name="money" size={14} /> {PAYMENT_WORDS[order.paymentMode]}{order.paidBy ? ` · paid by ${order.paidBy === "account" ? "account (udhaar)" : order.paidBy}` : ""}</p>
+              <p><Icon name="money" size={14} /> {PAYMENT_WORDS[order.paymentMode]}{order.paidBy ? ` · ${order.paidBy === "account" ? `put ${onAccount(biz.t)}` : `paid by ${order.paidBy}`}` : ""}</p>
               <p><Icon name="refresh" size={14} /> If an item has run out: {SUBSTITUTION_WORDS[order.substitution]}</p>
               {order.note && <p className="os-note"><Icon name="message" size={14} /> {order.note}</p>}
               {order.riderName && <p><Icon name="truck" size={14} /> With {order.riderName}</p>}

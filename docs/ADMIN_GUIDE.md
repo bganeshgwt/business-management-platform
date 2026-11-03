@@ -1026,7 +1026,7 @@ groups*, a clinic's *Patient credit age groups*.
 |---|---|---|---|
 | Expiring soon means within | 30 days | Batches & expiry is on | Batches on the Overview, the bell, the near-expiry list and the stock list's "Expiring" filter (a pharmacy keeps its own in Pharmacy settings) |
 | Credit vouchers valid for | 90 days | Exchanges is on | How long a voucher from an exchange or return can be spent |
-| Customer credit age groups | 30, 60, 90 days | Collections & outstanding is on | The columns of Outstanding, Udhaar and the wholesale reports ("0–30 days" … "Over 90 days" follow the numbers) |
+| Customer credit age groups | 30, 60, 90 days | Collections & outstanding is on | The columns of Customer dues (Udhaar in a kirana) and the wholesale reports ("0–30 days" … "Over 90 days" follow the numbers) |
 | Quick weight buttons | 250 g, 500 g, 1 kg, 2 kg | Sold by weight is on | The buttons on a loose item at Quick bill (up to 8) |
 | Receipt paper | 80 mm | The business prints receipts (Quick bill, a salon's New bill) | 58 mm for a small receipt printer |
 | Day cut-off | 5 am | Tasks & checklists is on | A task due after midnight, before this hour, belongs to the day before |
@@ -3322,7 +3322,7 @@ panel over it.
 | --- | --- | --- |
 | Daily work | **Overview** | Up to four headline figures — sales today (against the same weekday last week by this time), money in today (with the dues collected), what customers owe (less advances, the same figure as Udhaar / the dues list), what is owed to suppliers, and today's bookings for a business that takes appointments (before its suppliers where it sells its time, as a salon, a gym or a clinic does) — then *Needs doing today* (low stock, batches expiring soon, transfers on the way, counts open, promises to pay due today or broken, repairs ready, orders to dispatch…), *Start here* (the things done most often in this type), sales over the last 14 days, hour by hour and the top sellers, who comes next and each bookable person's day for a business that takes appointments, and *What this business uses*. All of it in the business's own words: a gym's *Bills today*, *Members owe*, *Sessions today*, *Collect fees*, *Book a session* and *Trainers today*; a clinic's *Patients owe* and *Doctors today*. A promise line opens the business's own dues (*Udhaar* in a kirana, *Member dues* at a gym). You see only the figures your role may see. |
 | Daily work | The type's own counter and day: a shop's **Quick bill**, a pharmacy's **Prescription sale**, a salon's **New bill** and **Appointments** (the calendar), a clinic's **Today's patients**, a wholesaler's **Sales orders**, a garage's **Job cards**, a gym's **Check-in**, a laundry's **New order** and **Orders** (with Ready & racks and Unclaimed), a jeweller's **Jewellery bill** (with Quick bill) and **Today's rates** (with the Rate board), a rental business's **Bookings** (with Availability, Deposits held, Yard & fleet, Hirer register and Use & earnings), a fuel station's **Shift & readings** and **Tanks & dips** (with Tanker receipts and the Stock register), a hotel's **Front desk** (with Rooms & housekeeping, Reservations and Stays) and **Foreign guests (Form-III)** (with the Guest register) | Described with each type below. |
-| Daily work | **Sales history** (*Bill history* in a salon or clinic), with Quotations, Exchanges, Warranties and Orders for pickup where the type has them; **Customers** (*Clients*; a clinic's *Patients*), with Loyalty points (and a garage's Vehicles and Service due; a gym's **Members**, with Renewals and Member contacts; a fuel station's Fleet statements) | Post a sale at the server's prices, take payment with it or leave it on credit, return goods, refund. Customers carry a GSTIN, a credit limit and credit days; a customer over the limit cannot be given more credit. |
+| Daily work | **Sales history** (*Bill history* in a salon or clinic), with Quotations, Exchanges, Warranties and Orders for pickup where the type has them; **Customers** (*Clients*; a clinic's *Patients*), with Loyalty points (and a garage's Vehicles and Service due; a gym's **Members**, with Renewals and Member contacts; a fuel station's Fleet statements) | Post a sale at the server's prices, take payment with it or leave it on credit, return goods, refund. A business that sells only services gets no barcode box on *New bill* and moves no stock with it, and cancels a bill of services (*Cancel a plan or service*) rather than taking goods back. The words follow the business: *New bill* and *Post bill* where it bills, its walk-in (*Walk-in patient*), the people it serves. Customers carry a GSTIN, a credit limit and credit days; a customer over the limit cannot be given more credit. |
 | Daily work | **Udhaar** (*Customer dues* outside a kirana, a meat or weight-based shop, a general store, a hardware shop or a seeds and fertiliser shop), with *Payments received*; **Daily money**, with Expenses (and EMI & financiers) | What customers owe and what they paid; the day's money and paid expenses (below). |
 | Business | **Products & services** (named for the type: *Medicines & products*, *Books & stationery*, a gym's *Plans & services*…), with Categories, Barcode labels (a goods shop with Stock on), Kits & bundles, Offers & discounts, price lists and the type's own (Drug master, Book details, Size × colour, Today's rates, Stylists & services, a laundry's Price list; a rental business's area opens on its Rental items) | Items with GST slab, unit, how they are tracked (quantity, batch and expiry, or serial number), reorder level. Categories nest up to five levels. |
 | Business | **Purchases**, with Suppliers, Purchase orders (every business that keeps stock) and, for a wholesaler, Claims on suppliers | Record what was bought; stock goes up at once at its cost. |
@@ -3376,7 +3376,7 @@ restaurant's outlets.
   branch, else the one the front desk works at), so branch staff see their own
   branch's visits and each branch's patients can be counted.
 
-What customers owe (udhaar / outstanding) stays business-wide: a customer
+What customers owe (udhaar / customer dues) stays business-wide: a customer
 belongs to the business, not to one branch.
 
 ### Products, prices and opening stock
@@ -3521,7 +3521,7 @@ What goes in, by the same rules as the screens:
 - **Opening balance**: what a customer owed you when you started, or what you
   owed a supplier, on the day given (today when empty); *Dr* and *Cr* as Tally
   writes them are read the right way round. It is the contact's own opening
-  balance, as on their form, so Udhaar, Outstanding and the supplier's
+  balance, as on their form, so Udhaar, Customer dues and the supplier's
   account count it. It is set once: a contact who already has one keeps it
   (change it on their form).
 - **A type's own items** are not made from a file: a fuel (*Settings › Pumps &
@@ -3649,8 +3649,9 @@ station's screen says so.
 
 **Daily money** (Daily work) is every type's day close. For a day or dates,
 and one location or all: sales and bills, the *Net cash movement* (cash in,
-less refunds, supplier payments and expenses), money in, and what was given
-on udhaar; then the takings by payment method (and by the names your counter
+less refunds, supplier payments and expenses), money in (with the dues
+collected: *udhaar collected*, a gym's *fees collected*), and what was given
+on udhaar (*Given on account* in a business that does not say udhaar); then the takings by payment method (and by the names your counter
 uses), by person and by location, and *What went into these figures*. It also
 takes off an advance handed back to a customer (under *Refunds*) and a cheque
 that bounced (on the day it bounced, under *Cheques bounced*), so the money
@@ -4117,7 +4118,8 @@ is not, the amount to collect and, with a UPI ID, the QR code for it.
 **Handing over.** A pickup order: **Ready for pickup**, then **Collected**. A
 delivery: **Out for delivery** (who is delivering it; the customer sees it),
 then **Delivered**. Both record the payment on the bill: cash, UPI (with its
-reference) or card, or **Not paid now: put it on their account** (udhaar).
+reference) or card, or **Not paid now: put it on account** (*on udhaar* in a
+shop that says udhaar).
 **Refused at the door** (or **Not collected**): the whole bill comes back as
 a return, the goods back into stock, and the order is cancelled with what
 happened. A bill with a payment on it is taken back from *Sales history*
@@ -4173,12 +4175,15 @@ give a discount.
   reason. Points **spent** on a bill come back, in proportion to the goods
   returned (switch off with *Give back spent points on returns* in the
   rules).
-- **Udhaar** (customer credit; the menu says *Customer dues* in a supermarket
-  or bookshop) — who owes, how much is overdue, the oldest unpaid bill, credit
+- **Udhaar** (customer credit; *Customer dues*, on the menu and the page, in a
+  shop that does not say udhaar: a supermarket, a bookshop, a pharmacy, a
+  garage) — who owes, how much is overdue, the oldest unpaid bill, credit
   limit used, the last reminder and the promised date (broken promises in
   red). *Collect* settles the oldest bills first and keeps
-  the rest as an advance. *Remind* opens WhatsApp with the message, or records
-  an SMS, call or visit. *Statement* prints or shares a running balance.
+  the rest as an advance. *Remind* opens WhatsApp with the message ("your
+  udhaar balance with us", or "your dues balance"), or records an SMS, call or
+  visit. *Statement* prints (*Udhaar statement*, or *Statement of account*) or
+  shares a running balance.
   Collections are numbered receipts and are never edited.
 - **Barcode labels** (with the products of a business whose new items start
   as goods, while Stock is on; elsewhere a goods receipt's *Print N labels*
@@ -4234,10 +4239,12 @@ the browser.
   own HSN and GST, the kit's price shared out by the parts' own prices. *Can be
   made* shows how many kits the stock allows.
 
-**The customer.** Pick the customer by name or phone for udhaar, points or a
+**The customer.** Pick the customer by name or phone to put the bill on
+udhaar (*on account* in a shop that does not say udhaar), for points or a
 warranty, or add a new one on the spot; otherwise the bill is a walk-in's. The
 customer card shows what they owe, how much is overdue, the credit limit left
-and their last promise to pay (red when broken), with *Collect udhaar*.
+and their last promise to pay (red when broken), with *Collect udhaar*
+(*Collect dues*).
 Choosing udhaar warns when they are overdue, have broken a promise or would go
 over their limit. **A walk-in pays the whole bill**, unless *Walk-in
 customers* is set to *May leave a bill unpaid* in Business settings; the
@@ -4255,8 +4262,8 @@ left unpaid.
 
 **Paying.**
 - **One payment method per bill**: cash (F6), UPI (F7) or card (F8), by the
-  business's own payment methods, or **Udhaar** (F9) with an optional part
-  paid in cash. Only an EMI sale's down payment can be split
+  business's own payment methods, or **Udhaar** (F9; **On account** in a shop
+  that does not say udhaar) with an optional part paid in cash. Only an EMI sale's down payment can be split
   ([EMI & financiers](#emi--financiers)).
 - Type the cash handed over, or tap a quick cash button (the exact amount and
   the next round sums above it), and Quick bill shows the change. Change is
@@ -4279,7 +4286,7 @@ left unpaid.
   regular customer's PAN in *Customers* (Edit › PAN) to skip the card.
 
 **Keys.** F2 find an item · F4 customer · F6 cash · F7 UPI · F8 card · F9
-udhaar · F10 hold the bill · F12 or Ctrl+Enter take the payment. Each has an
+udhaar (on account) · F10 hold the bill · F12 or Ctrl+Enter take the payment. Each has an
 Alt twin for laptops and browsers that keep the F-keys: Alt+S, Alt+C, Alt+1 to
 Alt+4 and Alt+H. After a bill, Enter or F2 starts the next and P prints the
 receipt.
@@ -4314,15 +4321,27 @@ till, the computer may bill when the internet drops ([Offline till](#offline-til
 
 **The receipt and the invoice.** The till receipt (80 mm, or 58 mm under
 Business settings › Rules) shows what each line saved, GST by rate and the
-payment; a bill on udhaar prints *Earlier udhaar · This bill on udhaar · Total
-udhaar now*. **Tax invoice (A4)** carries the seller's legal name, GSTIN,
-address and state; the buyer's name, address and GSTIN as billed; the place of
-supply (the buyer's GSTIN state, else the shop's); per line the HSN, quantity,
-rate, discount, taxable value, GST rate and CGST + SGST or IGST; then an HSN
-summary, the round-off and the total in words. Rows of ₹0 tax are not printed;
-exempt and nil-rated items show *Exempt* in the GST column and the HSN
-summary. A business with no GSTIN gets a warning on the A4 copy that it is not
-a GST tax invoice.
+payment; a bill left on a customer's account prints what they owed before,
+this bill and what they owe now, in the shop's words (*Earlier udhaar · This
+bill on udhaar · Total udhaar now*, or *Earlier dues · This bill on account ·
+Total dues now*). **The A4 bill** carries the seller's legal name, GSTIN,
+address and state; the buyer's name, address and GSTIN as billed, under the
+business's word for them (*Customer*, *Patient*, *Member*; *Bill to* for a
+walk-in or a buyer with a GSTIN); the place of supply (the buyer's GSTIN
+state, else the shop's); per line, under the business's word for what it
+sells, the HSN, quantity, rate, discount, taxable value, GST rate and CGST +
+SGST or IGST; then an HSN summary, the round-off and the total in words. Rows
+of ₹0 tax are not printed; exempt and nil-rated items show *Exempt* in the GST
+column and the HSN summary. Its heading is what the law calls it (CGST Rules
+46, 46A and 49), from the seller's GSTIN and the bill's own taxes: a **Tax
+invoice**; a **Bill of supply** when every line is exempt or nil-rated (a
+clinic's consultations, a bookshop's books), with no GST columns, taxable
+value or HSN tax summary; an **Invoice-cum-bill of supply** for taxable and
+exempt lines together to a buyer with no GSTIN; and a **Bill** from a business
+with no GSTIN in Business settings, with nothing about it on the buyer's copy
+(a bill that charges GST without one says so on its screen). Under the bill
+prints the line the business's type keeps for it (a shop's exchange policy;
+none for a clinic, a gym or a salon).
 
 **The Sales list** (*Sales history*) opens on today, with *Billed by* and
 *Paid by* (cash, UPI, card, bank, mixed or not paid) columns, and filters by
@@ -4368,7 +4387,7 @@ and take the payment:
   QR stand: take the bill once the money shows on your phone or sound box;
   **Card** on the card machine as usual, with its slip number if you like;
   **Split**: a cash part and the rest by UPI or card;
-- **Udhaar** for a known customer, within their credit limit as the till
+- **Udhaar** (*On account* in a shop that does not say udhaar) for a known customer, within their credit limit as the till
   knows it (their balance when it last read it, plus this till's own bills
   waiting); a walk-in pays in full, as online;
 - the **counter discount** within its limit, for those who may give one.
@@ -4462,8 +4481,7 @@ only, and its bills, if it turns up, are refused: keep its downloaded copy.
 The wholesaler's **Sales orders** entry (Daily work) holds Sales orders,
 Back-orders, Dispatch, Price groups & schemes, Price lists, Routes &
 salespeople and, with the salesperson app, Field sales
-([Salesperson app](#salesperson-app)). Its money screens are **Outstanding** and **Collections**,
-named *Customer dues* and *Payments received* in the menu.
+([Salesperson app](#salesperson-app)). Its money screens are **Customer dues** and **Payments received**.
 
 **Set up once.** **Routes & salespeople**: routes (the godown the van loads
 from), beats (route, weekday, salesperson), which customer is on which beat,
@@ -4524,27 +4542,27 @@ trade or a walk-in customer.
    of the paid goods cost, with GST at its rate, shown on the return as *Free
    goods kept: 24 × ₹9.80*. Free goods kept and brought back later give that
    back.
-7. **Credit hold.** Outstanding › More › *Credit hold rules*: hold new orders when a
+7. **Credit hold.** Customer dues › More › *Credit hold rules*: hold new orders when a
    bill is more than N days overdue. A held order needs a reason and a
    manager's PIN (or a manager taking it). A customer can be marked *never put
    on credit hold* on their details.
-8. **Cheques and bounces.** Collections › Cheques: to deposit, post-dated,
+8. **Cheques and bounces.** Payments received › Cheques: to deposit, post-dated,
    deposited, bounced and cleared; *Deposit*, *Cleared*, *Bounced*. *Bounced* pre-fills
    the bank charge from the business setting (₹500 unless changed; change it
    for this cheque or put 0). Exactly the bills that cheque settled open
    again, and the charge goes on the retailer's account. A retailer reaching
    the bounce limit (2 in 90 days unless changed) is put on credit hold for
-   new orders until a manager lets one through. Outstanding › More › *Credit
-   hold rules* sets the overdue days, the bank charge, and the bounce limit
+   new orders until a manager lets one through. Customer dues › More ›
+   *Credit hold rules* sets the overdue days, the bank charge, and the bounce limit
    and window.
-9. **Outstanding and collections.** Balances in 0–30 / 31–60 / 61–90 / 90+
+9. **Customer dues and payments received.** Balances in 0–30 / 31–60 / 61–90 / 90+
    day buckets (or the age groups set in Business settings › Rules);
    statements that start from the oldest unpaid bill; numbered collection
    receipts by cash, UPI, bank, cheque (number required) or card, settled
    oldest first or against the bills you choose, or kept as an advance. Follow
    up with a *WhatsApp* reminder, a *Promise* (date and amount) or a call from
    the phone number, and *Print statements for overdue customers*.
-10. **Salesperson settlement.** Collections › Salesperson settlement: pick the
+10. **Salesperson settlement.** Payments received › Salesperson settlement: pick the
     salesperson and day; cash, UPI and cheques collected; type the cash handed
     over; a shortage or excess needs a note. *Enter receipts* takes several at
     once.
@@ -4628,7 +4646,7 @@ Field sales**.
 6. ***Check out*** with the outcome: an order, or *No order* with the reason
    (*Shop closed*, *Enough stock*, *Dues pending or credit hold* …) and, when
    the shop promised to pay, the date and amount, which go in the shop's
-   follow-ups on Outstanding.
+   follow-ups on Customer dues.
 7. ***Add a new shop*** (Shops): name, mobile, GSTIN, address with a
    landmark, owner, and its consent to bills on WhatsApp after showing the
    privacy notice (recorded as given *in person, by a salesperson*). A shop already on the books with that mobile or GSTIN is
@@ -4657,7 +4675,7 @@ for a limit, raise it on the customer or collect; for a new shop, approve it.
 The salesperson then taps *Try again* and the same order goes, once.
 
 **The evening settlement.** Collections from the app carry the salesperson
-and the route, so **Collections › Salesperson settlement** lists them for the
+and the route, so **Payments received › Salesperson settlement** lists them for the
 day as any other. Field sales shows each salesperson's cash not yet handed
 over beside the cash their phone counted at *End my day*.
 

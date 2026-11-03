@@ -16,7 +16,8 @@ import { businessPath } from "../../../../services/businessNav";
 import FormDialog from "../../core/pages/FormDialog";
 import { Badge, BusinessHeader, Field, PeriodFilter } from "../../core/pages/ui";
 import { businessToday, dateTime, newKey, useOpenBusiness, useServerList } from "../../core/pages/hooks";
-import { dateWords, methodWord, udhaarMessage, whatsappLink } from "./retail";
+import { dateWords, duesMessage, methodWord, onAccount, whatsappLink } from "./retail";
+import { statementTitle } from "../../receivables/pages/receivablesFormat";
 // A reminder needs the customer's consent to reminders (asked first, in one tap).
 import ConsentLink from "../../../personal-data/components/ConsentLink";
 import { useConsentGate } from "../../../personal-data/useConsentGate";
@@ -24,19 +25,22 @@ import { REMINDER_CHANNELS, notAgreed } from "../../../personal-data/personalDat
 import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 import "../styles/business-retail.css";
 
-// Udhaar: what regular customers owe the shop on credit. The figures are the
-// shared receivables (the same collections, balances and statements the
-// wholesale screens use); this screen adds the reminder book — who was
-// reminded, how, and the date they promised to pay.
+// A shop's customer credit (Udhaar, or Customer dues as the business words
+// it): what regular customers owe the shop. The figures are the shared
+// receivables (the same collections, balances and statements the wholesale
+// screens use); this screen adds the reminder book — who was reminded, how,
+// and the date they promised to pay.
 
 const TABS = [["book", "Who owes"], ["remind", "Remind today"], ["log", "Reminders sent"]];
-const SHOW = [["owing", "Owing"], ["overdue", "Overdue"], ["advance", "Paid ahead"], ["all", "All customers"]];
 const CHANNELS = { whatsapp: "WhatsApp", sms: "SMS", call: "Phone call", visit: "Visited", other: "Other" };
-const STATEMENT_WORDS = { opening: "Opening balance", sale: "Bill", return: "Goods returned", payment: "Paid at the counter", collection: "Udhaar paid", refund: "Refund given" };
+// A statement's entries, in the business's words.
+const statementWord = (t, kind) => ({ opening: "Opening balance", sale: "Bill", return: "Goods returned", payment: `Paid at the ${t.lower("counter")}`,
+  collection: t("collection"), refund: "Refund given" })[kind] || kind;
 const addDays = (day, n) => { const d = new Date(`${day}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
 export default function UdhaarPage() {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const [tab, setTab] = useState("book");
   const [summary, setSummary] = useState(null);
   const [version, setVersion] = useState(0);
@@ -54,17 +58,17 @@ export default function UdhaarPage() {
 
   return (
     <div className="stack">
-      <BusinessHeader icon="wallet" title="Udhaar"
-        description="Customers who buy on credit: what each owes, since when, and what they promised. Money collected settles the oldest bills first."
-        actions={<Link className="button button-secondary" to={businessPath(biz.id, "collections")}><Icon name="wallet" size={16} /> {biz.t("collection", "many")}</Link>} />
+      <BusinessHeader icon="wallet" title={t("dues_list", "many")}
+        description={`${t("customer", "many")} who buy on credit: what each owes, since when, and what they promised. Money collected settles the oldest bills first.`}
+        actions={<Link className="button button-secondary" to={businessPath(biz.id, "collections")}><Icon name="wallet" size={16} /> {t("collection", "many")}</Link>} />
       <div className="stat-grid">
-        <StatTile icon="wallet" tone="primary" label="Udhaar to collect" value={summary ? biz.amount(summary.totals.outstanding) : "—"} note={summary ? `${summary.total} ${summary.total === 1 ? "customer" : "customers"}` : ""} />
+        <StatTile icon="wallet" tone="primary" label={`${t("dues")} to collect`} value={summary ? biz.amount(summary.totals.outstanding) : "—"} note={summary ? t.count(summary.total, "customer") : ""} />
         <StatTile icon="alert" tone="danger" label="Overdue" value={summary ? biz.amount(summary.totals.overdue) : "—"} note="past their credit days" />
         <StatTile icon="clock" tone="warning" label={`${biz.ages.over} old`} value={summary ? biz.amount(summary.totals.days_over_90) : "—"} note="hardest to recover" />
-        <StatTile icon="calendar" label={`${biz.ages.first} old`} value={summary ? biz.amount(summary.totals.days_0_30) : "—"} note="recent udhaar" />
+        <StatTile icon="calendar" label={`${biz.ages.first} old`} value={summary ? biz.amount(summary.totals.days_0_30) : "—"} note={`recent ${t.lower("dues")}`} />
       </div>
       <SuccessMessage message={notice} />
-      <ContentTabs label="Udhaar views" value={tab} options={TABS.map(([value,label])=>({value,label}))} onChange={setTab}>
+      <ContentTabs label={`${t("dues_list", "many")} views`} value={tab} options={TABS.map(([value,label])=>({value,label}))} onChange={setTab}>
       {tab === "book" && <Book key={`b${version}`} onAction={open} />}
       {tab === "remind" && <RemindToday key={`r${version}`} onAction={open} />}
       {tab === "log" && <ReminderLog key={`l${version}`} />}
@@ -107,10 +111,12 @@ function promiseCell(row) {
 
 function Book({ onAction }) {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const [show, setShow] = useState("owing");
   const list = useServerList("udhaar", { gridId: "retail-udhaar-book", params: { show } });
+  const choices = [["owing", "Owing"], ["overdue", "Overdue"], ["advance", "Paid ahead"], ["all", `All ${t.lower("customer", "many")}`]];
   const columns = useMemo(() => [
-    { key: "name", header: "Customer", value: (r) => r.name, render: customerCell, mobile: "title", pin: true },
+    { key: "name", header: t("customer"), value: (r) => r.name, render: customerCell, mobile: "title", pin: true },
     { key: "balance", header: "Owes", type: "money", exact: true, value: (r) => Number(r.balance), total: "sum", mobile: "show" },
     { key: "overdue", header: "Overdue", type: "money", exact: true, value: (r) => Number(r.overdue), total: "sum", mobile: "show" },
     { key: "oldest_bill", header: "Oldest unpaid bill", type: "date", value: (r) => r.oldest_bill, mobile: "subtitle",
@@ -121,29 +127,31 @@ function Book({ onAction }) {
     { key: "last_collection_at", header: "Last paid", type: "date", value: (r) => r.last_collection_at, defaultHidden: true },
     { key: "reminded_at", header: "Last reminder", minWidth: 180, value: (r) => r.reminded_at || "", render: promiseCell, mobile: "show" },
     { key: "actions", header: "", label: "Actions", type: "actions", render: (r) => rowActions(biz, r, onAction) },
-  ], [biz, onAction]);
+  ], [biz, t, onAction]);
   return (
-    <SectionCard flush icon="list" title="Udhaar book">
+    <SectionCard flush icon="list" title={`${t("dues")} book`}>
       <ErrorMessage message={list.error} />
-      <DataGrid {...list.gridProps} caption="Customers and their udhaar" rowKey={(r) => r.contact_id} columns={columns} currency={biz.symbol}
+      <DataGrid {...list.gridProps} caption={`${t("customer", "many")} and their ${t.lower("dues")}`} rowKey={(r) => r.contact_id} columns={columns} currency={biz.symbol}
         server={{ ...list.gridProps.server, totals: list.data?.totals ? { balance: Number(list.data.totals.balance), overdue: Number(list.data.totals.overdue) } : undefined }}
         toolbar={(
-          <div className="segmented" role="group" aria-label="Which customers">
-            {SHOW.map(([key, label]) => <button key={key} type="button" className={`segment ${show === key ? "is-active" : ""}`} aria-pressed={show === key} onClick={() => setShow(key)}>{label}</button>)}
+          <div className="segmented" role="group" aria-label={`Which ${t.lower("customer", "many")}`}>
+            {choices.map(([key, label]) => <button key={key} type="button" className={`segment ${show === key ? "is-active" : ""}`} aria-pressed={show === key} onClick={() => setShow(key)}>{label}</button>)}
           </div>
         )}
-        rowNoun={["customer", "customers"]} exportName={biz.can("receivables.export") ? `${biz.business.code}-udhaar` : undefined}
+        rowNoun={[t.lower("customer"), t.lower("customer", "many")]} exportName={biz.can("receivables.export") ? `${biz.business.code}-udhaar` : undefined}
         rowClassName={(r) => (r.promise_broken ? "dg-tone-danger" : Number(r.overdue) > 0.004 ? "dg-tone-warning" : Number(r.balance) < -0.004 ? "dg-tone-success" : "")}
-        empty={show === "owing" ? "Nobody owes you anything" : "No customers here"} emptyHint="Bills put on udhaar at the counter appear here." emptyIcon="wallet" />
+        empty={show === "owing" ? "Nobody owes you anything" : `No ${t.lower("customer", "many")} here`}
+        emptyHint={`Bills put ${onAccount(t)} at the ${t.lower("counter")} appear here.`} emptyIcon="wallet" />
     </SectionCard>
   );
 }
 
 function RemindToday({ onAction }) {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const list = useServerList("udhaar/reminders", { gridId: "retail-udhaar-remind" });
   const columns = useMemo(() => [
-    { key: "name", header: "Customer", value: (r) => r.name, render: customerCell, mobile: "title", pin: true },
+    { key: "name", header: t("customer"), value: (r) => r.name, render: customerCell, mobile: "title", pin: true },
     { key: "overdue", header: "Overdue", type: "money", exact: true, value: (r) => Number(r.overdue), total: "sum", mobile: "show" },
     { key: "balance", header: "Owes in all", type: "money", exact: true, value: (r) => Number(r.balance), total: "sum" },
     { key: "oldest_bill", header: "Oldest unpaid", type: "date", value: (r) => r.oldest_bill, mobile: "subtitle" },
@@ -155,14 +163,14 @@ function RemindToday({ onAction }) {
         {biz.can("receivables.create") && <button type="button" className="chip-button" onClick={() => onAction("collect", r)}>Collect</button>}
       </div>
     ) },
-  ], [biz, onAction]);
+  ], [biz, t, onAction]);
   return (
-    <SectionCard flush icon="bell" title="Overdue udhaar to follow up" description="Most overdue first. Broken promises are marked in red.">
+    <SectionCard flush icon="bell" title={`Overdue ${t.lower("dues")} to follow up`} description="Most overdue first. Broken promises are marked in red.">
       <ErrorMessage message={list.error} />
-      <DataGrid {...list.gridProps} caption="Customers to remind" rowKey={(r) => r.contact_id} columns={columns} currency={biz.symbol}
-        rowNoun={["customer", "customers"]} rowClassName={(r) => (r.promise_broken ? "dg-tone-danger" : r.promise_pending ? "dg-tone-muted" : "")}
+      <DataGrid {...list.gridProps} caption={`${t("customer", "many")} to remind`} rowKey={(r) => r.contact_id} columns={columns} currency={biz.symbol}
+        rowNoun={[t.lower("customer"), t.lower("customer", "many")]} rowClassName={(r) => (r.promise_broken ? "dg-tone-danger" : r.promise_pending ? "dg-tone-muted" : "")}
         exportName={biz.can("receivables.export") ? `${biz.business.code}-udhaar-to-remind` : undefined}
-        empty="Nobody is overdue" emptyHint="Customers past their credit days appear here." emptyIcon="check" />
+        empty="Nobody is overdue" emptyHint={`${t("customer", "many")} past their credit days appear here.`} emptyIcon="check" />
     </SectionCard>
   );
 }
@@ -172,7 +180,7 @@ function ReminderLog() {
   const list = useServerList("udhaar/reminder-log", { gridId: "retail-udhaar-log", period: true });
   const columns = [
     { key: "created_at", header: "When", type: "datetime", value: (r) => r.created_at, mobile: "subtitle" },
-    { key: "contact_name", header: "Customer", value: (r) => r.contact_name, mobile: "title", pin: true },
+    { key: "contact_name", header: biz.t("customer"), value: (r) => r.contact_name, mobile: "title", pin: true },
     { key: "channel", header: "How", value: (r) => CHANNELS[r.channel] || r.channel, mobile: "show" },
     { key: "balance", header: "Owed then", type: "money", exact: true, value: (r) => Number(r.balance), mobile: "show" },
     { key: "promised_on", header: "Promised to pay by", type: "date", value: (r) => r.promised_on },
@@ -199,7 +207,7 @@ function CollectDialog({ row, onClose, onSaved }) {
     locationId: form.locationId, amount: form.amount, method: form.method, reference: form.reference || undefined, notes: form.notes || undefined, requestKey,
   });
   return (
-    <FormDialog title={`Collect udhaar from ${row.name}`} icon="wallet" width={560} submitLabel="Save collection" onClose={onClose} onSubmit={submit}
+    <FormDialog title={`Collect ${biz.t.lower("dues")} from ${row.name}`} icon="wallet" width={560} submitLabel="Save receipt" onClose={onClose} onSubmit={submit}
       description={`Owes ${biz.exact(row.balance)}. The money settles the oldest bills first; anything more is kept as an advance for the next bill.`}
       onSaved={(c) => onSaved(`${c.collection_no}: ${biz.exact(c.amount)} from ${row.name}${Number(c.unallocated) > 0 ? `, ${biz.exact(c.unallocated)} kept as advance` : ""}.`)}>
       <Field label="Amount received"><input required type="number" min="0.01" step="0.01" value={form.amount} onChange={set("amount")} /></Field>
@@ -222,7 +230,8 @@ function RemindDialog({ row, onClose, onSaved }) {
   const today = businessToday(biz.business.timezone);
   const [form, setForm] = useState({ channel: row.phone ? "whatsapp" : "call", promisedOn: "", note: "" });
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }));
-  const message = udhaarMessage({ name: row.name, shop: biz.settings.display_name || biz.business.name, balance: biz.exact(row.balance), promisedOn: form.promisedOn });
+  const message = duesMessage(biz.t, { name: row.name, shop: biz.settings.display_name || biz.business.name, balance: biz.exact(row.balance), promisedOn: form.promisedOn });
+  const promise = biz.t.ex("promise");
   const gate = useConsentGate(useShopPrivacy());
   const { want } = gate;
   useEffect(() => { want(row.contact_id); }, [want, row.contact_id]);
@@ -245,7 +254,7 @@ function RemindDialog({ row, onClose, onSaved }) {
         </select>
       </Field>
       <Field label="Promised to pay by (optional)"><input type="date" min={today} max={addDays(today, 365)} value={form.promisedOn} onChange={set("promisedOn")} /></Field>
-      <Field label="Note (optional)" wide><input maxLength={300} value={form.note} placeholder="e.g. Will pay after salary on the 7th" onChange={set("note")} /></Field>
+      <Field label="Note (optional)" wide><input maxLength={300} value={form.note} placeholder={promise ? `e.g. ${promise}` : undefined} onChange={set("note")} /></Field>
       {form.channel === "whatsapp" && (
         <div className="field-wide">
           <span className="small muted">Message</span>
@@ -274,25 +283,26 @@ function StatementDialog({ row, onClose }) {
       .catch((err) => { if (!controller.signal.aborted) setError(getErrorMessage(err)); });
     return () => controller.abort();
   }, [biz.id, row.contact_id, range]);
+  const { t } = biz;
   const rows = (data?.entries || []).map((e, i) => ({ ...e, id: i }));
   const print = () => printDocument({
     title: `Statement ${row.name}`,
     styles: "body{font:12px system-ui;color:#111} h1{font-size:17px;margin:0} table{width:100%;border-collapse:collapse;margin-top:10px} td,th{border-bottom:1px solid #ddd;padding:5px;text-align:left} .r{text-align:right} .tot{margin-top:8px;text-align:right;font-weight:700}",
-    body: `<h1>${escapeHtml(biz.settings.display_name || biz.business.name)}</h1><p>Udhaar statement for <strong>${escapeHtml(row.name)}</strong>${row.phone ? ` · ${escapeHtml(row.phone)}` : ""}<br>${escapeHtml(dateWords(data.from, true))} to ${escapeHtml(dateWords(data.to, true))}</p>
+    body: `<h1>${escapeHtml(biz.settings.display_name || biz.business.name)}</h1><p>${escapeHtml(statementTitle(t))} for <strong>${escapeHtml(row.name)}</strong>${row.phone ? ` · ${escapeHtml(row.phone)}` : ""}<br>${escapeHtml(dateWords(data.from, true))} to ${escapeHtml(dateWords(data.to, true))}</p>
       <table><thead><tr><th>Date</th><th>What</th><th>Reference</th><th class="r">Took</th><th class="r">Paid</th><th class="r">Balance</th></tr></thead><tbody>
       <tr><td>${escapeHtml(dateWords(data.from, true))}</td><td>Brought forward</td><td></td><td></td><td></td><td class="r">${escapeHtml(biz.exact(data.opening))}</td></tr>
-      ${data.entries.map((e) => `<tr><td>${escapeHtml(dateWords(e.day, true))}</td><td>${escapeHtml(STATEMENT_WORDS[e.kind] || e.kind)}</td><td>${escapeHtml(e.reference || "")}</td><td class="r">${Number(e.debit) ? escapeHtml(biz.exact(e.debit)) : ""}</td><td class="r">${Number(e.credit) ? escapeHtml(biz.exact(e.credit)) : ""}</td><td class="r">${escapeHtml(biz.exact(e.balance))}</td></tr>`).join("")}
+      ${data.entries.map((e) => `<tr><td>${escapeHtml(dateWords(e.day, true))}</td><td>${escapeHtml(statementWord(t, e.kind))}</td><td>${escapeHtml(e.reference || "")}</td><td class="r">${Number(e.debit) ? escapeHtml(biz.exact(e.debit)) : ""}</td><td class="r">${Number(e.credit) ? escapeHtml(biz.exact(e.credit)) : ""}</td><td class="r">${escapeHtml(biz.exact(e.balance))}</td></tr>`).join("")}
       </tbody></table><div class="tot">${Number(data.closing) >= 0 ? "Owes" : "Paid ahead"} ${escapeHtml(biz.exact(Math.abs(Number(data.closing))))}</div>`,
   });
   return (
-    <Modal title={`Statement · ${row.name}`} icon="file" width={900} onClose={onClose} description="Every bill, return and payment in the dates chosen, with the running udhaar.">
+    <Modal title={`Statement · ${row.name}`} icon="file" width={900} onClose={onClose} description="Every bill, return and payment in the dates chosen, with the running balance.">
       <div className="stack">
         <div className="rt-statement-head">
           <DateRangeFilter from={range.from} to={range.to} anchor={today} label="statement dates" onChange={(next) => { if (next.from && next.to) setRange(next); }} />
           <div className="row-actions">
             {data && row.phone && (
               <ConsentLink privacy={privacy} purpose="reminders" person={{ id: row.contact_id, name: row.name }} className="button button-secondary button-sm"
-                href={whatsappLink(row.phone, udhaarMessage({ name: row.name, shop: biz.settings.display_name || biz.business.name, balance: biz.exact(data.closing) }))}>
+                href={whatsappLink(row.phone, duesMessage(t, { name: row.name, shop: biz.settings.display_name || biz.business.name, balance: biz.exact(data.closing) }))}>
                 <Icon name="message" size={14} /> WhatsApp
               </ConsentLink>
             )}
@@ -311,7 +321,7 @@ function StatementDialog({ row, onClose }) {
             </div>
             <DataGrid id="retail-udhaar-statement" variant="compact" caption="Statement" rows={rows} currency={biz.symbol} rowNoun={["entry", "entries"]} columns={[
               { key: "day", header: "Date", type: "date", value: (e) => e.day, mobile: "subtitle" },
-              { key: "kind", header: "What", value: (e) => STATEMENT_WORDS[e.kind] || e.kind, mobile: "title", render: (e) => <Badge tone={e.kind === "sale" || e.kind === "refund" ? "warning" : "active"} label={STATEMENT_WORDS[e.kind] || e.kind} /> },
+              { key: "kind", header: "What", value: (e) => statementWord(t, e.kind), mobile: "title", render: (e) => <Badge tone={e.kind === "sale" || e.kind === "refund" ? "warning" : "active"} label={statementWord(t, e.kind)} /> },
               { key: "reference", header: "Reference", value: (e) => e.reference || "" },
               { key: "debit", header: "Took", type: "money", exact: true, value: (e) => (Number(e.debit) ? Number(e.debit) : null), total: "sum", mobile: "show" },
               { key: "credit", header: "Paid", type: "money", exact: true, value: (e) => (Number(e.credit) ? Number(e.credit) : null), total: "sum", mobile: "show" },

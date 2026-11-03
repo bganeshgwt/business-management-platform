@@ -14,7 +14,7 @@ import { toast } from "../../../../services/toast";
 import FormDialog from "./FormDialog";
 import { BusinessHeader, Badge, Field, FormError, PeriodFilter } from "./ui";
 import { businessToday, dateTime, newKey, quantity, useOpenBusiness, useOptions, useServerList } from "./hooks";
-import { GOODS_TYPES, methodWord, printReceipt } from "../../retail/pages/retail";
+import { GOODS_TYPES, methodWord, onAccount, printReceipt, sentence } from "../../retail/pages/retail";
 import { usePaymentMethods } from "./paymentMethods";
 // The kinds taken on a bill here (and a refund never goes out by cheque).
 const PAY_KINDS = ["cash", "upi", "card", "bank"];
@@ -41,6 +41,13 @@ const RATE = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumF
 const rateText = (biz, value) => `${biz.symbol}${RATE.format(Number(value || 0))}`;
 
 const balanceOf = (d) => Number(d.total) - Number(d.returned || 0) - Number(d.paid || 0) + Number(d.refunded || 0);
+// A bill's line that took stock when it was billed (goods; a service takes none).
+const tookStock = (line) => line.stock_unit_cost !== null && line.stock_unit_cost !== undefined;
+// A sale's return takes goods back, unless it is a service business's bill
+// with nothing from stock on it: then a line is cancelled, in the business's
+// word for what it sells ("Cancel a plan or service").
+const takesGoodsBack = (biz, doc) => biz.look?.defaultItemKind !== "service" || doc.lines.some(tookStock);
+const takeBackWords = (biz, doc) => (takesGoodsBack(biz, doc) ? "Take back items" : `Cancel ${biz.t.a("item")}`);
 function paymentState(d) {
   const balance = balanceOf(d);
   if (balance > 0.004 && Number(d.paid) > 0) return ["warning", "Part paid"];
@@ -80,7 +87,7 @@ export default function DocumentsPage({ kind }) {
     { key: "document_no", header: sale ? "Invoice" : "Receipt", value: (d) => d.document_no, mobile: "title", pin: true,
       render: (d) => <button type="button" className="link-button mono" onClick={() => setOpenId(d.id)}>{d.document_no}</button> },
     { key: "created_at", header: "Date", type: "datetime", value: (d) => d.created_at, mobile: "subtitle" },
-    { key: "contact_name", header: sale ? t("customer") : "Supplier", value: (d) => d.contact_name || (sale ? "Walk-in" : "—"), mobile: "show" },
+    { key: "contact_name", header: sale ? t("customer") : "Supplier", value: (d) => d.contact_name || (sale ? t("walk_in") : "—"), mobile: "show" },
     !sale && { key: "supplier_bill_no", header: "Supplier bill", value: (d) => d.supplier_bill_no || "", render: (d) => (d.supplier_bill_no ? <span>{d.supplier_bill_no}{d.supplier_bill_date ? <small className="muted"> · {String(d.supplier_bill_date).slice(0, 10)}</small> : null}</span> : <span className="muted">—</span>) },
     { key: "location_name", header: "Location", value: (d) => d.location_name, defaultHidden: biz.locations.length < 2 },
     sale && { key: "created_by_name", header: "Billed by", value: (d) => d.created_by_name || "", defaultHidden: !GOODS_TYPES.includes(biz.type) },
@@ -106,9 +113,9 @@ export default function DocumentsPage({ kind }) {
     <div className="stack">
       <BusinessHeader
         icon={sale ? "receipt" : "truck"}
-        title={sale ? biz.t("sale", "many") : "Purchases"}
+        title={sale ? t("sale", "many") : "Purchases"}
         description={sale
-          ? "Every sale with what was collected and what is still due. Prices and tax come from the product list; returns and refunds are recorded on the sale."
+          ? `Every ${t.lower("sale")} with what was collected and what is still due. Prices and tax come from the ${t.lower("catalog")}; returns and refunds are recorded on the ${t.lower("sale")}.`
           : "Goods received from suppliers. Receiving adds the stock at once; supplier payments and returns are recorded on the receipt."}
         actions={biz.can(`${area}.create`) && (sale && (GOODS_TYPES.includes(biz.type) || biz.type === "salon")
           ? <Link className="button" to={businessPath(biz.id, biz.type === "salon" ? "salon-bill" : biz.type === "pharmacy" && biz.has("pharmacy") ? "rx-sale" : "counter")}><Icon name="plus" size={16} /> New bill</Link>
@@ -116,8 +123,8 @@ export default function DocumentsPage({ kind }) {
       />
       <SuccessMessage message={notice} />
       <ErrorMessage message={list.error} />
-      <SectionCard flush icon="list" title={sale ? "Sales in this period" : "Purchases in this period"}>
-        <DataGrid {...list.gridProps} caption={sale ? "Sales" : "Purchases"} columns={columns} currency={biz.symbol}
+      <SectionCard flush icon="list" title={sale ? `${t("sale", "many")} in this period` : "Purchases in this period"}>
+        <DataGrid {...list.gridProps} caption={sale ? t("sale", "many") : "Purchases"} columns={columns} currency={biz.symbol}
           toolbar={(
             <>
               <PeriodFilter list={list} />
@@ -171,9 +178,9 @@ export default function DocumentsPage({ kind }) {
               )}
             </>
           )}
-          rowNoun={sale ? ["sale", "sales"] : ["purchase", "purchases"]}
+          rowNoun={sale ? [t.lower("sale"), t.lower("sale", "many")] : ["purchase", "purchases"]}
           exportName={biz.can(`${area}.export`) ? `${biz.business.code}-${kind}s` : undefined}
-          empty={sale ? "No sales in these dates" : "No purchases in these dates"}
+          empty={sale ? `No ${t.lower("sale", "many")} in these dates` : "No purchases in these dates"}
           emptyHint="Pick other dates above, or record one." emptyIcon="receipt"
           rowClassName={(d) => (balanceOf(d) > 0.004 && d.due_on && d.due_on < list.anchor ? "dg-tone-danger" : "")} />
       </SectionCard>
@@ -198,6 +205,7 @@ const emptyLine = () => ({ key: newKey(), skuId: "", unit: "", quantity: "1", un
 
 function NewDocumentDialog({ kind, onClose, onSaved }) {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const sale = kind === "sale";
   const contactKind = sale ? "customer" : "supplier";
   // Sales pick a batch from the stock list when the person may see stock.
@@ -233,6 +241,10 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
   });
   // The empty line waiting at the end is left out of the bill.
   const filled = lines.filter((l) => l.skuId);
+  // Goods are scanned in and leave stock; services do neither. A business
+  // with no goods to sell gets no barcode box, and a bill of services moves no stock.
+  const scannable = items.some((s) => s.kind === "goods");
+  const movesStock = filled.some((l) => skuOf(l)?.kind === "goods");
   // Scan a barcode (or type a code) to add a line, or one more of a line already there.
   async function scanAdd(event) {
     event.preventDefault();
@@ -322,9 +334,9 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
   const needsExpiry = lines.some((l) => skuOf(l)?.tracking === "batch");
   const lineColumns = [
     { key: "item", header: "Item", minWidth: sale ? 250 : 200, render: (l, ctx) => (
-      <SearchPicker aria-label={ctx.label} required={Boolean(l.skuId) || filled.length === 0} options={items} value={skuOf(l) || null} placeholder="Name, code or barcode"
+      <SearchPicker aria-label={ctx.label} required={Boolean(l.skuId) || filled.length === 0} options={items} value={skuOf(l) || null} placeholder={scannable ? "Name, code or barcode" : "Name or code"}
         getLabel={(s) => s.label} getKeywords={(s) => `${s.code} ${s.barcode || ""} ${s.product_name || ""}`}
-        getDescription={(s) => `${s.code} · ${biz.exact(s.price)}${s.mrp ? ` · MRP ${biz.exact(s.mrp)}` : ""} · ${quantity(s.stock, s.unit)} in stock`}
+        getDescription={(s) => [s.code, biz.exact(s.price), s.mrp && `MRP ${biz.exact(s.mrp)}`, s.kind === "goods" && `${quantity(s.stock, s.unit)} in stock`].filter(Boolean).join(" · ")}
         onChange={(s) => setLine(l.key, "skuId", s ? String(s.id) : "")} />
     ) },
     { key: "unit", header: "Unit", width: 120, render: (l, ctx) => {
@@ -383,22 +395,22 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
   ];
 
   return (
-    <FormDialog title={sale ? "New sale" : "Receive a purchase"} icon={sale ? "receipt" : "truck"} width={sale ? 1040 : 1320}
+    <FormDialog title={sale ? `New ${t.lower("sale")}` : "Receive a purchase"} icon={sale ? "receipt" : "truck"} width={sale ? 1040 : 1320}
       description={sale
-        ? `Prices and tax come from the product list${biz.settings.tax_mode === "inclusive" ? " (prices include tax)" : ""}. Posting reduces stock.`
+        ? `Prices and tax come from the ${t.lower("catalog")}${biz.settings.tax_mode === "inclusive" ? " (prices include tax)" : ""}.${movesStock ? " Posting reduces stock." : ""}`
         : "Enter costs before tax. Receiving adds the stock at this location straight away."}
-      submitLabel={sale ? "Post sale" : "Post receipt"} onSubmit={submit} onClose={onClose} onSaved={onSaved} disabled={!options}>
+      submitLabel={sale ? `Post ${t.lower("sale")}` : "Post receipt"} onSubmit={submit} onClose={onClose} onSaved={onSaved} disabled={!options}>
       <FormError message={error} />
-      {!options && !error && <div className="field-wide"><Loading label="Loading products and contacts…" /></div>}
+      {!options && !error && <div className="field-wide"><Loading label={`Loading ${t.lower("item", "many")} and ${sale ? t.lower("customer", "many") : "suppliers"}…`} /></div>}
       <Field label="Location">
         <select required value={form.locationId} onChange={set("locationId")}>
           {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
         </select>
       </Field>
       {sale ? (
-        <Field label={`${biz.t("customer")} (optional)`}>
+        <Field label={`${t("customer")} (optional)`}>
           <select value={form.contactId} onChange={(e) => setForm((f) => ({ ...f, contactId: e.target.value, siteId: "" }))}>
-            <option value="">Walk-in</option>
+            <option value="">{t("walk_in")}</option>
             {contacts.map((c) => <option key={c.id} value={c.id}>{c.name}{c.credit_limit ? ` · limit ${biz.amount(c.credit_limit)}` : ""}</option>)}
           </select>
         </Field>
@@ -421,13 +433,15 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
           <Field label="Supplier's bill date"><input type="date" required max={businessToday(biz.business.timezone)} value={form.supplierBillDate} onChange={set("supplierBillDate")} /></Field>
         </>
       )}
-      <div className="field-wide bz-scan-line">
-        <input aria-label="Scan a barcode to add a line" placeholder="Scan a barcode or type a code, then Enter" value={scan} autoComplete="off"
-          onChange={(e) => setScan(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") scanAdd(e); }} />
-        <button type="button" className="button button-secondary button-sm" onClick={scanAdd}>Add</button>
-        {canReprice && <label className="checkbox bz-check"><input type="checkbox" checked={repricing} onChange={(e) => setRepricing(e.target.checked)} /> Update selling price / MRP from this bill</label>}
-        {scanError && <small className="bz-due">{scanError}</small>}
-      </div>
+      {scannable && (
+        <div className="field-wide bz-scan-line">
+          <input aria-label="Scan a barcode to add a line" placeholder="Scan a barcode or type a code, then Enter" value={scan} autoComplete="off"
+            onChange={(e) => setScan(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") scanAdd(e); }} />
+          <button type="button" className="button button-secondary button-sm" onClick={scanAdd}>Add</button>
+          {canReprice && <label className="checkbox bz-check"><input type="checkbox" checked={repricing} onChange={(e) => setRepricing(e.target.checked)} /> Update selling price / MRP from this bill</label>}
+          {scanError && <small className="bz-due">{scanError}</small>}
+        </div>
+      )}
       <div className="field-wide bz-lines">
         <DataGrid variant="editor" caption="Lines" rows={lines} rowKey={(l) => l.key} columns={lineColumns.filter(Boolean)} currency={biz.symbol} />
         <div className="bz-lines-foot">
@@ -439,7 +453,7 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
       </div>
       {walkInPays && biz.can("sales.edit") && (
         <>
-          <p className="field-wide small muted">A walk-in pays the whole bill now. To give udhaar, choose the customer above.</p>
+          <p className="field-wide small muted">{sentence(t.a("walk_in"))} pays the whole bill now. To put it {onAccount(t)}, choose the {t.lower("customer")} above.</p>
           <Field label="Paid by">
             <select value={methods.resolve(form.method, PAY_KINDS)} onChange={set("method")}>
               {methods.options(PAY_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}
@@ -447,7 +461,7 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
           </Field>
         </>
       )}
-      {walkInPays && !biz.can("sales.edit") && <p className="field-wide bz-due small">A walk-in pays the whole bill, and your role does not take payments. Choose the customer, or ask someone who takes payments.</p>}
+      {walkInPays && !biz.can("sales.edit") && <p className="field-wide bz-due small">{sentence(t.a("walk_in"))} pays the whole bill, and your role does not take payments. Choose the {t.lower("customer")}, or ask someone who takes payments.</p>}
       {!walkInPays && biz.can(`${sale ? "sales" : "purchasing"}.edit`) && (
         <>
           <Field label={sale ? "Collected now (optional)" : "Paid now (optional)"} hint="Leave empty to record the payment later.">
@@ -462,7 +476,7 @@ function NewDocumentDialog({ kind, onClose, onSaved }) {
       )}
       {panNeeded && (
         <>
-          <Field label="Buyer's PAN" hint="A bill over ₹2,00,000 records the buyer's PAN; save it with the customer to skip this.">
+          <Field label="Buyer's PAN" hint={`A bill over ₹2,00,000 records the buyer's PAN; save it with the ${t.lower("customer")} to skip this.`}>
             <input maxLength={10} className="mono" placeholder="ABCDE1234F" disabled={form.panDeclaration} value={form.buyerPan}
               onChange={(e) => setForm((f) => ({ ...f, buyerPan: e.target.value.toUpperCase() }))} />
           </Field>
@@ -500,11 +514,12 @@ export function DocumentDetail({ documentId, onClose, onChanged, initialAction =
   const refunded = doc ? doc.refunds.reduce((s, r) => s + Number(r.amount), 0) : 0;
   const balance = doc ? Number(doc.total) - returned - paid + refunded : 0;
   const changed = () => { setAction(null); setVersion((n) => n + 1); onChanged(); };
+  const { t } = biz;
 
   return (
     <>
-    <Modal title={doc ? `${doc.kind === "sale" ? "Sale" : "Purchase"} ${doc.document_no}` : "Loading…"} icon="receipt" width={900} onClose={() => { if (!action) onClose(); }}
-      description={doc ? `${doc.contact_name || "Walk-in customer"} · ${doc.location_name} · ${dateTime(doc.created_at)}` : undefined}>
+    <Modal title={doc ? `${doc.kind === "sale" ? t("sale") : "Purchase"} ${doc.document_no}` : "Loading…"} icon="receipt" width={900} onClose={() => { if (!action) onClose(); }}
+      description={doc ? `${doc.contact_name || t("walk_in")} · ${doc.location_name} · ${dateTime(doc.created_at)}` : undefined}>
       <ErrorMessage message={error} />
       {!doc && !error && <Loading />}
       {doc && (
@@ -557,12 +572,16 @@ export function DocumentDetail({ documentId, onClose, onChanged, initialAction =
               {doc.refunds.map((r) => <li key={`f${r.id}`}><Badge status="cancelled" label="Refund" /> {biz.exact(r.amount)} by {r.method === "credit_note" ? "credit note" : r.method === "finance" ? "EMI reversed (financier)" : r.method_name || r.method.toUpperCase()} · {r.reason} · {dateTime(r.created_at)}</li>)}
             </ul>
           )}
+          {/* The bill prints as the law names it (invoice.js); the owner learns here, not the buyer on paper, why it is not a tax invoice. */}
+          {doc.kind === "sale" && !doc.seller?.gstin && Number(doc.tax) > 0 && (
+            <p className="muted small"><Icon name="info" size={13} /> This bill charges GST, but the business has no GSTIN in Business settings, so it prints as a bill, not a tax invoice.</p>
+          )}
           <div className="form-actions bz-start">
             {doc.kind === "sale" && doc.contact_id && biz.has("receivables") && biz.can("receivables.create") && balance > 0.004
-              ? <button type="button" className="button" onClick={() => setAction("collect")}>Record collection</button>
-              : biz.can(`${area}.edit`) && balance > 0.004 && <button type="button" className="button" onClick={() => setAction("payments")}>{doc.kind === "sale" ? "Record collection" : "Record payment"}</button>}
-            {biz.can(`${area}.refund`) && <button type="button" className="button button-secondary" onClick={() => setAction("returns")}>{doc.kind === "sale" ? "Take back items" : "Return to supplier"}</button>}
-            {biz.can(`${area}.refund`) && balance < -0.004 && <button type="button" className="button button-secondary" onClick={() => setAction("refunds")}>{doc.kind === "sale" ? "Refund customer" : "Record supplier refund"}</button>}
+              ? <button type="button" className="button" onClick={() => setAction("collect")}>Record {t.a("collection")}</button>
+              : biz.can(`${area}.edit`) && balance > 0.004 && <button type="button" className="button" onClick={() => setAction("payments")}>{doc.kind === "sale" ? `Record ${t.a("collection")}` : "Record payment"}</button>}
+            {biz.can(`${area}.refund`) && <button type="button" className="button button-secondary" onClick={() => setAction("returns")}>{doc.kind === "sale" ? takeBackWords(biz, doc) : "Return to supplier"}</button>}
+            {biz.can(`${area}.refund`) && balance < -0.004 && <button type="button" className="button button-secondary" onClick={() => setAction("refunds")}>{doc.kind === "sale" ? `Refund ${t.lower("customer")}` : "Record supplier refund"}</button>}
             {biz.can(`${area}.print`) && <button type="button" className="button button-secondary" onClick={() => printTaxInvoice(doc, biz)}><Icon name="print" size={15} /> {doc.kind === "sale" ? "Print invoice (A4)" : "Print"}</button>}
             {biz.can(`${area}.print`) && doc.kind === "sale" && GOODS_TYPES.includes(biz.type) && <button type="button" className="button button-secondary" onClick={() => printReceipt(doc, biz)}><Icon name="receipt" size={15} /> Till receipt (80 mm)</button>}
             {doc.kind === "sale" && doc.contact_id && usesSites(biz) && biz.can("hardware_sites.edit") && <button type="button" className="button button-secondary" onClick={() => setAction("site")}><Icon name="map-pin" size={15} /> {doc.hardware?.site ? "Change the site" : "Set the site"}</button>}
@@ -595,15 +614,21 @@ function DocumentAction({ doc, action, balance, onClose, onSaved }) {
   // Until it is typed, the field holds what belongs; typed empty, none come back.
   const typedBack = (free) => (freeBack[free.order_line_id] === undefined ? undefined : freeBack[free.order_line_id] || "0");
   const previews = group ? group.free.map((free) => ({ free, ...freePreview(group, free, form.quantity, typedBack(free)) })) : [];
+  // Only what took stock can go back into it.
+  const chosen = open.find((l) => String(l.id) === String(form.lineId));
+  const restockable = doc.kind === "sale" && Boolean(chosen && tookStock(chosen));
   const freeLines = previews.flatMap((p) => spreadBack(p.free, p.back).map((part) => ({ ...part, restock: form.restock })));
   const submit = () => businessWrite(biz.id, `documents/${doc.id}/${action}`, action === "returns"
-    ? { reason: form.reason, requestKey, lines: [{ lineId: form.lineId, quantity: form.quantity, ...(doc.kind === "sale" ? { restock: form.restock } : {}) }, ...freeLines] }
+    ? { reason: form.reason, requestKey, lines: [{ lineId: form.lineId, quantity: form.quantity, ...(doc.kind === "sale" ? { restock: restockable && form.restock } : {}) }, ...freeLines] }
     : { amount: form.amount, ...methods.body(form.method, PAY_KINDS), ...(action === "payments" ? { reference: form.reference || undefined } : { reason: form.reason }), requestKey });
-  const titles = { payments: doc.kind === "sale" ? "Record a collection" : "Record a supplier payment", returns: doc.kind === "sale" ? "Take back items" : "Return goods to the supplier", refunds: doc.kind === "sale" ? "Refund the customer" : "Record a refund from the supplier" };
+  const { t } = biz;
+  const goods = doc.kind !== "sale" || takesGoodsBack(biz, doc);
+  const titles = { payments: doc.kind === "sale" ? `Record ${t.a("collection")}` : "Record a supplier payment", returns: doc.kind === "sale" ? takeBackWords(biz, doc) : "Return goods to the supplier",
+    refunds: doc.kind === "sale" ? `Refund the ${t.lower("customer")}` : "Record a refund from the supplier" };
   return (
     <FormDialog title={titles[action]} icon={action === "returns" ? "undo" : "wallet"} width={560} onClose={onClose} onSaved={onSaved} onSubmit={submit}
-      submitLabel={action === "returns" ? "Post return" : "Save"}
-      description={action === "returns" ? "Returned lines use the original price and tax. A credit note number is given." : action === "refunds" ? `Refunds are limited to the credit left after returns and payments.${Number(doc.retail?.heldBack || 0) > 0 ? ` ${biz.exact(doc.retail.heldBack)} is kept back for loyalty points from this bill that were already spent.` : ""}` : `Outstanding: ${biz.exact(balance)}`}>
+      submitLabel={action === "returns" ? (goods ? "Post return" : "Post credit note") : "Save"}
+      description={action === "returns" ? `${goods ? "Returned" : "Cancelled"} lines use the original price and tax. A credit note number is given.` : action === "refunds" ? `Refunds are limited to the credit left after returns and payments.${Number(doc.retail?.heldBack || 0) > 0 ? ` ${biz.exact(doc.retail.heldBack)} is kept back for loyalty points from this bill that were already spent.` : ""}` : `Outstanding: ${biz.exact(balance)}`}>
       {action === "returns" ? (
         <>
           <Field label="Line" wide>
@@ -612,7 +637,7 @@ function DocumentAction({ doc, action, balance, onClose, onSaved }) {
             </select>
           </Field>
           <Field label="Quantity"><input required type="number" min="0.001" step="0.001" value={form.quantity} onChange={set("quantity")} /></Field>
-          {doc.kind === "sale" && (
+          {restockable && (
             <label className="checkbox bz-check"><input type="checkbox" checked={form.restock} onChange={set("restock")} /> Put back into stock (untick for damaged goods)</label>
           )}
           {previews.map(({ free, belongs, left, back, kept }) => {
@@ -656,10 +681,11 @@ function NewSupplierDialog({ onClose, onSaved }) {
   const biz = useOpenBusiness();
   const [form, setForm] = useState({ name: "", phone: "", gstin: "" });
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: name === "gstin" ? e.target.value.toUpperCase() : e.target.value }));
+  const example = biz.t.ex("supplier");
   return (
     <FormDialog title="New supplier" icon="truck" width={480} onClose={onClose} onSaved={onSaved} submitLabel="Add supplier"
       onSubmit={() => businessWrite(biz.id, "contacts", { kind: "supplier", name: form.name.trim(), phone: form.phone.trim() || undefined, gstin: form.gstin.trim() || undefined })}>
-      <Field label="Name" wide><input required autoFocus maxLength={150} value={form.name} onChange={set("name")} placeholder="e.g. Sri Murugan Medical Agencies" /></Field>
+      <Field label="Name" wide><input required autoFocus maxLength={150} value={form.name} onChange={set("name")} placeholder={example ? `e.g. ${example}` : undefined} /></Field>
       <Field label="Phone (optional)"><input maxLength={30} inputMode="tel" value={form.phone} onChange={set("phone")} /></Field>
       <Field label="GSTIN (optional)"><input className="mono" maxLength={15} value={form.gstin} onChange={set("gstin")} /></Field>
     </FormDialog>

@@ -10,6 +10,7 @@ import { dateShort } from "@bmp/shared/format";
 import { CollectionDialog } from "../../receivables/pages/receivablesParts";
 import { Field } from "../../core/pages/ui";
 import { udhaarRisk } from "./counterState";
+import { onAccount, sentence } from "./retail";
 // What the customer agrees to be sent, taken in one tap at the counter.
 import ConsentChoices from "../../../personal-data/components/ConsentChoices";
 import { consentChanges } from "../../../personal-data/personalData";
@@ -20,10 +21,11 @@ import { useShopPrivacy } from "../../../personal-data/usePrivacy";
 
 // --- The customer, with what they owe ------------------------------------------------
 
-// Who the bill is for: needed for udhaar, points and (electronics) the
-// warranty; walk-in otherwise. A customer's udhaar risk shows here: what
-// they owe, how much is overdue, the limit left and their last promise.
+// Who the bill is for: needed to leave it on their account (udhaar), for
+// points and (electronics) the warranty; walk-in otherwise. What they owe
+// shows here: how much is overdue, the limit left and their last promise.
 export function CustomerBox({ biz, customer, onChange, account }) {
+  const { t } = biz;
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", consents: {} });
   const [error, setError] = useState("");
@@ -46,7 +48,7 @@ export function CustomerBox({ biz, customer, onChange, account }) {
   if (customer) {
     const risk = udhaarRisk(customer, account, biz);
     return (
-      <SectionCard icon="user" title="Customer" actions={<button type="button" className="link-button" onClick={() => onChange(null)}>Change</button>}>
+      <SectionCard icon="user" title={t("customer")} actions={<button type="button" className="link-button" onClick={() => onChange(null)}>Change</button>}>
         <div className="rt-customer">
           <strong>{customer.name}</strong>
           <span className="muted">{customer.phone || "No phone"}</span>
@@ -65,7 +67,7 @@ export function CustomerBox({ biz, customer, onChange, account }) {
         )}
         {risk.owes > 0.004 && biz.has("receivables") && biz.can("receivables.create") && (
           <div className="form-actions bz-start">
-            <button type="button" className="button button-secondary button-sm" onClick={() => setCollecting(true)}><Icon name="wallet" size={14} /> Collect udhaar</button>
+            <button type="button" className="button button-secondary button-sm" onClick={() => setCollecting(true)}><Icon name="wallet" size={14} /> Collect {t.lower("dues")}</button>
           </div>
         )}
         {collecting && <CollectionDialog contactId={customer.id} onClose={() => setCollecting(false)} onSaved={() => { setCollecting(false); onChange({ ...customer, refresh: Date.now() }); }} />}
@@ -74,17 +76,17 @@ export function CustomerBox({ biz, customer, onChange, account }) {
     );
   }
   return (
-    <SectionCard icon="user" title="Customer" description="Walk-in pays in full. Pick a customer for udhaar or points.">
+    <SectionCard icon="user" title={t("customer")} description={`${sentence(t.a("walk_in"))} pays in full. Pick ${t.a("customer")} to put the bill ${onAccount(t)}, or for points.`}>
       {!adding ? (
         <>
-          <SearchPicker aria-label="Find a customer by name or phone (F4)" placeholder="Name or phone  (F4 or Alt+C)" inputClassName="rt-find"
+          <SearchPicker aria-label={`Find ${t.a("customer")} by name or phone (F4)`} placeholder="Name or phone  (F4 or Alt+C)" inputClassName="rt-find"
             search={(q, { signal }) => businessRead(biz.id, "contacts", { kind: "customer", active: "true", q, limit: 8 }, signal).then((page) => page.items)}
             minChars={2} getLabel={(c) => c.name} getKeywords={(c) => c.phone}
             getDescription={(c) => [c.phone, Number(c.balance) > 0.004 ? `owes ${biz.exact(c.balance)}` : null].filter(Boolean).join(" · ")}
             onChange={(c) => c && onChange(c)} clearOnSelect id="counter-customer"
             onCreate={biz.can("contacts.create") ? (text) => { setAdding(true); setForm({ name: /\d/.test(text) ? "" : text, phone: /\d/.test(text) ? text : "", consents: {} }); } : undefined}
-            createLabel={(text) => `New customer “${text}”`} emptyText="No customer matches" />
-          {biz.can("contacts.create") && <button type="button" className="link-button rt-new-link" onClick={() => setAdding(true)}>+ New customer</button>}
+            createLabel={(text) => `New ${t.lower("customer")} “${text}”`} emptyText={`No ${t.lower("customer")} matches`} />
+          {biz.can("contacts.create") && <button type="button" className="link-button rt-new-link" onClick={() => setAdding(true)}>+ New {t.lower("customer")}</button>}
         </>
       ) : (
         <form className="stack rt-new-customer" onSubmit={add}>
@@ -93,7 +95,7 @@ export function CustomerBox({ biz, customer, onChange, account }) {
           <Field label="Phone (optional)" hint="Never a condition of a sale."><input maxLength={30} inputMode="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} /></Field>
           <ConsentChoices privacy={privacy} value={form.consents} onChange={(consents) => setForm((f) => ({ ...f, consents }))} wide={false} />
           <div className="form-actions bz-start">
-            <button type="submit" className="button button-sm">Add customer</button>
+            <button type="submit" className="button button-sm">Add {t.lower("customer")}</button>
             <button type="button" className="button button-secondary button-sm" onClick={() => setAdding(false)}>Cancel</button>
           </div>
         </form>
@@ -206,6 +208,7 @@ export function PayBar({ biz, total, lines, ready, label, onPay }) {
 // Find the bill a customer brings back — by its number, the customer's name
 // or phone, or from today's latest bills — then Take back items on it.
 export function ReturnFinder({ biz, onPick, onClose }) {
+  const { t } = biz;
   const [q, setQ] = useState("");
   const [rows, setRows] = useState(null);
   const [error, setError] = useState("");
@@ -220,9 +223,9 @@ export function ReturnFinder({ biz, onPick, onClose }) {
   }, [biz.id, q]);
   return (
     <Modal title="Return items" icon="undo" width={640} onClose={onClose}
-      description="Find the bill: scan or type its number, or the customer's name or phone. Returned items use the bill's own price and tax.">
+      description={`Find the bill: scan or type its number, or the ${t.lower("customer")}'s name or phone. Returned items use the bill's own price and tax.`}>
       <div className="stack">
-        <Field label="Bill number, customer or phone">
+        <Field label={`Bill number, ${t.lower("customer")} or phone`}>
           <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="e.g. SI/2627/0042 or 98450…" />
         </Field>
         <ErrorMessage message={error} />
@@ -233,7 +236,7 @@ export function ReturnFinder({ biz, onPick, onClose }) {
             {rows.map((d) => (
               <li key={d.id}>
                 <button type="button" onClick={() => onPick(d)}>
-                  <span><strong className="mono">{d.document_no}</strong> <small className="muted">{dateShort(d.created_at)} · {d.contact_name || "Walk-in"}</small></span>
+                  <span><strong className="mono">{d.document_no}</strong> <small className="muted">{dateShort(d.created_at)} · {d.contact_name || t("walk_in")}</small></span>
                   <span>{biz.exact(d.total)} <span className="rt-return-go">Take back <Icon name="undo" size={14} /></span></span>
                 </button>
               </li>

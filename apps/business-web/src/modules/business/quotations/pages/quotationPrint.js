@@ -31,7 +31,11 @@ function supply(q) {
 }
 
 export function printQuotation(q, biz) {
+  const { t } = biz;
   const seller = q.seller || {};
+  // What a quotation holds, in the business's words ("Goods are kept aside
+  // only once the bill is made", "The plan price holds for 30 days"); none printed when empty.
+  const hold = t.ex("phrase.quotation_hold");
   const { pos, interstate } = supply(q);
   const money = (paise) => escapeHtml(moneyExact(r(paise), biz.symbol));
   const date = (value) => escapeHtml(businessDate(value, seller.date_format, biz.business.timezone));
@@ -73,7 +77,7 @@ export function printQuotation(q, biz) {
     <div class="box"><b>Place of supply</b><strong>${escapeHtml(stateName(pos) || "—")}</strong><div>${interstate ? "Inter-state supply: IGST" : "Within the state: CGST + SGST"}</div>
       <div>${escapeHtml(q.location_name || "")}</div>${q.tax_mode === "inclusive" ? '<div class="muted">Prices include GST</div>' : ""}</div></div>
   ${site}
-  <table><thead><tr><th>#</th><th>Item</th><th>HSN/SAC</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Discount</th><th class="r">Taxable value</th><th class="r">GST</th>${taxHead}<th class="r">Amount</th></tr></thead>
+  <table><thead><tr><th>#</th><th>${escapeHtml(t("item"))}</th><th>HSN/SAC</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Discount</th><th class="r">Taxable value</th><th class="r">GST</th>${taxHead}<th class="r">Amount</th></tr></thead>
     <tbody>${rows}</tbody></table>
   <div class="totals"><div>
       <p class="words"><strong>Amount in words:</strong> ${escapeHtml(amountInWords(r(p(q.total))))}</p>
@@ -87,7 +91,7 @@ export function printQuotation(q, biz) {
       <tr class="grand"><td>Total</td><td class="r">${money(p(q.total))}</td></tr>
     </tbody></table></div>
   ${q.terms ? `<div class="box"><b>Terms and conditions</b><div>${escapeHtml(q.terms).replace(/\n/g, "<br>")}</div></div>` : ""}
-  <p><small>This is a quotation, not a tax invoice. The prices hold until ${date(q.valid_until)}; goods are kept aside only once the bill is made.</small></p>
+  <p><small>This is a quotation, not a tax invoice. The prices hold until ${date(q.valid_until)}.${hold ? ` ${escapeHtml(hold)}` : ""}</small></p>
   ${privacyLine(biz) ? `<p><small>${escapeHtml(privacyLine(biz))}</small></p>` : ""}
   <div class="sign"><small>Thank you for the enquiry.</small><div class="r">For ${escapeHtml(sellerName)}<br><br><br>Authorised signatory</div></div>`;
   printDocument({ title: q.quotation_no, styles: A4_STYLES, body });
