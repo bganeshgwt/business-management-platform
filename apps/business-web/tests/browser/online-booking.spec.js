@@ -4,17 +4,17 @@ import crypto from "node:crypto";
 import { account, business, fixture, localDate, ONLINE_BOOKING, SALON, signIn } from "../../../../e2e/fixture.mjs";
 
 // Online booking from the desk's side (Business Admin › Online booking, and
-// the salon's calendar):
+// the salon's calendar), in each business's words:
 //   - the salon's booking link, as its owner sees it: the QR and its poster,
-//     the text to share, what shows online, and a rule changed and kept
-//     (then put back); on a phone too;
+//     the text to share, what shows online (its stylists), and a rule changed
+//     and kept (then put back); on a phone too;
 //   - the clinic's requests, answered by the front desk (the RECEPTION login,
-//     who answers requests but does not change the link's rules): one
-//     accepted, one declined with words the guest reads; each guest's page
-//     says so at once, and the Bookings tab lists both;
-//   - the salon's calendar marks a booking made online, and a request still
-//     waiting for an answer, which opens on Online booking (the link set to
-//     confirm each booking for the test, then back to booking at once);
+//     who answers requests but does not change the link's rules): patients
+//     booking doctors; one accepted, one declined with words the patient
+//     reads; each guest's page says so at once, and the Bookings tab lists both;
+//   - the salon's calendar marks a booking made online, and a client's request
+//     still waiting for an answer, which opens on Online booking (the link set
+//     to confirm each booking for the test, then back to booking at once);
 //   - at the clinic's front desk, a son booked online by his father on the
 //     family's mobile: *Arrived: token* first shows the clinic's patients on
 //     that mobile, the son and the father, beside what the guest typed, and the
@@ -78,12 +78,17 @@ test("the salon's booking link: its QR and poster, the text to share, what shows
   await expect(page.getByRole("button", { name: "Print the A5 poster" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Download QR" })).toBeVisible();
   await expect(page.locator(".ob-share-text")).toContainText(salon.onlineBooking.token);
+  await expect(page.locator(".ob-share-text")).toContainText(/Book an appointment at .+ online, any time:/);
   await expect(page.getByRole("link", { name: "Share on WhatsApp" })).toHaveAttribute("href", /^https:\/\/wa\.me\/\?text=/);
   await expect(page.getByText("Taking bookings", { exact: true })).toBeVisible();
+  // In the salon's words: its clients book its stylists.
+  await expect(page.getByText("Clients book stylists from your booking link.", { exact: false })).toBeVisible();
+  await expect(page.getByLabel("Days clients can book ahead")).toBeVisible();
 
   // What shows online: the haircut with its time, and the stylist.
   const shown = page.locator(".ob-shown-list");
   await expect(shown.filter({ hasText: SALON.service.name })).toContainText(`${ONLINE_BOOKING.haircutMinutes} min`);
+  await expect(page.getByRole("heading", { name: "Stylists", exact: true })).toBeVisible();
   await expect(page.getByRole("checkbox", { name: new RegExp(SALON.stylist.name) })).toBeChecked();
 
   // A rule changed is kept; then put back.
@@ -121,6 +126,9 @@ test("the clinic's front desk accepts one request and declines another; each gue
     await page.goto(`/business-admin/${clinic.id}/online-booking`);
     await expect(page.getByRole("heading", { level: 1, name: "Online booking" })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("tab", { name: /^Requests \(\d+\)$/ })).toHaveAttribute("aria-selected", "true");
+    // In the clinic's words: patients book doctors.
+    await expect(page.getByText("Patients book doctors from your booking link.", { exact: false })).toBeVisible();
+    await expect(page.locator("thead th .dg-head-label").getByText("Patient", { exact: true }).first()).toBeVisible();
     const one = rowOf(page, accepted.name);
     const two = rowOf(page, declined.name);
     await expect(one).toContainText(link.doctor.name);
@@ -140,7 +148,7 @@ test("the clinic's front desk accepts one request and declines another; each gue
     await two.getByRole("button", { name: "Decline" }).click();
     const decline = page.getByRole("dialog", { name: `Decline ${declined.name}'s request` });
     await decline.getByRole("button", { name: declined.reason }).click();
-    await expect(decline.getByLabel("Reason the guest reads")).toHaveValue(declined.reason);
+    await expect(decline.getByLabel("Reason the patient reads")).toHaveValue(declined.reason);
     await decline.getByRole("button", { name: "Decline", exact: true }).click();
     await expect(decline).toHaveCount(0);
     await expect(two).toHaveCount(0);
@@ -197,10 +205,10 @@ test("the salon's calendar marks an online booking, and a request waiting for an
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
-    // The request holds its time, and is answered in Online booking.
+    // The client's request holds its time, and is answered in Online booking.
     await waiting.click();
     const asked = page.getByRole("dialog").filter({ hasText: request.name });
-    await expect(asked).toContainText("it holds this time until you answer it");
+    await expect(asked).toContainText("A client's online request: it holds this time until you answer it");
     await asked.getByRole("link", { name: "Answer it in Online booking" }).click();
     await expect(page).toHaveURL(new RegExp(`/business-admin/${salon.id}/online-booking`));
     await expect(rowOf(page, request.name)).toContainText(SALON.service.name, { timeout: 30_000 });

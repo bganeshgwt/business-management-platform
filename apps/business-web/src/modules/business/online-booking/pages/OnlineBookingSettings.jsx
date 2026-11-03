@@ -10,11 +10,14 @@ import { confirmAction } from "../../../../services/confirm";
 import { escapeHtml, printDocument } from "../../../../services/print";
 import { Field } from "../../core/pages/ui";
 import { useOpenBusiness } from "../../core/pages/hooks";
-import { POSTER_STYLES, linkAddress, peopleWord, posterHtml, shareText } from "./onlineBooking";
+import { POSTER_STYLES, linkAddress, posterHtml, shareText } from "./onlineBooking";
 
 // Online booking › Booking link: each location's link (its QR poster to
 // print, the text to share, a new link that stops the old one), its rules
 // and what shows online. Changing them needs online_appointments.manage.
+// In the business's words (services/terms.js): who books (clients, patients,
+// members), whom they book (stylists, doctors, trainers), where the QR goes
+// (the counter, reception, the front desk).
 
 const copyText = async (text) => {
   try {
@@ -38,6 +41,7 @@ export default function OnlineBookingSettings({ overview, onChanged }) {
 }
 
 function LocationLink({ place, overview, canManage, onChanged, business: biz }) {
+  const { t } = biz;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const link = place.link;
@@ -56,7 +60,8 @@ function LocationLink({ place, overview, canManage, onChanged, business: biz }) 
   };
   if (!link) {
     return (
-      <SectionCard icon="link" title={`Online booking at ${place.location.name}`} description="Guests book from a link of your own: on WhatsApp, Instagram, Google or a QR at the counter.">
+      <SectionCard icon="link" title={`Online booking at ${place.location.name}`}
+        description={`${t("customer", "many")} book from a link of your own: on WhatsApp, Instagram, Google or a QR at the ${t.lower("counter")}.`}>
         <ErrorMessage message={error} />
         <Notes notes={place.notes} />
         {canManage ? <button type="button" className="button" onClick={create} disabled={busy}><Icon name="plus" size={15} /> Make the booking link</button>
@@ -89,6 +94,7 @@ function Notes({ notes }) {
 
 function ShareCard({ place, link, canManage, onChanged }) {
   const biz = useOpenBusiness();
+  const { t } = biz;
   const url = linkAddress(link);
   const [qr, setQr] = useState("");
   const [copied, setCopied] = useState(false);
@@ -99,12 +105,12 @@ function ShareCard({ place, link, canManage, onChanged }) {
     return () => { alive = false; };
   }, [url]);
   const name = biz.settings?.display_name || biz.business.name;
-  const share = shareText(name, biz.type, url);
+  const share = shareText(name, t, url);
   const toggle = async () => {
     setBusy(true);
     try {
       await businessWrite(biz.id, `online-booking/links/${link.id}`, { enabled: !link.enabled }, "patch");
-      toast.success(link.enabled ? "Online booking is switched off: the link tells guests to call you." : "Taking bookings online again.");
+      toast.success(link.enabled ? `Online booking is switched off: the link tells ${t.lower("customer", "many")} to call you.` : "Taking bookings online again.");
       onChanged();
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -123,10 +129,10 @@ function ShareCard({ place, link, canManage, onChanged }) {
     }
   };
   const poster = () => printDocument({ title: `Booking QR - ${name}`, styles: POSTER_STYLES,
-    body: posterHtml({ name, logoUrl: biz.settings?.logo_path || "", qr, url, place: place.location.name !== name ? place.location.name : "", type: biz.type, escape: escapeHtml }) });
+    body: posterHtml({ name, logoUrl: biz.settings?.logo_path || "", qr, url, place: place.location.name !== name ? place.location.name : "", t, escape: escapeHtml }) });
   return (
     <SectionCard icon="link" title={`Booking link · ${place.location.name}`}
-      description="Share it on WhatsApp, Instagram, Google or your website, or print the QR for the counter."
+      description={`Share it on WhatsApp, Instagram, Google or your website, or print the QR for the ${t.lower("counter")}.`}
       actions={<span className={`ob-state ${link.enabled ? "is-on" : "is-off"}`}><span className="ob-state-dot" aria-hidden="true" />{link.enabled ? "Taking bookings" : "Switched off"}</span>}>
       <div className="ob-share">
         <div className="ob-share-main">
@@ -171,6 +177,8 @@ const NOTICES = [[0, "No notice"], [30, "30 minutes"], [60, "1 hour"], [120, "2 
 
 function RulesCard({ link, kind, depositPercent, canManage, onChanged }) {
   const biz = useOpenBusiness();
+  const { t } = biz;
+  const customersWord = t.lower("customer", "many");
   const [form, setForm] = useState(() => ({ ...link, upiId: link.upiId || "", upiPayee: link.upiPayee || "", guestNote: link.guestNote || "" }));
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -198,11 +206,11 @@ function RulesCard({ link, kind, depositPercent, canManage, onChanged }) {
     }
   }
   return (
-    <SectionCard as="form" icon="sliders" title="Booking rules" description="How guests book: at once or as a request, how far ahead, and what they may change themselves." onSubmit={save}>
+    <SectionCard as="form" icon="sliders" title="Booking rules" description={`How ${customersWord} book: at once or as a request, how far ahead, and what they may change themselves.`} onSubmit={save}>
       <ErrorMessage message={error} />
       {!canManage && <p className="muted small">Only the owner or a manager changes these.</p>}
       <fieldset className="ob-mode" disabled={disabled}>
-        <legend>When a guest books a free time</legend>
+        <legend>When {t.a("customer")} books a free time</legend>
         <label className={`ob-mode-choice ${form.confirmMode === "instant" ? "is-on" : ""}`}>
           <input type="radio" name="confirmMode" value="instant" checked={form.confirmMode === "instant"} onChange={set("confirmMode")} />
           <span><strong>Book it at once</strong><small className="muted">It goes straight onto the calendar.</small></span>
@@ -213,37 +221,37 @@ function RulesCard({ link, kind, depositPercent, canManage, onChanged }) {
         </label>
       </fieldset>
       <div className="form-grid">
-        <Field label="Days guests can book ahead"><input type="number" min="1" max="90" required value={form.daysAhead} onChange={number("daysAhead")} disabled={disabled} /></Field>
+        <Field label={`Days ${customersWord} can book ahead`}><input type="number" min="1" max="90" required value={form.daysAhead} onChange={number("daysAhead")} disabled={disabled} /></Field>
         <Field label="Notice before a booking"><select value={form.minNoticeMinutes} onChange={number("minNoticeMinutes")} disabled={disabled}>
           {NOTICES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
         {kind !== "clinic" && <Field label="Times every"><select value={form.slotStepMinutes} onChange={number("slotStepMinutes")} disabled={disabled}>
           {[10, 15, 20, 30, 60].map((m) => <option key={m} value={m}>{m} minutes</option>)}</select></Field>}
         <Field label="Hours to answer a request" hint="Never later than the booking's own time"><input type="number" min="1" max="72" required value={form.requestExpiryHours} onChange={number("requestExpiryHours")} disabled={disabled} /></Field>
-        <Field label="Guests cancel or change online until" hint="Hours before the booking; after that they call you"><input type="number" min="0" max="168" required value={form.cancelHours} onChange={number("cancelHours")} disabled={disabled} /></Field>
+        <Field label={`${t("customer", "many")} cancel or change online until`} hint="Hours before the booking; after that they call you"><input type="number" min="0" max="168" required value={form.cancelHours} onChange={number("cancelHours")} disabled={disabled} /></Field>
         <Field label="Changes online per booking"><input type="number" min="0" max="5" required value={form.maxChanges} onChange={number("maxChanges")} disabled={disabled} /></Field>
         <Field label="Bookings one mobile may hold"><input type="number" min="1" max="10" required value={form.maxOpenPerMobile} onChange={number("maxOpenPerMobile")} disabled={disabled} /></Field>
         <Field label="No-shows in 90 days before you confirm" hint="0: never"><input type="number" min="0" max="10" required value={form.confirmAfterNoShows} onChange={number("confirmAfterNoShows")} disabled={disabled} /></Field>
         {kind === "clinic" && <Field label="Share of each OPD session booked online (%)" hint="The rest stays for walk-ins"><input type="number" min="10" max="100" required value={form.onlineSharePercent} onChange={number("onlineSharePercent")} disabled={disabled} /></Field>}
       </div>
       <div className="ob-switches">
-        <label className="hl-check"><input type="checkbox" checked={form.showPrices} onChange={set("showPrices")} disabled={disabled} /> Show prices to guests</label>
-        {kind !== "clinic" && <label className="hl-check"><input type="checkbox" checked={form.allowAnyStaff} onChange={set("allowAnyStaff")} disabled={disabled} /> Let guests choose &quot;Any {peopleWord(biz.type)}&quot; (the free one with the fewest bookings that day)</label>}
+        <label className="hl-check"><input type="checkbox" checked={form.showPrices} onChange={set("showPrices")} disabled={disabled} /> Show prices to {customersWord}</label>
+        {kind !== "clinic" && <label className="hl-check"><input type="checkbox" checked={form.allowAnyStaff} onChange={set("allowAnyStaff")} disabled={disabled} /> Let {customersWord} choose &quot;Any {t.lower("provider")}&quot; (the free one with the fewest bookings that day)</label>}
       </div>
       {kind === "salon" && (
         depositPercent > 0 ? (
           <div className="ob-advance-settings">
-            <label className="hl-check"><input type="checkbox" checked={form.upiAdvance} onChange={set("upiAdvance")} disabled={disabled} /> Ask for the {depositPercent}% advance by UPI when guests book</label>
+            <label className="hl-check"><input type="checkbox" checked={form.upiAdvance} onChange={set("upiAdvance")} disabled={disabled} /> Ask for the {depositPercent}% advance by UPI when {customersWord} book</label>
             {form.upiAdvance && (
               <div className="form-grid">
                 <Field label="Your UPI id" hint="Like shinesalon@okicici"><input required maxLength={100} value={form.upiId} onChange={set("upiId")} disabled={disabled} /></Field>
                 <Field label="Name on the UPI account"><input maxLength={100} value={form.upiPayee} onChange={set("upiPayee")} disabled={disabled} /></Field>
               </div>
             )}
-            <p className="muted small">The guest pays you directly and types the payment's 12-digit UTR; you check it in your UPI or bank app before accepting. {form.upiAdvance ? "" : "Without it, online bookings come as requests and you take the deposit when you confirm."}</p>
+            <p className="muted small">The {t.lower("customer")} pays you directly and types the payment's 12-digit UTR; you check it in your UPI or bank app before accepting. {form.upiAdvance ? "" : "Without it, online bookings come as requests and you take the deposit when you confirm."}</p>
           </div>
         ) : <p className="muted small">The salon takes no deposit, so there is no advance online. A deposit % is set under Stylists &amp; services › Booking rules.</p>
       )}
-      <Field label="A note guests read on the booking page" wide hint="Up to 300 characters, like: Please arrive 10 minutes early."><textarea rows={2} maxLength={300} value={form.guestNote} onChange={set("guestNote")} disabled={disabled} /></Field>
+      <Field label={`A note ${customersWord} read on the booking page`} wide hint="Up to 300 characters, like: Please arrive 10 minutes early."><textarea rows={2} maxLength={300} value={form.guestNote} onChange={set("guestNote")} disabled={disabled} /></Field>
       {canManage && <div className="form-actions"><button type="submit" className="button" disabled={busy}>{busy ? "Saving…" : "Save the rules"}</button></div>}
     </SectionCard>
   );
@@ -251,6 +259,8 @@ function RulesCard({ link, kind, depositPercent, canManage, onChanged }) {
 
 function ShownCard({ place, link, kind, canManage, onChanged }) {
   const biz = useOpenBusiness();
+  const { t } = biz;
+  const customersWord = t.lower("customer", "many");
   const [services, setServices] = useState(() => place.services.map((s) => ({ ...s, minutes: s.minutes ?? "" })));
   const [people, setPeople] = useState(() => place.people);
   const [busy, setBusy] = useState(false);
@@ -275,14 +285,14 @@ function ShownCard({ place, link, kind, canManage, onChanged }) {
   }
   const disabled = !canManage || busy;
   return (
-    <SectionCard icon="eye" title="What shows online" description={kind === "salon" ? "Every service with its time (Stylists & services) and every stylist shows unless you hide it. Rooms are never chosen by guests."
-      : kind === "clinic" ? "A doctor shows with OPD timings and a consultation fee. Patients see the fee, the qualifications and the registration number."
-        : "Tick the services guests may book, each with how long it takes, and who they may book."}>
+    <SectionCard icon="eye" title="What shows online" description={kind === "salon" ? `Every service with its time (Stylists & services) and every ${t.lower("provider")} shows unless you hide it. Rooms are never chosen by ${customersWord}.`
+      : kind === "clinic" ? `${t.a("provider").replace(/^./, (c) => c.toUpperCase())} shows with OPD timings and a consultation fee. ${t("customer", "many")} see the fee, the qualifications and the registration number.`
+        : `Tick the services ${customersWord} may book, each with how long it takes, and who they may book.`}>
       <ErrorMessage message={error} />
       {kind !== "clinic" && (
         <div className="ob-shown">
           <h3 className="ob-shown-title">Services</h3>
-          {!services.length && <p className="muted small">No services yet. Add them under Services &amp; products.</p>}
+          {!services.length && <p className="muted small">No services yet. Add them under {t("catalog", "many")}.</p>}
           <ul className="ob-shown-list">
             {services.map((s) => (
               <li key={s.id} className={s.shown ? "is-on" : ""}>
@@ -298,7 +308,7 @@ function ShownCard({ place, link, kind, canManage, onChanged }) {
         </div>
       )}
       <div className="ob-shown">
-        <h3 className="ob-shown-title">{peopleWord(biz.type, true).replace(/^./, (c) => c.toUpperCase())}</h3>
+        <h3 className="ob-shown-title">{t("provider", "many")}</h3>
         {!people.length && <p className="muted small">Nobody at this location yet.</p>}
         <ul className="ob-shown-list">
           {people.map((p) => (

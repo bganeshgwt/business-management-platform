@@ -1,15 +1,18 @@
 // Online booking's words and links, without React (tests/online-booking.test.js
-// checks them): why a request waits, what each kind of business calls its
-// people, the booking link's address and the text to share it with.
+// checks them): why a request waits, the booking link's address and the text
+// to share it with. The people are named in the business's words (`t`,
+// services/terms.js): a salon's clients and stylists, a clinic's patients
+// and doctors, a gym's members and trainers.
 
 import { customerWebOrigin } from "../../../../services/customerWeb.js";
+import { bookAction } from "../../core/pages/bookingWords.js";
 
-// Why a request waits for the desk.
+// Why a request waits for the desk; `hint(t)` explains it.
 export const REASONS = {
-  confirm: { label: "Confirms each booking", hint: "The link asks the desk to accept every booking." },
-  no_shows: { label: "Missed visits before", hint: "This mobile missed two or more bookings in 90 days." },
-  deposit: { label: "Deposit to take", hint: "The salon takes a deposit: call the guest and take it as you accept." },
-  advance: { label: "Advance to check", hint: "The guest paid the advance by UPI: find the UTR in your UPI or bank app, then accept." },
+  confirm: { label: "Confirms each booking", hint: () => "The link asks the desk to accept every booking." },
+  no_shows: { label: "Missed visits before", hint: () => "This mobile missed two or more bookings in 90 days." },
+  deposit: { label: "Deposit to take", hint: (t) => `Bookings here take a deposit: call the ${t.lower("customer")} and take it as you accept.` },
+  advance: { label: "Advance to check", hint: (t) => `The ${t.lower("customer")} paid the advance by UPI: find the UTR in your UPI or bank app, then accept.` },
 };
 
 // A booking's status as the desk reads it.
@@ -23,24 +26,14 @@ export const STATUS = {
   cancelled: { label: "Cancelled", tone: "inactive" },
 };
 
-// What each kind of business calls the people guests book.
-export function peopleWord(type, plural = false) {
-  const words = {
-    salon: ["stylist", "stylists"], healthcare: ["doctor", "doctors"], optical: ["optometrist", "optometrists"],
-    garage: ["bay or mechanic", "bays and mechanics"], memberships: ["trainer", "trainers"], electronics: ["technician", "technicians"],
-  }[type] || ["person", "people"];
-  return words[plural ? 1 : 0];
-}
-
 // The booking link's address: the server's (it knows the guest web address),
 // else the guests' site this staff app is set up with.
 export const linkAddress = (link) => link?.url || (link?.token ? `${customerWebOrigin().replace(/\/+$/, "")}/appointments/${link.token}` : "");
 
-// A ready WhatsApp message to share the link (the person sends it from their own WhatsApp).
-export function shareText(name, type, url) {
-  const what = { salon: "your salon appointment", healthcare: "an appointment with our doctors", optical: "your eye test", garage: "your vehicle's service",
-    memberships: "a free trial session", electronics: "your service visit" }[type] || "your appointment";
-  return `Book ${what} at ${name} online, any time: ${url}`;
+// A ready WhatsApp message to share the link (the person sends it from their
+// own WhatsApp): "Book a session at Fit Zone online, any time: …".
+export function shareText(name, t, url) {
+  return `${bookAction(t)} at ${name} online, any time: ${url}`;
 }
 
 // "₹1,200.50", Indian grouping.
@@ -64,11 +57,11 @@ export function reminderText(row, businessName, timeZone) {
   return `Hi ${first}, a reminder of your ${row.services} with ${row.resource_name} at ${businessName} tomorrow, ${day} at ${time}. Reply here if you need to change it.`;
 }
 
-// The poster to print: an A5 page with the business's name (and logo), the QR
-// and the address. `escape` makes text safe for the page.
-export function posterHtml({ name, logoUrl, qr, url, place, type, escape }) {
-  const line = { salon: "Book your next visit online", healthcare: "Book your doctor's appointment online", optical: "Book your eye test online",
-    garage: "Book your vehicle's service online", memberships: "Book a free trial online", electronics: "Book a service visit online" }[type] || "Book online";
+// The poster to print: an A5 page with the business's name (and logo), what
+// to book in its words ("Book an eye test online"), the QR and the address.
+// `escape` makes text safe for the page.
+export function posterHtml({ name, logoUrl, qr, url, place, t, escape }) {
+  const line = `${bookAction(t)} online`;
   return `<section class="poster">
     ${logoUrl ? `<img class="logo" src="${escape(logoUrl)}" alt="" />` : ""}
     <p class="name">${escape(name)}</p>

@@ -7961,7 +7961,12 @@ off, or the plan ended, the page says *Not taking online bookings now*, with
 the phone number.
 
 **The desk's side** (*Online booking*; everything changes by itself within a
-second of a booking, a change or an answer on another screen):
+second of a booking, a change or an answer on another screen). Its screens
+name the people in the business's own words (*Business settings › Words*): a
+salon's clients and stylists, a clinic's patients and doctors, a gym's members
+and trainers; the message to share and the poster ask to book what the
+business books (*Book a session at …*, *Make a service booking at …*), and the
+QR goes up at its counter, reception or front desk.
 
 - **Requests** — the bookings waiting for an answer, soonest first, each with
   why it waits (*Confirms each booking*, *Missed visits before*, *Deposit to

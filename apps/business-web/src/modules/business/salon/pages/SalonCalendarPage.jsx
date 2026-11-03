@@ -774,7 +774,7 @@ function AppointmentDialog({ appointment: a, timezone, onClose, onChanged, onOpe
             {!booked && biz.can("appointments.create") && <button type="button" className="button button-secondary" onClick={onBookNext}><Icon name="calendar" size={15} /> Book next visit</button>}
           </div>
         )}
-        {a.status === "requested" && <p className="sw-note">A guest's online request: it holds this time until you answer it. <Link to={businessPath(biz.id, "online-booking")}>Answer it in Online booking</Link></p>}
+        {a.status === "requested" && <p className="sw-note">{biz.t.a("customer").replace(/^./, (c) => c.toUpperCase())}'s online request: it holds this time until you answer it. <Link to={businessPath(biz.id, "online-booking")}>Answer it in Online booking</Link></p>}
         {!booked && <p className="sw-note"><Link to={`${businessPath(biz.id, "appointments")}?contact=${a.contact_id}`}>All of {a.contact_name}'s visits</Link></p>}
       </div>
     </Modal>
