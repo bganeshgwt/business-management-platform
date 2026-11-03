@@ -12,6 +12,8 @@ import { HEALTH_WORKSPACES } from "./healthWorkspaces.js";
 //   module   the tool (module) that must be switched on
 //   need     the permission that opens it, or needAny: any of several
 //   other    the business's other workspace, offered in its menu
+//   icon     its mark: the bar's before a business is chosen, and its
+//            installed app's (services/appManifest.js)
 //   words    what the frame says: loading, the business not found or not of
 //            the type, the tool off, the start's choice of business
 
@@ -34,8 +36,8 @@ const clinicWords = (kind) => ({
 });
 
 export const WORKSPACE_APPS = {
-  clinic: { ...HEALTH_WORKSPACES.clinic, types: ["healthcare"], other: "lab", icon: "activity", words: clinicWords("clinic") },
-  lab: { ...HEALTH_WORKSPACES.lab, types: ["healthcare"], other: "clinic", icon: "clipboard", words: clinicWords("lab") },
+  clinic: { ...HEALTH_WORKSPACES.clinic, types: ["healthcare"], other: "lab", icon: "stethoscope", words: clinicWords("clinic") },
+  lab: { ...HEALTH_WORKSPACES.lab, types: ["healthcare"], other: "clinic", icon: "flask", words: clinicWords("lab") },
   sales: {
     title: "Salesperson app",
     module: "salesperson_app",

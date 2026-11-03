@@ -278,9 +278,10 @@ an installed app opens with no network:
 - **The API is never kept** by the worker, and neither are the guests'
   pages; uploaded pictures are kept (at most 200) and refreshed whenever the
   network allows.
-- The manifests (`/manifests/*.webmanifest`) and icons (`/icons/*.png`) are
-  ordinary files of the build, served as they are; `.webmanifest` as
-  `application/manifest+json`.
+- The manifests (`/manifests/*.webmanifest`, and the staff app's for each
+  mark under `/manifests/staff/`) and icons (`/icons/*.png`,
+  `/icons/staff/*.png`) are ordinary files of the build, served as they are;
+  `.webmanifest` as `application/manifest+json`.
 
 What each build needs (the build stops with a sentence when one is missing):
 

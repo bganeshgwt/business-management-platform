@@ -728,7 +728,9 @@ a:hover {
   background: var(--chip-bg);
 }
 
-/* The product's mark: the plate and cloche on the brand colour. */
+/* The product's mark, white on the brand colour; the same tile carries the
+   restaurant's cloche, a workspace's mark, and a business's mark on its own
+   accent (--mark-color, the same in light and dark: the mark stays white). */
 .brand-mark {
   display: inline-grid;
   place-items: center;
@@ -741,6 +743,31 @@ a:hover {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
     0 3px 8px -2px rgba(8, 121, 107, 0.3);
+}
+
+.brand-mark.has-color {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--mark-color) 84%, #fff), var(--mark-color));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 3px 8px -2px color-mix(in srgb, var(--mark-color) 40%, transparent);
+}
+
+/* A business's own logo in the mark's place (class="brand-mark brand-logo"):
+   the whole picture on white, whatever its shape. */
+.brand-mark.brand-logo {
+  box-sizing: border-box;
+  padding: 3px;
+  border: 1px solid var(--border);
+  background: #fff;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.brand-logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 /* The menu's icons. Staff screens only, but kept here rather than in the staff app's part

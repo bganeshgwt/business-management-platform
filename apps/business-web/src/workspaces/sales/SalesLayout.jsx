@@ -1,6 +1,6 @@
 import { Suspense, useLayoutEffect, useRef } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import Icon, { BrandMark } from "@bmp/ui/Icon";
+import Icon from "@bmp/ui/Icon";
 import useAuth from "../../hooks/useAuth";
 import useAppManifest from "../../hooks/useAppManifest";
 import useInstall from "../../hooks/useInstall";
@@ -8,6 +8,7 @@ import BusinessWorkspace from "../../layouts/BusinessWorkspace";
 import LiveIndicator from "../../components/LiveIndicator";
 import ActionMenu from "../../components/ActionMenu";
 import LockScreen from "../../components/LockScreen";
+import { BusinessMark } from "../../components/TypeMark";
 import OfflineBar from "../../components/OfflineBar";
 import { ScreenLoading } from "../../components/Feedback";
 import { businessPath } from "../../services/businessNav";
@@ -55,8 +56,10 @@ function SalesShell() {
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
   const mainRef = useRef(null);
-  // Installing from here installs the salesperson app.
-  useAppManifest("sales");
+  // Installing from here installs the salesperson app; the tab shows the
+  // distributor's mark and name.
+  const look = sales.biz.look;
+  useAppManifest("sales", { icon: look?.icon, accent: look?.accent, name: sales.biz.business.name });
   const install = useInstall("sales");
   const base = `/sales/${sales.businessId}`;
   const keep = sales.watching ? `?salesperson=${sales.watching}` : "";
@@ -82,7 +85,7 @@ function SalesShell() {
         <a className="skip-link" href="#sl-main" onClick={(event) => { event.preventDefault(); mainRef.current?.focus(); }}>Skip to content</a>
         <header className="sl-top">
           <Link to={`${base}${keep}`} className="sl-brand" aria-label={`${sales.biz.business.name}: today`}>
-            <BrandMark size={30} />
+            <BusinessMark look={sales.biz.look} size={30} />
             <span className="sl-brand-text">
               <span className="sl-brand-name">{sales.biz.business.name}</span>
               <span className="sl-brand-sub">{[sales.watching ? "Reading the day of" : "Salesperson app", who].filter(Boolean).join(" · ")}</span>
@@ -96,7 +99,7 @@ function SalesShell() {
               items={[
                 { label: "Read prices and dues again", icon: "refresh", onClick: () => sales.refresh(), disabled: !sales.online },
                 ...(install.item ? [install.item] : []),
-                ...(canAdmin ? [{ label: "Business Admin", icon: "store", onClick: () => navigate(businessPath(sales.businessId)) }] : []),
+                ...(canAdmin ? [{ label: "Business Admin", icon: "grid", onClick: () => navigate(businessPath(sales.businessId)) }] : []),
                 { label: "My profile, password & PIN", icon: "user", onClick: () => navigate("/profile") },
                 { label: "Lock / switch user", icon: "lock", onClick: lock },
                 { separator: true },

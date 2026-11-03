@@ -41,15 +41,16 @@ function Start({ kind }) {
   return (
     <div className="app-shell ws-shell">
       <header className="topbar ws-bar">
+        {/* No business is open yet: the workspace's own mark, as its installed app wears it. */}
         <span className="brand">
-          <BrandMark size={34} />
+          <BrandMark size={34} icon={plan.icon} />
           <span className="brand-text">
             <span className="brand-name">{plan.title}</span>
             <span className="brand-restaurant">{words.choose}</span>
           </span>
         </span>
         <div className="ws-bar-tools">
-          <Link className="button button-secondary" to="/business-admin?all"><Icon name="store" size={16} /> Business Admin</Link>
+          <Link className="button button-secondary" to="/business-admin?all"><Icon name="grid" size={16} /> Business Admin</Link>
         </div>
       </header>
       <main className="content-scroll ws-main" id="ws-main">

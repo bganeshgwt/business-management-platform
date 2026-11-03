@@ -15,6 +15,7 @@ import OfflineBar from "../../components/OfflineBar";
 import useAppManifest from "../../hooks/useAppManifest";
 import useInstall from "../../hooks/useInstall";
 import useOnline from "../../hooks/useOnline";
+import { RESTAURANT_MARK } from "../../services/appManifest";
 import { snapshotAge } from "../../services/offline/snapshots";
 import "../../styles/access.css";
 import "./styles/captain.css";
@@ -56,8 +57,9 @@ function CaptainShell() {
   const [alertsOpen, setAlertsOpen] = useState(false);
   const { online } = useOnline();
   // Installing from here installs the captain app; its alerts on a closed
-  // phone follow My tables or All tables, as chosen on this phone.
-  useAppManifest("captain");
+  // phone follow My tables or All tables, as chosen on this phone. The tab
+  // shows the restaurant's own mark and name.
+  useAppManifest("captain", { icon: RESTAURANT_MARK, name: user.restaurantName });
   const install = useInstall("captain");
   const closed = useClosedAlerts(user);
   // Taking an order has the POS's own bar at the thumb: no tabs under it.
@@ -93,7 +95,7 @@ function CaptainShell() {
         </a>
         <header className="cpt-top">
           <Link to="/captain" className="cpt-brand" aria-label={`${user.restaurantName || "Captain app"}: tables`}>
-            <BrandMark size={30} />
+            <BrandMark size={30} icon={RESTAURANT_MARK} />
             <span className="cpt-brand-text">
               <span className="cpt-brand-name">{user.restaurantName || "Captain app"}</span>
               <span className="cpt-brand-sub">{[workingAt, firstName].filter(Boolean).join(" · ")}</span>

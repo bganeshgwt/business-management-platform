@@ -194,6 +194,11 @@ network. Every attempt is in the person's **Sign-in history**.
 **The shared till: lock and PIN.** The lock icon in the top bar (or **Lock
 till / switch user**) locks the screen; the till can also lock itself after
 2–60 minutes without a touch (**Users → Till lock & sign-in → Lock after**).
+The locked screen names the place: the restaurant with its own mark and *Till
+locked*, or the business open in Business Admin (or its workspace) with its
+logo or mark and its own word for what is locked: a shop's till (*Till
+locked*), a gym's, a salon's or a clinic's screen (*Screen locked*, **Lock
+screen / switch user**).
 The same person unlocks with their PIN and carries on exactly where they
 were; **Someone else?** lets another person tap their name and type their
 own PIN, so the activity log shows who did what. A PIN is 4–6 digits; easy
@@ -239,8 +244,12 @@ computer like any other app: it then opens full screen from its own icon,
 with no address bar, and stays signed in. Each workspace installs as an app of
 its own, with its own name and icon: the **Staff app** itself, the **Captain
 app** (a waiter's phone), the **Kitchen display**, a clinic's **Clinic** and
-**Lab**, and a shop's **Counter** (it opens the business you used last).
-Install each from where it is used:
+**Lab**, and a shop's **Counter** (it opens the business you used last). The
+staff app's icon is the mark of where you install it from: your business's
+own (a gym's dumbbell, a salon's scissors, a clinic's stethoscope, as
+Platform › Business types sets each type's), the restaurant's in its own
+screens; on an iPhone it takes your business's name. Install each from where
+it is used:
 
 - **Chrome, Edge or Samsung Internet** (Android phones and tablets, Windows
   and Mac computers): the captain app's **⋯ → Install the captain app**, Quick

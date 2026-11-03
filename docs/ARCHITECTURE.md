@@ -549,12 +549,33 @@ wholesaler's Sales (the salesperson app) (`src/services/appManifest.js`). Each h
 `public/manifests` (its name and short name, start address and scope, an id
 of its own, `standalone`, the brand's colour `--primary` and the page's
 `--bg`) and icons in `public/icons`: 192 and 512 px, a maskable 512 px and the
-iPhone's 180 px, drawn from the shared icon set's marks on the brand's
-gradient by `tools/render-app-icons.mjs` with a browser, never by hand, plus
-the notification's badge. The page's `<link rel="manifest">`, its iPhone icon
-and name follow the workspace on screen (`hooks/useAppManifest.js`, called by
-`AppLayout`, `CaptainLayout`, `BusinessWorkspace` and `SalesLayout`), so
-installing from the captain app installs the captain app. The browser's own
+iPhone's 180 px, each its mark (a mark of the shared icon set) white on a flat
+tile of the brand's colour, plus the notification's badge.
+`tools/render-app-icons.mjs` draws them with a browser and writes the
+manifests, never by hand, and the product's tab icon (`favicon.svg`) for both
+apps.
+
+The staff app wears the mark of the place it is installed from: the
+product's own where no business is open, the restaurant's cloche in the
+restaurant's screens, and in Business Admin the open business's own mark
+(its type's or kind's icon, as Platform › Business types sets it). The tool
+draws its icons and writes its manifest (`public/manifests/staff/<mark>`,
+`public/icons/staff/<mark>-*`) for the restaurant's mark and every mark a
+business may have (`@bmp/ui/businessIcons`), so whatever mark the platform
+gives a type has its icons. All are the one staff app (the same id `/` and
+name): a phone keeps one, wearing the mark it was installed with; a browser
+may offer to change its icon when the app is used later in a business with
+another mark. A static manifest cannot carry a business's own name: an
+iPhone takes the Home Screen name from the page, so there the app is named
+after the business.
+
+The page's `<link rel="manifest">`, its iPhone icon and name follow the
+workspace on screen (`hooks/useAppManifest.js`, called by `AppLayout`,
+`CaptainLayout`, `BusinessWorkspace` and `SalesLayout` with the mark of where
+they are), so installing from the captain app installs the captain app. The
+same hook gives the browser tab the place's mark in its accent (an SVG drawn
+by `markSvg`, `@bmp/ui/drawings`) and its name ("Fit Zone · Business Admin"),
+and puts the product's back when the place is left. The browser's own
 offer (`beforeinstallprompt`) is kept from the start (`services/install.js`)
 and shown where it helps, through `hooks/useInstall.jsx`: the captain's ⋯
 menu, Quick bill's More menu, the clinic's and the lab's menus, the
@@ -1714,7 +1735,7 @@ Where each area's tests are: [TESTING.md](TESTING.md).
 | Overview panels | `modules/business/core/pages/BusinessAdminRoutes.jsx` (`screens()`, `OverviewSheet`), `overviewLink.js` | An action on a business's Overview opens the real screen in a wide panel over it (`?open=<section>`, with *Open full page*). The panel and the route use the same `screens()` map, so they cannot drift apart. |
 | Motion | `components/motion.js` + `packages/ui/src/styles/motion.css` (with the staff app's `src/styles/app/motion.css`) | Only transform and opacity move; nothing waits for an animation; `prefers-reduced-motion` turns it off. |
 | Theme tokens | the top of `packages/ui/src/styles/base.css` (`:root`, then a dark-mode block), with `colour.css` beside it. Both apps load them through `@bmp/ui/styles.css` | Pages use `var(--…)` and never restate a hex value. |
-| Words and looks per type | Data: `term_keys`, `business_type_terms`, `business_kind_terms`, `business_terms`, `business_type_kinds`, and `business_types.icon`/`accent` ([DATABASE.md › Words and looks](DATABASE.md#words-and-looks)). Server: `modules/business/core/services/businessWords.service.js` (`wordsOf`, `lookOf`) and `utils/words.js`. Staff app: `services/terms.js` (`useOpenBusiness().t`), `components/TypeMark.jsx`, the menus in `services/businessNav.js` and `services/businessWorkspace.js` (`workspaceLabel()`). Edited in Platform › Business types and Business settings › Words | A gym says Members and Sessions, a clinic Patients and Doctors, a kirana Udhaar. Code names no type's word: it asks for the word by its key (`t("customer")`), and a business sees its owner's word, else its kind's, else its type's, else the default. |
+| Words and looks per type | Data: `term_keys`, `business_type_terms`, `business_kind_terms`, `business_terms`, `business_type_kinds`, and `business_types.icon`/`accent` ([DATABASE.md › Words and looks](DATABASE.md#words-and-looks)). Server: `modules/business/core/services/businessWords.service.js` (`wordsOf`, `lookOf`) and `utils/words.js`. Staff app: `services/terms.js` (`useOpenBusiness().t`), `components/TypeMark.jsx` (a type's mark in its accent; `BusinessMark`, the business's logo or its mark in the top bars and on the lock screen), the menus in `services/businessNav.js` and `services/businessWorkspace.js` (`workspaceLabel()`). Edited in Platform › Business types and Business settings › Words | A gym says Members and Sessions, a clinic Patients and Doctors, a kirana Udhaar. Code names no type's word: it asks for the word by its key (`t("customer")`), and a business sees its owner's word, else its kind's, else its type's, else the default. |
 
 ### What not to do
 

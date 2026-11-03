@@ -2,12 +2,14 @@ import { Link } from "react-router-dom";
 import Icon from "@bmp/ui/Icon";
 import useAuth from "../hooks/useAuth";
 import useOutbox from "../hooks/useOutbox";
+import { INSTALLABLE_APPS } from "../services/appManifest";
 import { offlineScreensFor } from "../services/offline/offlineScreens";
 import "../styles/offline.css";
 
 // What a screen says when it was opened with no network and cannot work
 // without it (docs/ARCHITECTURE.md › Offline boot): calmly, what to do, and
-// the screens that do open offline for this person. `kind` "start": the app
+// the screens that do open offline for this person, each with the mark its
+// installed app wears (services/appManifest.js). `kind` "start": the app
 // itself could not start (no copy of the profile on this device yet).
 export default function NeedsNetwork({ kind = "screen", onRetry }) {
   const { user } = useAuth();
@@ -38,7 +40,7 @@ export default function NeedsNetwork({ kind = "screen", onRetry }) {
               {screens.map((screen) => (
                 <li key={screen.id}>
                   <Link className="button button-secondary" to={screen.to}>
-                    <Icon name="table" size={16} /> {screen.label}
+                    <Icon name={INSTALLABLE_APPS[screen.id]?.mark} fallback="grid" size={16} /> {screen.label}
                   </Link>
                 </li>
               ))}

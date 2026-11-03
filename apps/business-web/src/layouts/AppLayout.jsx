@@ -33,9 +33,10 @@ import { formatLabel } from "../services/restaurantFormats";
 import PlanBanner from "../modules/plan/components/PlanBanner";
 import { getSiteInfo } from "../modules/site/services/site.service";
 import OfflineBar from "../components/OfflineBar";
+import { BusinessMark } from "../components/TypeMark";
 import useInstall from "../hooks/useInstall";
 import useAppManifest from "../hooks/useAppManifest";
-import { appFor } from "../services/appManifest";
+import { appFor, RESTAURANT_MARK } from "../services/appManifest";
 
 const PINNED_KEY = "rmp_nav_pinned";
 
@@ -317,9 +318,17 @@ function AppShell() {
   // and takes no clicks, so nothing waits for it.
   const drawer = usePresence(menuOpen, 200);
   const account = usePresence(accountOpen, 130);
+  // The open business's look (its mark, its accent, its logo): its context's,
+  // or the directory's until the context is in.
+  const look = business.context?.look || business.current?.look || null;
   // The app installed from here is the workspace on screen: the kitchen
-  // display, the counter, or the staff app (services/appManifest.js).
-  useAppManifest(appFor(pathname));
+  // display, the counter, or the staff app (services/appManifest.js), wearing
+  // the mark of where it is, as the tab does: the open business's, the
+  // restaurant's in its own screens, else the product's.
+  const place = businessMode
+    ? { icon: look?.icon, accent: look?.accent, name: business.current?.name }
+    : !chooser && !platformAccount && user.restaurantId ? { icon: RESTAURANT_MARK, name: user.restaurantName } : null;
+  useAppManifest(appFor(pathname), place);
   const install = useInstall(appFor(pathname));
 
   // A platform account (no restaurant) runs the platform, nothing inside a
@@ -444,9 +453,10 @@ function AppShell() {
     lock();
   };
 
-  // A till is a restaurant word; a shop, a salon or a wholesaler locks the screen.
-  const tillWord = !businessMode || business.current?.business_type === "restaurant";
-  const lockLabel = tillWord ? "Lock the till" : "Lock screen";
+  // What a person locks, in the business's word: a shop's till, a gym's or a
+  // clinic's screen; the restaurant's till in its own screens.
+  const till = businessMode ? makeTerms(businessContext?.terms).lower("till") : "till";
+  const lockLabel = `Lock the ${till}`;
 
   return (
     <div className={`app-shell ${chooser ? "is-chooser" : ""}`.trim()} data-accent={pageAccent(pathname)}>
@@ -470,12 +480,14 @@ function AppShell() {
           <Icon name={menuOpen ? "x" : "menu"} size={20} />
         </button>
 
-        {/* The product's mark and the restaurant it is signed in to, leading
-            home. On a phone the restaurant name is what gives way (it ends in
-            an ellipsis) before any control does. */}
+        {/* Where the person is, leading home: the open business with its
+            logo or its mark in its accent; the restaurant with its own mark;
+            the product's mark where no business is open. On a phone the
+            name is what gives way (it ends in an ellipsis) before any
+            control does. */}
         {businessMode ? (
           <Link to={businessPath(businessId)} className="brand" aria-label={`${business.current?.name || "Business Admin"} — overview`}>
-            <BrandMark size={34} />
+            <BusinessMark look={look} size={34} />
             <span className="brand-text">
               <span className="brand-name">{business.current?.name || "Business Admin"}</span>
               <span className="brand-restaurant">
@@ -501,7 +513,7 @@ function AppShell() {
           </Link>
         ) : (
           <Link to="/" className="brand" aria-label={`${user.restaurantName || "Business Admin"} — dashboard`}>
-            <BrandMark size={34} />
+            <BrandMark size={34} icon={user.restaurantId ? RESTAURANT_MARK : "brand"} />
             <span className="brand-text">
               <span className="brand-name">{user.restaurantName || "Business Admin"}</span>
               <span className="brand-restaurant">
@@ -580,7 +592,7 @@ function AppShell() {
                 <button type="button" role="menuitem" className="acc-menu-item" onClick={lockNow}>
                   <Icon name="switch" size={17} />
                   <span>
-                    {tillWord ? "Lock till / switch user" : "Lock screen / switch user"}
+                    {`Lock ${till} / switch user`}
                     <small>Staff carry on with their own PIN</small>
                   </span>
                 </button>

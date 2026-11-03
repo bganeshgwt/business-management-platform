@@ -10,7 +10,9 @@ builds compile it; there is no build step here.
 | Import | What it is |
 | --- | --- |
 | `import "@bmp/ui/styles.css"` | Every shared stylesheet in one file, in the order below. Each app imports it first in its `main.jsx`, so a page's own stylesheet comes after it and wins where the two disagree. Each part can also be imported alone as `@bmp/ui/styles/<name>.css`. The staff app imports its own part straight after ([below](#the-staff-apps-own-part)). |
-| `import Icon, { BrandMark } from "@bmp/ui/Icon"` | The icon set (`<Icon name="…" />`) and the product's mark |
+| `import Icon, { BrandMark } from "@bmp/ui/Icon"` | The icon set (`<Icon name="…" />`) and the product's mark (`<BrandMark />`; `icon` puts another mark in its tile, the restaurant's cloche or a workspace's, and `color` a business's accent) |
+| `import { drawing, markSvg } from "@bmp/ui/drawings"` | The drawings: the screens' set (`drawings.jsx`) and the menu's (`menuIcons.jsx`, which the staff app's `NavIcon` draws) are one set of names, so a name either set draws is never blank on a screen or in the menu; `markSvg` is a mark's tile as an SVG file, for a browser tab's icon |
+| `import { BUSINESS_ICONS, BUSINESS_ACCENTS } from "@bmp/ui/businessIcons"` | The marks a business type or kind may have (Platform › Business types offers them; the staff app's icons are drawn for each), and each accent's strong colour, for a business's mark drawn as a solid tile |
 | `import ComboChoicePicker from "@bmp/ui/menu/ComboChoicePicker"`, `@bmp/ui/menu/AddonChoiceRules` | A dish's combo and add-on choices, used by the POS and the guest pages |
 | `import PageLoadBoundary from "@bmp/ui/PageLoadBoundary"` | Around each app's routes (`<PageLoadBoundary resetKey={pathname}>`): a page whose code fails to load (a new version gone live while the tab was open) reloads once by itself, remembered for that address in the tab (`@bmp/shared/pageLoad`); a second failure, or any other error while drawing a page, shows a short message with a *Reload* button, never a blank screen, and the error is still reported as uncaught (`reportError`). Going to another address tries again. |
 

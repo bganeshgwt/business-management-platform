@@ -1,10 +1,14 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import PinPad from "./PinPad";
 import { BrandMark } from "@bmp/ui/Icon";
+import { BusinessMark } from "./TypeMark";
+import { BusinessContext } from "../context/business-context";
 import useAuth from "../hooks/useAuth";
 import useShake from "../hooks/useShake";
 import { listTillUsers, pinLogin, unlockTill } from "../services/auth.service";
 import { getErrorMessage } from "../services/api";
+import { RESTAURANT_MARK } from "../services/appManifest";
+import { makeTerms } from "../services/terms";
 import ChoosePin from "../modules/access/pages/ChoosePin";
 
 const initials = (name) =>
@@ -18,17 +22,31 @@ const initials = (name) =>
 
 const clock = () => new Date().toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
 
-// A shared till, locked. The session is still there underneath — the order
-// being typed, the bill on screen — so the person who was using it picks up
-// exactly where they were with their PIN. Anyone else taps their name and
-// types their own PIN, and the till carries on as them; the activity log then
-// says who did what, instead of everything happening under one login.
+// A shared till or screen, locked. The session is still there underneath —
+// the order being typed, the bill on screen — so the person who was using it
+// picks up exactly where they were with their PIN. Anyone else taps their
+// name and types their own PIN, and the screen carries on as them; the
+// activity log then says who did what, instead of everything happening under
+// one login.
 //
-// A PIN someone else set (an admin, under Users) unlocks the till only once
+// It names the place it locks: the open business (Business Admin, a clinic's
+// or a salesperson's workspace) with its mark and its word for what is locked
+// (a shop's till, a gym's or a clinic's screen), else the restaurant signed in
+// to, with its own mark and till.
+//
+// A PIN someone else set (an admin, under Users) unlocks the screen only once
 // its person has chosen their own, here and then (ChoosePin); taking over the
-// till with one opens the same step over the app (PinChangePrompt).
+// screen with one opens the same step over the app (PinChangePrompt).
 export default function LockScreen() {
   const { user, unlock, switchUser, logout, refreshUser } = useAuth();
+  // The business open, when one is (the restaurant's screens and the captain
+  // app have none): its name, its mark and its word for what is locked.
+  const business = useContext(BusinessContext);
+  const open = business?.businessId ? business : null;
+  const place = open ? open.current?.name || open.context?.business?.name || "" : user.restaurantName || "";
+  const t = open ? makeTerms(open.context?.terms) : null;
+  const till = t ? t("till") : "Till";
+  const tillLower = t ? t.lower("till") : "till";
   // The PIN that unlocked it was set by someone else: its person chooses their own first.
   const [choosingPin, setChoosingPin] = useState(false);
   const [people, setPeople] = useState([]);
@@ -117,7 +135,7 @@ export default function LockScreen() {
               unlock();
             }}
             onCancel={() => setChoosingPin(false)}
-            cancelLabel="Back to the locked till"
+            cancelLabel={`Back to the locked ${tillLower}`}
           />
         </div>
       </div>
@@ -129,8 +147,9 @@ export default function LockScreen() {
       <div className="acc-lock-panel">
         <div className="acc-lock-top">
           <span className="acc-lock-brand">
-            <BrandMark size={30} />
-            <span className="muted small">{user.restaurantName}</span>
+            {open ? <BusinessMark look={open.context?.look || open.current?.look} size={30} />
+              : <BrandMark size={30} icon={user.restaurantId ? RESTAURANT_MARK : "brand"} />}
+            {place && <span className="muted small">{place}</span>}
           </span>
           <span className="acc-lock-time">{time}</span>
         </div>
@@ -140,7 +159,7 @@ export default function LockScreen() {
             <rect x="4" y="11" width="16" height="10" rx="2" />
             <path d="M8 11V7a4 4 0 0 1 8 0v4" />
           </svg>
-          Till locked
+          {till} locked
         </h1>
 
         <div className="acc-lock-body">
@@ -153,7 +172,7 @@ export default function LockScreen() {
                 <strong>{who ? who.name : user.name}</strong>
                 <div className="muted small">
                   {who
-                    ? "Enter your PIN to take over this till"
+                    ? `Enter your PIN to take over this ${tillLower}`
                     : usesPassword
                       ? "Enter your password to carry on — set a PIN under My profile to make this quicker"
                       : "Enter your PIN to carry on where you left off"}

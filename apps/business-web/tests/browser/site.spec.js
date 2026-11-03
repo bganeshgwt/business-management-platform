@@ -114,7 +114,8 @@ test("signing up a grocery: its owner is signed in at once, in the business's ow
   await expect(page).toHaveURL(/\/business-admin\/\d+/, { timeout: 60_000 });
   await networkQuiet(page);
   await expect(page.getByText(SITE_SIGNUP.business.name).first()).toBeVisible();
-  await expect(page).toHaveTitle("Business Admin · Business Management Platform");
+  // The tab names the new business.
+  await expect(page).toHaveTitle(`${SITE_SIGNUP.business.name} · Business Admin`);
 });
 
 test("the call-back form on the home page thanks the visitor", async ({ page }) => {

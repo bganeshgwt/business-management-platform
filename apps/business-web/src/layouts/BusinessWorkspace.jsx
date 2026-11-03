@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useLayoutEffect, useRef } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
-import Icon, { BrandMark } from "@bmp/ui/Icon";
+import Icon from "@bmp/ui/Icon";
 import useAuth from "../hooks/useAuth";
 import useBusiness from "../hooks/useBusiness";
 import BusinessProvider from "../context/BusinessProvider";
@@ -8,6 +8,7 @@ import BusinessLocationSwitcher from "../components/BusinessLocationSwitcher";
 import LiveIndicator from "../components/LiveIndicator";
 import ActionMenu from "../components/ActionMenu";
 import LockScreen from "../components/LockScreen";
+import { BusinessMark } from "../components/TypeMark";
 import WorkspaceTabs from "../components/WorkspaceTabs";
 import SectionCard from "../components/SectionCard";
 import { ScreenLoading } from "../components/Feedback";
@@ -98,10 +99,12 @@ export function WorkspaceFrame({ kind, live, tabs = [], tools, children }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const mainRef = useRef(null);
-  // Installing from here installs the workspace's own app (the clinic's, the lab's).
-  useAppManifest(kind);
-  const install = useInstall(kind);
   const business = biz.context?.business || null;
+  const look = biz.context?.look || biz.current?.look || null;
+  // Installing from here installs the workspace's own app (the clinic's, the
+  // lab's); the tab shows the business's mark and name.
+  useAppManifest(kind, business ? { icon: look?.icon, accent: look?.accent, name: business.name } : null);
+  const install = useInstall(kind);
   const branch = biz.context?.member?.location_name
     || (biz.context?.currentLocationId ? (biz.context.allLocations || []).find((l) => String(l.id) === String(biz.context.currentLocationId))?.name : null);
   const otherOpens = Boolean(business) && Boolean(other) && biz.has(WORKSPACE_APPS[other].module) && workspaceAllowed(WORKSPACE_APPS[other], biz.can);
@@ -111,7 +114,7 @@ export function WorkspaceFrame({ kind, live, tabs = [], tools, children }) {
   // The person's menu: the other workspace, Business Admin and another business, then their own.
   const places = [
     otherOpens && { label: WORKSPACE_APPS[other].title, icon: WORKSPACE_APPS[other].icon, onClick: () => navigate(`/${other}/${business.id}`) },
-    business && { label: "Business Admin", icon: "store", onClick: () => navigate(businessPath(business.id)) },
+    business && { label: "Business Admin", icon: "grid", onClick: () => navigate(businessPath(business.id)) },
     several && { label: plan.words.another, icon: "switch", onClick: () => navigate(`/${kind}?choose`) },
   ].filter(Boolean);
   const menu = [...places, ...(places.length ? [{ separator: true }] : []),
@@ -130,7 +133,7 @@ export function WorkspaceFrame({ kind, live, tabs = [], tools, children }) {
       <a className="skip-link" href="#ws-main" onClick={(event) => { event.preventDefault(); mainRef.current?.focus(); }}>Skip to content</a>
       <header className="topbar ws-bar">
         <Link to={tabs[0]?.to || `/${kind}`} className="brand" aria-label={`${business?.name || plan.title}: ${plan.title}`}>
-          <BrandMark size={34} />
+          <BusinessMark look={look} size={34} />
           <span className="brand-text">
             <span className="brand-name">{business?.name || plan.title}</span>
             <span className="brand-restaurant">{[plan.title, branch].filter(Boolean).join(" · ")}</span>
