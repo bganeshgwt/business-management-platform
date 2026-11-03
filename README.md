@@ -41,7 +41,7 @@ code, the online ordering link or the booking link; nobody signs in there.
 | Auth | JWT sessions, bcrypt passwords, optional two-step sign-in (authenticator app), staff PINs |
 | Migrations | node-pg-migrate, plain SQL files in `backend/migrations` |
 | Tests and lint | Node's test runner (`node --test`), Playwright for the browser tests, oxlint |
-| CI | GitHub Actions (`.github/workflows/checks.yml`) on every push and pull request: the backend's unit and integration tests, lint, the workspaces' unit tests and both builds. The browser tests are not part of CI. |
+| CI | GitHub Actions on every push and pull request: `.github/workflows/checks.yml` runs the backend's unit and integration tests, lint, the workspaces' unit tests and both builds; `.github/workflows/browser-tests.yml` runs the browser tests in four parts side by side (on pushes to `main` and pull requests). |
 
 ## Repository layout
 

@@ -1,0 +1,69 @@
+name: Browser tests
+# The browser (end-to-end) tests of both web apps: Playwright drives Chromium
+# through the staff app and the guests' site, on servers and a database of
+# their own (e2e/, docs/TESTING.md). Split into four parts that run side by
+# side; each part makes its own test database and test data.
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+# A newer push to the same branch replaces a run still going.
+concurrency:
+  group: browser-tests-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  browser:
+    name: Browser tests (${{ matrix.shard }} of 4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: restaurant_test
+          POSTGRES_PASSWORD: local_ci_only
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U restaurant_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # Where PostgreSQL is: the run makes its own database there (there is no backend/.env).
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USER: restaurant_test
+      DB_PASSWORD: local_ci_only
+      # India's clock for the browser and the servers, as at a counter in India:
+      # the specs' dates are the businesses' own.
+      TZ: Asia/Kolkata
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            package-lock.json
+      - run: npm ci
+        working-directory: backend
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --config e2e/playwright.config.mjs --shard=${{ matrix.shard }}/4
+      # What failed, to look at: each failing test's screenshot and the test API's
+      # log. Never the run's logins file (its test passwords), which the run
+      # deletes itself as it ends.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-test-results-${{ matrix.shard }}
+          path: |
+            test-results/
+            !test-results/e2e-fixture.json
+          retention-days: 7

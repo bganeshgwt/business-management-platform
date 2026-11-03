@@ -37,8 +37,8 @@ In `backend`, `npm test` runs the backend's unit tests alone, and
 
 Before merging a change, run `npm test`, `npm run test:integration`,
 `npm run lint` and `npm run build`, and `npm run test:browser` when the change
-touches screens. CI runs all of them but the browser tests
-([Continuous integration](#continuous-integration)).
+touches screens. CI runs all of them, the browser tests in a workflow of
+their own ([Continuous integration](#continuous-integration)).
 
 ## Unit tests
 
@@ -1003,11 +1003,27 @@ replaces with its own database) and `NODE_ENV=test`; there is no
 3. `npm run test:integration` in `backend`;
 4. `npm ci` at the root;
 5. `npm run lint`;
-6. `npm test --workspaces --if-present`: the staff app's and `@bmp/shared`'s
-   unit tests;
+6. `npm test --workspaces --if-present`: the staff app's, the guests' site's
+   and `@bmp/shared`'s unit tests;
 7. `npm run build`, with `VITE_API_BASE_URL=/api` and
    `VITE_CUSTOMER_WEB_URL=same-origin`: both apps built as one domain serves
    them.
 
-A failing step stops the job. CI does not run the browser tests or the load
-test: run `npm run test:browser` yourself when a change touches screens.
+A failing step stops the job.
+
+`.github/workflows/browser-tests.yml` ("Browser tests") runs the browser tests
+on every push to `main` and every pull request: the same `npm run test:browser`
+run, split into four parts that run side by side
+(`npx playwright test --config e2e/playwright.config.mjs --shard=<n>/4`), each
+on Ubuntu with Node.js 24, a PostgreSQL 17 service and Playwright's Chromium
+(`npx playwright install --with-deps chromium`). Each part makes its own test
+database and test data, as a run on a developer's computer does; the job's
+environment holds only where PostgreSQL is (`DB_HOST`, `DB_PORT`, `DB_USER`,
+`DB_PASSWORD`) and `TZ=Asia/Kolkata`, so the browser and the servers keep
+India's clock as the specs' dates do. A newer push to the same branch replaces
+a run still going. When a part fails, its `test-results/` (each failing test's
+screenshot and the test API's log, never the run's logins file) is kept with
+the run for a week. The fonts are Linux's, not Windows' Segoe UI, so a screen
+that only fits with Segoe UI's narrower letters shows up here.
+
+CI does not run the load test.

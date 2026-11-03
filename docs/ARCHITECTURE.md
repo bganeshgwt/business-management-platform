@@ -1287,6 +1287,7 @@ workspaces; the backend has its own install.
 <repo>/
 ├── README.md                 what it is, set-up, commands, project rules, the index of the docs
 ├── .github/workflows/checks.yml   CI: backend unit + integration tests; lint, the apps' and packages' Node tests, both builds
+├── .github/workflows/browser-tests.yml   CI: the browser tests (e2e/), in four parts side by side
 ├── package.json              npm workspaces (apps/*, packages/*) and the commands for everything
 ├── .oxlintrc.json            one lint configuration for apps/, packages/, tools/ and e2e/
 ├── tools/dev.mjs             npm run dev: the API, the staff app and the guests' site together
