@@ -58,21 +58,31 @@ test("a gym with Stock on adds a plan or service in its own words", async ({ pag
     await page.goto(`/business-admin/${gym.id}/products?new=1`);
     const item = page.getByRole("dialog", { name: "Add a plan or service" });
     await expect(item).toBeVisible({ timeout: 30_000 });
-    const kind = item.getByLabel("Kind", { exact: true });
-    await expect(kind).toHaveValue("service");
-    await expect(kind.locator("option")).toHaveText(["Service", "Product for sale (kept in stock)"]);
-    await expect(item.getByLabel("Plan or service name", { exact: true })).toHaveAttribute("placeholder", "e.g. Monthly membership");
+    // Plans are made in Membership plans; this form holds the rest, in the gym's examples.
+    await expect(item.getByText("Selling a membership?")).toBeVisible();
+    await expect(item.getByRole("link", { name: "Settings › Membership plans" })).toHaveAttribute("href", `/business-admin/${gym.id}/member-plans`);
+    await expect(item.getByText(/Add here the other things you charge for: Joining fee, personal training, locker rent, and what you sell: Protein powder/)).toBeVisible();
+    const kinds = item.getByRole("group", { name: "What is it?" }).getByRole("radio");
+    await expect(kinds).toHaveCount(2);
+    const asService = item.getByRole("radio", { name: /^Service/ });
+    const asProduct = item.getByRole("radio", { name: /^Product for sale \(kept in stock\)/ });
+    await expect(asService).toBeChecked();
+    await expect(item.getByText("Work you do or time you sell. Nothing is counted in stock. e.g. Joining fee, personal training, locker rent")).toBeVisible();
+    await expect(item.getByText("Something you sell from the shelf. Stock goes down with each sale. e.g. Protein powder, water bottle, gym gloves")).toBeVisible();
+    await expect(item.getByLabel("Plan or service name", { exact: true })).toHaveAttribute("placeholder", "e.g. Joining fee");
     await expect(item.getByLabel("Plan code", { exact: true })).toBeVisible();
-    await expect(item.getByLabel("Billed per", { exact: true })).toBeVisible();
-    for (const label of ["Barcode (optional)", "Brand (optional)", "Stock unit", "MRP (optional)"]) await expect(item.getByLabel(label, { exact: true })).toHaveCount(0);
+    await expect(item.getByLabel("Charged per", { exact: true })).toBeVisible();
+    for (const label of ["Barcode (optional)", "Brand (optional)", "Stock counted in", "MRP (optional)"]) await expect(item.getByLabel(label, { exact: true })).toHaveCount(0);
     // No Variants: the name on the bill gives no variant's example.
     await expect(item.getByText(/For a variant/)).toHaveCount(0);
     await expect(item.getByText("What a loyalty member pays when the bill names them. Below the selling price.")).toBeVisible();
     await page.screenshot({ path: testInfo.outputPath("gym-item-service.png") });
 
     // As a product for sale: the goods' fields, with the gym's own examples.
-    await kind.selectOption({ label: "Product for sale (kept in stock)" });
-    await expect(item.getByLabel("Stock unit", { exact: true })).toBeVisible();
+    await asProduct.check();
+    await expect(item.getByLabel("Stock counted in", { exact: true })).toBeVisible();
+    await expect(item.getByLabel("Item code", { exact: true })).toBeVisible();
+    await expect(item.getByLabel("Plan or service name", { exact: true })).toHaveAttribute("placeholder", "e.g. Protein powder");
     await expect(item.getByText("Where it sits, e.g. “Reception rack”.")).toBeVisible();
     await expect(item.getByText("For use in services only, not sold (e.g. disinfectant, towels). It stays out of the bill.")).toBeVisible();
     await expect(item.getByLabel("MRP (optional)", { exact: true })).toBeVisible();
@@ -80,7 +90,7 @@ test("a gym with Stock on adds a plan or service in its own words", async ({ pag
     await page.screenshot({ path: testInfo.outputPath("gym-item-product.png") });
 
     // Back to a service, and saved: the barcode typed for a product is not kept.
-    await kind.selectOption({ label: "Service" });
+    await asService.check();
     await expect(item.getByLabel("Barcode (optional)", { exact: true })).toHaveCount(0);
     await item.getByLabel("Plan or service name", { exact: true }).fill(service.name);
     await item.getByLabel("Plan code", { exact: true }).fill(service.code);
@@ -99,9 +109,9 @@ test("a gym with Stock on adds a plan or service in its own words", async ({ pag
     // A product for sale: once the gym keeps one, the list shows what is in stock.
     await page.getByRole("button", { name: "Add plan or service", exact: true }).click();
     const added = page.getByRole("dialog", { name: "Add a plan or service" });
-    await added.getByLabel("Kind", { exact: true }).selectOption({ label: "Product for sale (kept in stock)" });
+    await added.getByRole("radio", { name: /^Product for sale/ }).check();
     await added.getByLabel("Plan or service name", { exact: true }).fill(product.name);
-    await added.getByLabel("Plan code", { exact: true }).fill(product.code);
+    await added.getByLabel("Item code", { exact: true }).fill(product.code);
     await added.getByLabel(/^Selling price/).fill("2400");
     await added.getByRole("button", { name: "Save", exact: true }).click();
     await expect(added).toHaveCount(0, { timeout: 15_000 });
@@ -141,11 +151,11 @@ test("a grocery adds goods first, a grocer's way; a supermarket keeps its depart
   await page.goto(`/business-admin/${grocery.id}/products?new=1`);
   const item = page.getByRole("dialog", { name: "Add a product" });
   await expect(item).toBeVisible({ timeout: 30_000 });
-  const kind = item.getByLabel("Kind", { exact: true });
-  await expect(kind).toHaveValue("goods");
-  await expect(kind.locator("option")).toHaveText(["Goods (kept in stock)", "Service"]);
+  await expect(item.getByRole("radio", { name: /^Goods \(kept in stock\)/ })).toBeChecked();
+  await expect(item.getByRole("radio", { name: /^Service/ })).not.toBeChecked();
+  await expect(item.getByText("Selling a membership?")).toHaveCount(0);
   await expect(item.getByLabel("Product name", { exact: true })).toHaveAttribute("placeholder", "e.g. Toor dal 1 kg");
-  for (const label of ["SKU code", "Barcode (optional)", "Stock unit", "Brand (optional)", "MRP (optional)"]) await expect(item.getByLabel(label, { exact: true })).toBeVisible();
+  for (const label of ["SKU code", "Barcode (optional)", "Stock counted in", "Brand (optional)", "MRP (optional)"]) await expect(item.getByLabel(label, { exact: true })).toBeVisible();
   await expect(item.getByText("Where it sits, e.g. “Aisle 3 · Shelf B”.")).toBeVisible();
   await expect(item.getByText(/For use in services only/)).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("grocery-item-goods.png") });

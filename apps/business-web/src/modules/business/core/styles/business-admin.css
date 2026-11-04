@@ -643,6 +643,56 @@
   }
 }
 
+/* The Add item dialog: where a membership plan is made instead, and the kind
+   chosen from two cards, each saying what it means. */
+.bz-note {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.bz-note > svg {
+  flex: none;
+  margin-top: 2px;
+}
+.bz-kinds {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.bz-kinds legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+  font-weight: var(--weight-medium);
+}
+.bz-kinds > small {
+  grid-column: 1 / -1;
+}
+.bz-kind {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.bz-kind.is-on {
+  border-color: var(--accent, var(--border-strong));
+  background: var(--surface-2);
+}
+.bz-kind input {
+  margin-top: 3px;
+}
+
 /* Opening stock in the Add item dialog. */
 .bz-opening {
   grid-column: 1 / -1;

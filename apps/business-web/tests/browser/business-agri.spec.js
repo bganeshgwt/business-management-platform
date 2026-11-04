@@ -96,7 +96,7 @@ test("the item form keeps a pesticide's molecules and refuses a banned one", asy
   await expect(dialog).toBeVisible({ timeout: 30_000 });
   await dialog.getByLabel("Product name").fill("Dicofol 18.5% EC 250 ml");
   await dialog.getByLabel("SKU code").fill("DCF-250");
-  await dialog.getByLabel("Stock unit").selectOption({ label: "Bottle" });
+  await dialog.getByLabel("Stock counted in", { exact: true }).selectOption({ label: "Bottle" });
   await dialog.getByLabel("Selling price (including GST)").fill("300");
   await dialog.getByLabel("Kind of farm input").selectOption({ label: "Pesticide" });
   await dialog.getByLabel("Active molecule").fill("Dicofol");

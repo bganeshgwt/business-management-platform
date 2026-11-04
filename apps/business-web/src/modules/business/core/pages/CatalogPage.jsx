@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import DataGrid from "../../../../components/DataGrid/DataGrid";
 import Icon from "@bmp/ui/Icon";
 import SectionCard from "../../../../components/SectionCard";
@@ -217,7 +217,21 @@ function CatalogDialog({ sku, onClose, onSaved }) {
   const lensAttributes = lensItemOffered ? lensItemAttributes(form.lensItem, { editing, was: lensItemForm(sku) }) : {};
   // A service carries none of the goods' details, even ones typed before its kind was changed.
   const goodsDetails = form.kind === "goods" ? {} : { barcode: "", brand: "", mrp: "", shelfLocation: "", reorderLevel: 0 };
-  const examples = { name: t.ex("item_name"), variant: t.ex("variant"), shelf: t.ex("shelf"), consumables: t.ex("consumables") };
+  const examples = { name: t.ex("item_name"), variant: t.ex("variant"), shelf: t.ex("shelf"), consumables: t.ex("consumables"),
+    service: t.ex("service_item"), goods: t.ex("goods_item") };
+  // What each kind means, in the business's own examples.
+  const kindHints = {
+    service: `Work you do or time you sell. Nothing is counted in stock.${examples.service ? ` e.g. ${examples.service}` : ""}`,
+    goods: `Something you sell from the shelf. Stock goes down with each sale.${examples.goods ? ` e.g. ${examples.goods}` : ""}`,
+  };
+  // The code in the business's word, but goods at a business whose items are
+  // services (a gym's protein powder) take a plain "Item code", not "Plan code".
+  const codeLabel = goodsFirst(biz) || form.kind === "service" ? t("item_code") : "Item code";
+  // The name's example: the first of the chosen kind's, else the business's item.
+  const nameExample = examples[form.kind]?.split(",")[0].trim() || examples.name;
+  const namePlaceholder = nameExample ? `e.g. ${nameExample}` : undefined;
+  // A gym's, studio's or coaching centre's plans are made in Membership plans, not here.
+  const plansElsewhere = !editing && biz.type === "memberships" && biz.can("member_plans.view");
 
   const submit = () => (grid
     ? businessWrite(biz.id, "optical/power-grid", gridBody(form, taxRateId)).then((r) => ({ ...r, label: `${r.product.name}: ${r.created} ${r.created === 1 ? "power" : "powers"}` }))
@@ -239,18 +253,37 @@ function CatalogDialog({ sku, onClose, onSaved }) {
     <FormDialog title={editing ? `Edit ${sku.label}` : `Add ${t.a("item")}`} icon="tag" width={720} onClose={onClose} onSaved={onSaved} onSubmit={() => submit().then((saved) => (online.current ? online.current.save(saved) : saved))} disabled={!options}>
       <FormError message={error} />
       {!options && !error && <div className="field-wide"><Loading /></div>}
+      {plansElsewhere && (
+        <p className="bz-note field-wide">
+          <Icon name="idCard" size={16} />
+          <span>
+            <strong>Selling a membership?</strong> Plans with their months, sessions, freezes and renewals are made in{" "}
+            {biz.can("member_plans.edit") ? <Link to={biz.path("member-plans")}>Settings › Membership plans</Link> : "Settings › Membership plans"}.
+            Add here the other things you charge for{examples.service ? `: ${examples.service}` : ""}{biz.has("inventory") && examples.goods ? `, and what you sell: ${examples.goods}` : ""}.
+          </span>
+        </p>
+      )}
       {!editing && (
         <>
           <Field label={`${t("item")} name`} wide>
-            <input required maxLength={150} value={form.name} onChange={set("name")} placeholder={examples.name ? `e.g. ${examples.name}` : undefined} />
+            <input required maxLength={150} value={form.name} onChange={set("name")} placeholder={namePlaceholder} />
           </Field>
-          {/* The kind first: the fields below follow it. */}
-          <Field label="Kind" hint={biz.has("inventory") ? undefined : `For ${t.lower("goods", "many")} kept in stock, an owner switches Stock on under Settings › Business tools.`}>
-            <select value={form.kind} onChange={set("kind")}>
-              {kinds.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </Field>
-          <Field label={form.kind === "service" ? "Billed per" : "Stock unit"}>
+          {/* The kind first, each with what it means: the fields below follow it. */}
+          <fieldset className="bz-kinds field-wide">
+            <legend>What is it?</legend>
+            {kinds.map(([value, label]) => (
+              <label key={value} className={`bz-kind${form.kind === value ? " is-on" : ""}`}>
+                <input type="radio" name="item-kind" value={value} checked={form.kind === value} onChange={set("kind")} />
+                <span className="bz-two-line">
+                  <span>{label}</span>
+                  <small className="muted">{kindHints[value]}</small>
+                </span>
+              </label>
+            ))}
+            {!biz.has("inventory") && <small className="muted">To sell {t.lower("goods", "many")} kept in stock, an owner switches Stock on under Settings › Business tools.</small>}
+          </fieldset>
+          <Field label={form.kind === "service" ? "Charged per" : "Stock counted in"}
+            hint={form.kind === "service" ? "How the price is counted: once, an hour, a session or a month." : "How you count it in stock: Each (piece) for packs and bottles, Kilogram or Litre for loose goods."}>
             <select required value={form.unit} onChange={set("unit")}>
               {unitChoices.map((u) => <option key={u.code} value={u.code}>{u.name}</option>)}
             </select>
@@ -271,7 +304,9 @@ function CatalogDialog({ sku, onClose, onSaved }) {
           )}
           {grid
             ? <Field label="Code prefix" hint="Each power's code: the prefix and the power (AO6-M250 for -2.50)."><input required={!form.productId} maxLength={20} value={form.code} onChange={set("code")} className="mono" /></Field>
-            : <Field label={t("item_code")}><input required maxLength={60} value={form.code} onChange={set("code")} className="mono" /></Field>}
+            : <Field label={codeLabel} hint="A short code of your own, to find it fast when billing.">
+              <input required maxLength={60} value={form.code} onChange={set("code")} className="mono" />
+            </Field>}
           {!grid && form.kind === "goods" && <Field label="Barcode (optional)"><input maxLength={80} value={form.barcode} onChange={set("barcode")} className="mono" /></Field>}
           {form.kind === "goods" && (
             <Field label="Stock tracking">

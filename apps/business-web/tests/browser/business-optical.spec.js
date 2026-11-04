@@ -138,7 +138,7 @@ test("contact lenses: the item form makes one item for each power", async ({ pag
   const dialog = page.getByRole("dialog", { name: "Add a product" });
   await expect(dialog).toBeVisible({ timeout: 30_000 });
   await dialog.getByLabel("Product name").fill("Acuvue Oasys (box of 6)");
-  await dialog.getByLabel("Stock unit").selectOption({ label: "Box" });
+  await dialog.getByLabel("Stock counted in", { exact: true }).selectOption({ label: "Box" });
   await dialog.getByLabel(/Contact lenses: one item for each power/).check();
   await dialog.getByLabel("Base curve (mm)").fill("8.4");
   await dialog.getByLabel("Diameter (mm)").fill("14");
