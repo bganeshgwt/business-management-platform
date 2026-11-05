@@ -8328,8 +8328,12 @@ still do it once with a **manager's PIN**.
 
 ### The built-in roles
 
-Shared by every restaurant and fixed; use **Copy role** to make your own
-version and change that.
+Shared by every restaurant, so the built-in role itself never changes.
+**Edit role** in its ⋯ menu makes this restaurant's own version, named
+*Cashier (our version)* to start, with the same permissions. The people who
+have the built-in role are moved onto it (untick to leave them), and the
+permissions form opens on it. **Copy role** does the same without moving
+anyone, for a second role beside the first.
 
 | Role | In short |
 | --- | --- |

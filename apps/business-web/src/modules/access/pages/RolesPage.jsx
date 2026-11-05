@@ -141,14 +141,17 @@ export default function RolesPage() {
     setEditing(role);
   };
 
-  const openCopy = (role) => {
+  // Editing a built-in role: it is shared by every restaurant, so the edit is
+  // made on this restaurant's own version of it, with its people moved onto
+  // it (when the editor may move people), and the form opens on it at once.
+  const openCopy = (role, forEdit = false) => {
     setCopyForm({
       name: `${role.name} (our version)`,
       description: role.description || `Our own version of ${role.name}`,
-      moveUsers: false,
+      moveUsers: forEdit && canMoveUsers && role.userCount > 0,
     });
     setFormError("");
-    setCopying(role);
+    setCopying({ ...role, forEdit });
   };
 
   const change = (field) => (event) => setForm({ ...form, [field]: event.target.value });
@@ -406,7 +409,7 @@ export default function RolesPage() {
                     <ActionMenu
                       label={`More actions for the ${role.name} role`}
                       items={[
-                        ...(role.isSystem ? [] : [{ label: "Edit role", icon: "edit", onClick: () => openEdit(role) }]),
+                        { label: "Edit role", icon: "edit", onClick: () => (role.isSystem ? openCopy(role, true) : openEdit(role)) },
                         { label: "Copy role", icon: "copy", onClick: () => openCopy(role) },
                         ...(role.isSystem
                           ? []
@@ -437,8 +440,8 @@ export default function RolesPage() {
           title={`${viewing.name} — what it can do`}
           description={
             viewing.isSystem
-              ? `A built-in role shared by every restaurant, so it cannot be changed here.${
-                  canManage ? " Use Copy role to make your own version and trim it." : ""
+              ? `A built-in role shared by every restaurant.${
+                  canManage ? " Edit role in the ⋯ menu changes your own version of it; the built-in one stays as it is." : ""
                 }`
               : viewing.description || "Everything this role can open and do."
           }
@@ -489,8 +492,12 @@ export default function RolesPage() {
 
       {copying && (
         <Modal
-          title={`Copy ${copying.name}`}
-          description={`Makes your own role with the same ${copying.permissions.length} permissions. You can then untick what it should not do — a cashier who bills but cannot void, say.`}
+          title={copying.forEdit ? `Edit ${copying.name}` : `Copy ${copying.name}`}
+          description={
+            copying.forEdit
+              ? `${copying.name} is a built-in role shared by every restaurant, so your changes go on your own version of it, with the same ${copying.permissions.length} permissions to start. Name it, then tick or untick what it may do.`
+              : `Makes your own role with the same ${copying.permissions.length} permissions. You can then untick what it should not do — a cashier who bills but cannot void, say.`
+          }
           icon="copy"
           onClose={() => setCopying(null)}
           width={500}
@@ -499,7 +506,7 @@ export default function RolesPage() {
             <ErrorMessage message={formError} />
 
             <label className="field field-wide">
-              <span>Name of the copy</span>
+              <span>{copying.forEdit ? "Name of your version" : "Name of the copy"}</span>
               <input
                 value={copyForm.name}
                 onChange={(event) => setCopyForm({ ...copyForm, name: event.target.value })}
@@ -527,7 +534,7 @@ export default function RolesPage() {
                 />
                 <span>
                   Move the {copying.userCount} {copying.userCount === 1 ? "person" : "people"} who have {copying.name}{" "}
-                  onto the copy, so the changes apply to them
+                  onto {copying.forEdit ? "your version" : "the copy"}, so the changes apply to them
                 </span>
               </label>
             )}
@@ -537,7 +544,7 @@ export default function RolesPage() {
                 Cancel
               </button>
               <button type="submit" className="button" disabled={saving}>
-                {saving ? "Copying…" : "Copy role"}
+                {saving ? "Saving…" : copying.forEdit ? "Edit my version" : "Copy role"}
               </button>
             </div>
           </form>
