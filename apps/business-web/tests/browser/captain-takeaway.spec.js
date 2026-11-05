@@ -3,8 +3,8 @@ import { test, expect } from "@playwright/test";
 import { fixture, signIn } from "../../../../e2e/fixture.mjs";
 
 // The captain app's Tables screen starts an order with no table: Takeaway
-// (and Delivery while deliveries are on) opens the order screen on that kind
-// of order, with no table to pick. Signs in as the test restaurant's captain
+// opens the order screen on a new parcel, with no table to pick. Deliveries
+// are the counter's, so there is no Delivery. Signs in as the test restaurant's captain
 // (e2e/test-data.mjs) and on a phone-sized screen; it places no order.
 
 test("a captain starts a takeaway from the tables, with no table to pick", async ({ page }, testInfo) => {
@@ -18,6 +18,8 @@ test("a captain starts a takeaway from the tables, with no table to pick", async
 
   const starts = page.getByRole("group", { name: "No table" });
   await expect(starts.getByRole("link", { name: "Takeaway" })).toBeVisible({ timeout: 30_000 });
+  // Deliveries are the counter's: the captain app offers none, Deliveries on or off.
+  await expect(starts.getByRole("link", { name: "Delivery" })).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("captain-start-types.png") });
   await starts.getByRole("link", { name: "Takeaway" }).click();
 

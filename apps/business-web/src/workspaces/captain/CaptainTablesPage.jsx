@@ -24,7 +24,7 @@ import "../../modules/restaurant/orders/styles/pos.css";
 export default function CaptainTablesPage() {
   const floor = useFloor();
   const { online } = useOnline();
-  const { hasPermission, hasFeature } = useAuth();
+  const { hasPermission } = useAuth();
   const [openId, setOpenId] = useState(null);
   const table = openId ? (floor.tables || []).find((row) => String(row.id) === String(openId)) || null : null;
   // The sheet's waiting clocks move by the second; the tiles by the minute.
@@ -36,16 +36,16 @@ export default function CaptainTablesPage() {
   const requests = useRequestActions(floor);
   const serving = useServe(floor);
   const billAsk = useBillAsk(floor);
-  // Orders with no table: a parcel at the counter, a phone order for delivery.
-  // Offered as the POS takes them (Service settings: Orders the POS takes;
-  // delivery only with Deliveries on), to whoever may take orders.
+  // An order with no table: a parcel (takeaway), while the POS takes them
+  // (Service settings: Orders the POS takes), for whoever may take orders.
+  // Deliveries are the counter's: the captain app takes none.
   const [orderTypes, setOrderTypes] = useState(null);
 
   useEffect(() => {
     let current = true;
 
     getServiceSettings()
-      .then((loaded) => current && setOrderTypes(loaded.posOrderTypes || ["dine_in", "takeaway", "delivery"]))
+      .then((loaded) => current && setOrderTypes(loaded.posOrderTypes || ["dine_in", "takeaway"]))
       .catch(() => current && setOrderTypes(["dine_in", "takeaway"]));
 
     return () => {
@@ -53,12 +53,10 @@ export default function CaptainTablesPage() {
     };
   }, []);
 
-  const startTypes = hasPermission("orders.create") && orderTypes
-    ? [
-        orderTypes.includes("takeaway") && { type: "takeaway", label: "Takeaway", icon: "box" },
-        orderTypes.includes("delivery") && hasFeature("deliveries") && { type: "delivery", label: "Delivery", icon: "scooter" },
-      ].filter(Boolean)
-    : [];
+  const startTypes =
+    hasPermission("orders.create") && orderTypes && orderTypes.includes("takeaway")
+      ? [{ type: "takeaway", label: "Takeaway", icon: "box" }]
+      : [];
 
   const close = () => {
     setOpenId(null);

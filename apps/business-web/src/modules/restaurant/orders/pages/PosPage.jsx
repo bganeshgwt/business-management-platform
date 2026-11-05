@@ -198,7 +198,12 @@ export default function PosPage({ captain = null }) {
   // takes no dine-in) and the one a new order starts on.
   const [posSetup, setPosSetup] = useState(null);
   const startType = posSetup?.defaultOrderType || FORMAT_START[user.restaurantFormat] || "dine_in";
-  const orderTypes = ORDER_TYPES.filter((type) => (type.value !== "delivery" || deliveriesOn) && (!posSetup || posSetup.posOrderTypes.includes(type.value)));
+  // The captain app takes no deliveries: they are the counter's.
+  const orderTypes = ORDER_TYPES.filter(
+    (type) =>
+      (type.value !== "delivery" || (deliveriesOn && !captain)) &&
+      (!posSetup || posSetup.posOrderTypes.includes(type.value))
+  );
   const dineInOn = orderTypes.some((type) => type.value === "dine_in");
   const [weighing, setWeighing] = useState(null);
   // Brands (one kitchen, several names): the brand a new order is taken
@@ -314,6 +319,14 @@ export default function PosPage({ captain = null }) {
   const [delivery, setDelivery] = useState(EMPTY_DELIVERY);
   const [seenDelivery, setSeenDelivery] = useState(EMPTY_DELIVERY);
   const [editingOrder, setEditingOrder] = useState(null);
+
+  // A new order on the captain's phone is never a delivery (a restaurant whose
+  // orders start as deliveries starts the captain's as a parcel).
+  useEffect(() => {
+    if (captain && !editingOrder && orderType === "delivery") {
+      setOrderType("takeaway");
+    }
+  }, [captain, editingOrder, orderType]);
   // A billed order is closed to changes (the server refuses them): the screen
   // offers only its bill, never "Save changes" or a KOT that cannot be saved.
   const orderBilled = Boolean(editingOrder && editingOrder.orderStatus === "billed");
@@ -729,9 +742,9 @@ export default function PosPage({ captain = null }) {
     const table = params.get("table");
     // ?bill=1 (the dashboard's "Bill"): straight on to the bill dialog.
     const toBill = params.get("bill") === "1";
-    // ?type=takeaway or delivery (the captain's Takeaway and Delivery): a new
-    // order of that kind, with no table.
-    const type = ["takeaway", "delivery"].includes(params.get("type")) ? params.get("type") : null;
+    // ?type=takeaway (the captain's Takeaway; ?type=delivery on the counter's
+    // POS only): a new order of that kind, with no table.
+    const type = ["takeaway", ...(captain ? [] : ["delivery"])].includes(params.get("type")) ? params.get("type") : null;
 
     if (!orderId && !table && !type) {
       return;

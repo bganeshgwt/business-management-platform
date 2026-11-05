@@ -1637,10 +1637,10 @@ the alerts bell, the lock and a **⋯** menu) and three tabs at the thumb:
 - **Tables** — the tables of the captain's section today (*My tables*, from
   **Tables & QR → Captain sections**), or every table with *All tables*;
   someone with no section today sees every table, numbered in counting order
-  (T1, T2 … T10). **Takeaway** and **Delivery** under *No table*, after the tables, start an
-  order with no table: a parcel at the counter, or a phone order. They show
-  as the POS takes them (*Orders the POS takes* in the service settings;
-  Delivery only while Deliveries is on). The counter bills them as usual.
+  (T1, T2 … T10). **Takeaway** under *No table*, after the tables, starts a
+  parcel with no table, while the POS takes takeaways (*Orders the POS takes*
+  in the service settings). The counter bills it as usual. The captain app
+  takes no deliveries: they are taken at the counter's POS.
   Each table says at a glance
   what is happening there (free, eating, bill printed, paid, being cleaned,
   held for a booking, out of service) and what is waiting: a guest calling
