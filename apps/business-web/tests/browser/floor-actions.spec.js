@@ -90,14 +90,26 @@ test.describe("floor panel actions", () => {
     row = rowFor(panel, free.tableNo);
     await expect(row).toHaveCount(1);
     await expect(row).not.toContainText("Left open since");
-    await expect(row.getByRole("button", { name: "Open order" })).toBeVisible();
-    await row.getByRole("button", { name: "Bill" }).click();
+    // Open order goes to the POS; once the change is saved (sent to the
+    // kitchen) the POS comes back to this panel.
+    await row.getByRole("button", { name: "Open order" }).click();
     await expect(page).toHaveURL(/\/pos/);
-    // The POS opens the order and goes straight on to its bill.
+    await page.locator(".pos-dish-button").filter({ hasText: dish.name }).first().click({ timeout: 90_000 });
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(page).toHaveURL(/\/\?panel=floor\.busy$/, { timeout: 30_000 });
+    panel = await panelRows(page);
+    row = rowFor(panel, free.tableNo);
+
+    // Bill makes the bill here, over the dashboard: no trip to the POS.
+    await row.getByRole("button", { name: "Bill" }).click();
     const billDialog = page.locator(".modal").filter({ has: page.locator(".bill-pay-button") });
-    await expect(billDialog).toBeVisible({ timeout: 90_000 });
+    await expect(billDialog).toBeVisible({ timeout: 30_000 });
+    await expect(page).toHaveURL(/\/\?panel=floor\.busy$/);
     await expect(billDialog.locator(".bill-pay-button")).toContainText("Take");
-    // Quick cash: the exact amount is one tap.
+    // Both dishes are on it, and quick cash is one tap.
+    const billed = (await api(page, "GET", "/tables")).data.find((table) => table.id === free.id).live;
+    expect(billed.billId).toBeTruthy();
+    expect(billed.unbilledQuantity).toBe(0);
     await expect(billDialog.getByRole("button", { name: "Exact" })).toBeVisible();
     await page.keyboard.press("Escape");
 

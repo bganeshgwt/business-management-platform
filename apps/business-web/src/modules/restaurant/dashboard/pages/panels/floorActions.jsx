@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { markTableReady } from "../../../tables/services/table.service";
 import { getBill } from "../../../billing/services/bill.service";
@@ -20,7 +20,9 @@ import { refreshDashboard } from "./panelData";
 // to someone whose role allows it, by the same permissions the API checks:
 //
 //   free         Start order                      POS (orders.create)
-//   eating       Open order · Bill                POS (orders.create; Bill: billing.manage)
+//   eating       Open order                       POS (orders.create)
+//                Bill                             made here, over the dashboard (billing.manage);
+//                                                 the captain app's own order screen
 //                Cancel order (left open from an earlier day; orders.manage, PIN rules as ever)
 //   bill printed Take payment (payments.manage) · Reprint (PIN for a second copy) · Open order
 //   paid         Open order
@@ -44,6 +46,11 @@ export function useFloorActions(ctx, { orderPath = "/pos", onChanged = refreshDa
   const confirm = useConfirm();
   const [cancelling, setCancelling] = useState(null);
   const bills = useBillDialog(onChanged === refreshDashboard ? undefined : onChanged);
+  // The dashboard panel this was opened from (?panel=floor.all), for the POS
+  // to come back to. The captain app has its own way back.
+  const [params] = useSearchParams();
+  const panel = params.get("panel");
+  const back = orderPath === "/pos" && panel ? `&from=${encodeURIComponent(panel)}` : "";
 
   const can = {
     order: hasPermission("orders.create"),
@@ -87,6 +94,18 @@ export function useFloorActions(ctx, { orderPath = "/pos", onChanged = refreshDa
       toast.success(`Bill ${bill.billNumber} sent to the printer.`);
     });
 
+  // The bill for every dish still unbilled, made here and opened over the
+  // screen (useBillDialog.billOrder), as the POS's Bill does.
+  const billHere = (table) =>
+    run(`bill-${table.id}`, async () => {
+      await bills.billOrder(table.live.orderId);
+      await onChanged();
+    });
+
+  // An order opened on the POS from the dashboard comes back to the panel it
+  // was opened from once it is sent to the kitchen or paid (PosPage, ?from=).
+  const toOrder = (query) => navigate(`${orderPath}?${query}${back}`);
+
   const seat = (table) =>
     run(`seat-${table.id}`, async () => {
       const result = await seatReservation(table.booking.id, {});
@@ -94,7 +113,7 @@ export function useFloorActions(ctx, { orderPath = "/pos", onChanged = refreshDa
       const order = result.data && result.data.order;
 
       if (order && order.id) {
-        navigate(`${orderPath}?order=${order.id}`);
+        toOrder(`order=${order.id}`);
       } else {
         toast.success(result.message || "Seated.");
       }
@@ -130,18 +149,25 @@ export function useFloorActions(ctx, { orderPath = "/pos", onChanged = refreshDa
     const openOrder = live && can.order && {
       key: "open",
       label: "Open order",
-      onClick: () => navigate(`${orderPath}?order=${live.orderId}`),
+      onClick: () => toOrder(`order=${live.orderId}`),
+    };
+    // On the dashboard the bill is made here; the captain app raises it on its
+    // own order screen, which a phone has room for.
+    const billAction = {
+      key: "bill",
+      label: "Bill",
+      onClick: () => (orderPath === "/pos" ? billHere(table) : navigate(`${orderPath}?order=${live.orderId}&bill=1`)),
     };
 
     if (state === "free") {
-      add(can.order, { key: "start", label: "Start order", primary: true, onClick: () => navigate(`${orderPath}?table=${table.id}`) });
+      add(can.order, { key: "start", label: "Start order", primary: true, onClick: () => toOrder(`table=${table.id}`) });
     } else if (state === "running") {
       if (live.earlierDay && can.bill && !live.joinedTo) {
-        list.push({ key: "bill", label: "Bill", primary: true, onClick: () => navigate(`${orderPath}?order=${live.orderId}&bill=1`) });
+        list.push({ ...billAction, primary: true });
         add(openOrder, openOrder);
       } else {
         add(openOrder, { ...openOrder, primary: true });
-        add(can.bill && !live.joinedTo, { key: "bill", label: "Bill", onClick: () => navigate(`${orderPath}?order=${live.orderId}&bill=1`) });
+        add(can.bill && !live.joinedTo, billAction);
       }
 
       add(live.earlierDay && can.cancel && !live.billId && !live.joinedTo, {
@@ -170,7 +196,7 @@ export function useFloorActions(ctx, { orderPath = "/pos", onChanged = refreshDa
         add(can.booking, { key: "noshow", label: "No-show", onClick: () => noShow(table) });
       }
 
-      add(can.order, { key: "walkin", label: "Seat walk-in", primary: list.length === 0, onClick: () => navigate(`${orderPath}?table=${table.id}`) });
+      add(can.order, { key: "walkin", label: "Seat walk-in", primary: list.length === 0, onClick: () => toOrder(`table=${table.id}`) });
     } else if (state === "out_of_service") {
       add(can.setup, { key: "setup", label: "Switch on", onClick: () => navigate("/tables") });
     }

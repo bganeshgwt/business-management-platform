@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import DataGrid from "../../../../../components/DataGrid/DataGrid";
+import { getErrorMessage } from "../../../../../services/api";
+import { useBillDialog } from "./useBillDialog";
 import { listOrders } from "../../../orders/services/order.service";
 import { listTables } from "../../../tables/services/table.service";
 import CancelOrderDialog from "../../../orders/pages/CancelOrderDialog";
@@ -46,6 +48,24 @@ export function RunningOrdersPanel({ ctx, view = "today" }) {
   const canOpen = hasPermission("orders.create");
   const canBill = canOpen && hasPermission("billing.manage");
   const canCancel = hasPermission("orders.manage");
+  // Bill is made here, over the dashboard; Open goes to the POS, which comes
+  // back to this panel once the order is sent or paid (?from=).
+  const bills = useBillDialog();
+  const [billing, setBilling] = useState(null);
+  const [search] = useSearchParams();
+  const back = search.get("panel") ? `&from=${encodeURIComponent(search.get("panel"))}` : "";
+  const billHere = async (order) => {
+    setBilling(`bill-${order.id}`);
+    setMessage(null);
+
+    try {
+      await bills.billOrder(order.id);
+    } catch (err) {
+      setMessage({ tone: "error", text: getErrorMessage(err) });
+    } finally {
+      setBilling(null);
+    }
+  };
 
   return (
     <>
@@ -122,11 +142,11 @@ export function RunningOrdersPanel({ ctx, view = "today" }) {
               <FloorActionButtons
                 tableId={order.id}
                 menuLabel="More for this order"
-                busy={null}
+                busy={billing}
                 actions={[
-                  canBill && order.earlierDay && { key: "bill", label: "Bill", primary: true, onClick: () => navigate(`/pos?order=${order.id}&bill=1`) },
-                  canOpen && { key: "open", label: "Open", primary: !(order.earlierDay && canBill), onClick: () => navigate(`/pos?order=${order.id}`) },
-                  canBill && !order.earlierDay && { key: "bill", label: "Bill", onClick: () => navigate(`/pos?order=${order.id}&bill=1`) },
+                  canBill && order.earlierDay && { key: "bill", label: "Bill", primary: true, onClick: () => billHere(order) },
+                  canOpen && { key: "open", label: "Open", primary: !(order.earlierDay && canBill), onClick: () => navigate(`/pos?order=${order.id}${back}`) },
+                  canBill && !order.earlierDay && { key: "bill", label: "Bill", onClick: () => billHere(order) },
                   canCancel && order.earlierDay && !order.billId && { key: "cancel", label: "Cancel order", danger: true, onClick: () => setCancelling(order) },
                 ].filter(Boolean)}
               />
@@ -149,6 +169,7 @@ export function RunningOrdersPanel({ ctx, view = "today" }) {
           onChange: paging.onChange,
         }}
       />
+      {bills.dialog}
       {cancelling &&
         createPortal(
           <CancelOrderDialog

@@ -403,6 +403,10 @@ export default function PosPage({ captain = null }) {
   // from.
   const [params, setParams] = useSearchParams();
   const arrivedFor = useRef(false);
+  // Opened from a dashboard panel (?from=floor.all): the order or table it
+  // came for, and the panel to go back to once that order is sent to the
+  // kitchen or its bill is paid. Another order taken meanwhile stays here.
+  const returnTo = useRef(null);
 
   // The unsaved cart, kept for this person on this till (services/posDraft).
   const storageKey = draftKey(user);
@@ -732,6 +736,12 @@ export default function PosPage({ captain = null }) {
 
     arrivedFor.current = true;
 
+    const from = params.get("from");
+
+    if (!captain && from && /^[a-z][a-z0-9._-]{0,40}$/i.test(from)) {
+      returnTo.current = { path: `/?panel=${from}`, orderId: orderId ? Number(orderId) : null, tableId: table || null };
+    }
+
     if (orderId) {
       resumeOrder({ id: Number(orderId) }).then((order) => {
         if (order && toBill && canBill && ["open", "billed"].includes(order.orderStatus)) {
@@ -1008,6 +1018,26 @@ export default function PosPage({ captain = null }) {
   const backToTables = () => {
     resetCart();
     navigate(captain.home);
+  };
+
+  // Is this the order the dashboard sent us for (by its id, or the table a
+  // new one was started on)?
+  const isReturnOrder = (order) => {
+    const back = returnTo.current;
+
+    if (!back || !order) {
+      return false;
+    }
+
+    return back.orderId ? Number(order.id) === back.orderId : Boolean(back.tableId) && String(order.tableId) === String(back.tableId);
+  };
+
+  const backToPanel = () => {
+    const path = returnTo.current.path;
+
+    returnTo.current = null;
+    resetCart();
+    navigate(path);
   };
 
   const variantsOf = useCallback(async (productId) => {
@@ -1483,6 +1513,9 @@ export default function PosPage({ captain = null }) {
       // tables for the next one.
       if (captain && then === "save") {
         backToTables();
+      } else if (["save", "print"].includes(then) && isReturnOrder(saved)) {
+        // Sent from the dashboard: back to its panel.
+        backToPanel();
       }
 
       return saved;
@@ -1827,6 +1860,8 @@ export default function PosPage({ captain = null }) {
     if (bill && bill.billStatus === "paid") {
       if (captain) {
         backToTables();
+      } else if (isReturnOrder({ id: bill.orderId, tableId: editingOrder && editingOrder.tableId })) {
+        backToPanel();
       } else {
         resetCart();
       }

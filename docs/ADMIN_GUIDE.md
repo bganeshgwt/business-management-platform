@@ -1457,6 +1457,14 @@ outlet's. Pre-orders are read when the page opens; the other cards arrive in
 one request, and a card that fails keeps its last figures while the others
 load.
 
+**The Floor panel** (a card's *Open*) lists every table with what to do next.
+**Bill** makes the bill for every dish still unbilled right there, in the bill
+window over the dashboard: discount, service charge, print and payment. To
+split a bill by dishes, use **Open order**. **Open order**, **Start order**
+and **Seat walk-in** go to the POS. Once that order is saved or sent to the
+kitchen, or its bill is paid, the POS comes back to the same panel. **Take
+payment**, **Reprint**, **Mark ready** and **No-show** happen in the panel.
+
 **Today's trading** (with `sales.view`) covers this business day only; the
 week and the month are in *Full analysis*. **Money in** by payment method
 (with earlier days' dues collected today) and what the drawer should hold
