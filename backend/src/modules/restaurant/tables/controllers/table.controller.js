@@ -166,6 +166,30 @@ const createTable = async (req, res) => {
   res.status(201).json({ success: true, message: "Table created", data: table });
 };
 
+// Many tables at once: { tables: [ { tableNo, capacity, floorId, areaId,
+// status, outletId? }, ... ] }, each read as one table is.
+const createTables = async (req, res) => {
+  const list = req.body?.tables;
+
+  if (!Array.isArray(list)) {
+    throw new AppError(400, "Give the tables to add as a list");
+  }
+
+  const tables = list.map((body, index) => {
+    try {
+      return readTableBody(body);
+    } catch (error) {
+      error.message = `Row ${index + 1}: ${error.message}`;
+      throw error;
+    }
+  });
+  const result = await tableService.createTables(req.user.restaurantId, tables, req.user.id, scopeOf(req));
+
+  logAction(req, "create", "dining_table", { label: `${result.created} tables: ${result.tableNos.join(", ")}` });
+
+  res.status(201).json({ success: true, message: `${result.created} tables added`, data: result });
+};
+
 const updateTable = async (req, res) => {
   const id = v.requiredId(req.params.id, "Table id");
   const table = await tableService.updateTable(
@@ -261,6 +285,7 @@ module.exports = {
   removeArea,
   listTables,
   createTable,
+  createTables,
   updateTable,
   regenerateQr,
   removeTable,

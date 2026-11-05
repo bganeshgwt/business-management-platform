@@ -2541,6 +2541,12 @@ The admin view: add, edit and delete tables, set seats, and print QR codes. Each
 has a QR code that a guest scans to reach the ordering page. Regenerating the code
 invalidates the old one, which is what you do if a printed code goes missing.
 
+**Add many tables** sets up a whole floor in one save. Each row is a run of tables that
+share seats, floor and area: *T*, from *1*, *10* tables, *4* seats, First floor. Add a
+row for another size or place, and its numbers carry on (T11 to T14, 6 seats, Window).
+The first number starts after the numbers already in use. Every table it will make is
+listed before saving. A number the restaurant already has, or one in two rows, is named
+and Save waits. All the tables are added together, or none are. Up to 200 at a time.
 
 **Captain sections** — the day's plan of which captain looks after which floor, section or table — open from the top of Tables & QR (see Service above).
 

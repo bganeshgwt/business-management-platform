@@ -18,6 +18,8 @@ export const deleteArea = async (id) => (await api.delete(`/tables/areas/${id}`)
 export const listTables = async (filters = {}) =>
   (await api.get("/tables", { params: filters })).data.data;
 export const createTable = async (payload) => (await api.post("/tables", payload)).data.data;
+// Many tables at once: all added, or none ({ created, tableNos }).
+export const createTables = async (tables) => (await api.post("/tables/batch", { tables })).data.data;
 export const updateTable = async (id, payload) => (await api.put(`/tables/${id}`, payload)).data.data;
 export const regenerateTableQr = async (id) => (await api.patch(`/tables/${id}/qr`)).data.data;
 export const deleteTable = async (id) => (await api.delete(`/tables/${id}`)).data;

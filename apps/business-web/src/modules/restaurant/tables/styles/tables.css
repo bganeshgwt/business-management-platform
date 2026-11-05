@@ -678,3 +678,82 @@
   color: var(--muted);
   font-size: 0.8125rem;
 }
+
+/* Add many tables: rows of runs, then the numbers they make. */
+.mt-form {
+  display: grid;
+  gap: var(--space-4);
+}
+.mt-rows {
+  display: grid;
+  gap: var(--space-3);
+}
+.mt-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 0.8fr 0.9fr 0.8fr 0.8fr 1.3fr 1.3fr;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-4);
+  padding-right: calc(var(--space-4) + 32px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.mt-row-title {
+  padding: 0 var(--space-1);
+  font-weight: var(--weight-medium);
+}
+.mt-remove {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-2);
+}
+.mt-add {
+  justify-self: start;
+}
+.mt-outlet {
+  max-width: 360px;
+}
+.mt-preview {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+}
+.mt-preview p {
+  margin: 0;
+}
+.mt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mt-chip {
+  display: inline-flex;
+  gap: 4px;
+  align-items: baseline;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+.mt-chip small {
+  color: var(--text-muted, inherit);
+  opacity: 0.8;
+}
+.mt-chip.is-bad {
+  border-color: var(--danger, #c0392b);
+  color: var(--danger, #c0392b);
+  text-decoration: line-through;
+}
+
+@media (max-width: 760px) {
+  .mt-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

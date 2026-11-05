@@ -322,6 +322,46 @@ const findTables = async (restaurantId, filters = {}) => {
   return result.rows;
 };
 
+// The numbers among these that the restaurant already has, as they are stored.
+const findTakenTableNos = async (restaurantId, tableNos) => {
+  const result = await pool.query(
+    "SELECT table_no FROM dining_tables WHERE restaurant_id = $1 AND table_no = ANY($2::text[]) ORDER BY table_no",
+    [restaurantId, tableNos]
+  );
+
+  return result.rows.map((row) => row.table_no);
+};
+
+// Many tables at once (each row: outletId, floorId, areaId, tableNo,
+// capacity, qrToken, status): all are added, or none.
+const createTables = async (restaurantId, rows, userId) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+    const ids = [];
+
+    for (const data of rows) {
+      const result = await client.query(
+        `INSERT INTO dining_tables
+           (restaurant_id, outlet_id, floor_id, area_id, table_no, capacity, qr_token, status, created_by, updated_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
+         RETURNING id`,
+        [restaurantId, data.outletId, data.floorId, data.areaId, data.tableNo, data.capacity, data.qrToken, data.status, userId]
+      );
+      ids.push(result.rows[0].id);
+    }
+
+    await client.query("COMMIT");
+    return ids;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 const findTableById = async (restaurantId, id) => {
   const result = await pool.query(
     `SELECT ${TABLE_COLUMNS}, ${SERVICE_COLUMNS}, f.name AS floor_name, a.name AS area_name
@@ -495,7 +535,9 @@ module.exports = {
   removeArea,
   findTables,
   findTableById,
+  findTakenTableNos,
   createTable,
+  createTables,
   updateTable,
   regenerateQrToken,
   removeTable,

@@ -34,6 +34,7 @@ import { count, dateShort, money } from "@bmp/shared/format";
 import { useBillDialog } from "../../dashboard/pages/panels/useBillDialog";
 import { elapsed } from "@bmp/shared/dates";
 import QrSheetDialog from "./QrSheetDialog";
+import AddManyTablesDialog from "./AddManyTablesDialog";
 import CaptainPlanModal from "./CaptainPlanModal";
 import { ADDRESS_WARNINGS, addressProblem, buildQrSheet, guestBase, guestOrderUrl } from "../../../../services/qrSheet";
 import { customerWebOrigin } from "../../../../services/customerWeb";
@@ -485,6 +486,8 @@ export default function TablesPage() {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [manyOpen, setManyOpen] = useState(false);
+  const [manyOutletId, setManyOutletId] = useState("");
 
   const [qrTable, setQrTable] = useState(null);
   const [qrImage, setQrImage] = useState("");
@@ -755,10 +758,47 @@ export default function TablesPage() {
   const tileClass = (value) => (statusFilter === value ? "fp-tile-on" : "");
 
   const addButton = canManage && (
-    <button type="button" className="button" onClick={openNew} disabled={floors.length === 0}>
-      <Icon name="plus" size={16} /> Add table
-    </button>
+    <>
+      <button type="button" className="button button-secondary" onClick={() => setManyOpen(true)} disabled={floors.length === 0}>
+        <Icon name="layers" size={16} /> Add many tables
+      </button>
+      <button type="button" className="button" onClick={openNew} disabled={floors.length === 0}>
+        <Icon name="plus" size={16} /> Add table
+      </button>
+    </>
   );
+
+  // Whose the many new tables are: the outlet worked in, or the one picked here
+  // (or shared), as for one table.
+  const manyOutlet = workingOutlet
+    ? {
+        payload: { outletId: Number(workingOutlet) },
+        element: (
+          <p className="muted small">
+            The tables belong to {outletName(workingOutlet)}, the outlet you are working in.
+          </p>
+        ),
+      }
+    : outlets.length > 0
+      ? {
+          payload: { outletId: manyOutletId ? Number(manyOutletId) : null },
+          element: (
+            <label className="field mt-outlet">
+              <span>Outlet</span>
+              <select value={manyOutletId} onChange={(event) => setManyOutletId(event.target.value)}>
+                <option value="">Shared by every outlet</option>
+                {outlets
+                  .filter((outlet) => outlet.status === "active")
+                  .map((outlet) => (
+                    <option key={outlet.id} value={outlet.id}>
+                      {outlet.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          ),
+        }
+      : { payload: {}, element: null };
 
   const viewSwitch = (
     <div className="segmented" role="radiogroup" aria-label="Table view">
@@ -1221,6 +1261,21 @@ export default function TablesPage() {
             </div>
           </form>
         </Modal>
+      )}
+
+      {manyOpen && (
+        <AddManyTablesDialog
+          floors={floors}
+          areas={areas}
+          startFloorId={floorFilter}
+          outletField={manyOutlet}
+          onClose={() => setManyOpen(false)}
+          onSaved={(message) => {
+            setManyOpen(false);
+            setSuccess(message);
+            load();
+          }}
+        />
       )}
 
       {qrTable && (

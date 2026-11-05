@@ -62,6 +62,8 @@ router.post("/sections/copy", requireFeature("captain_sections"), authorize("tab
 
 router.get("/", authorize("tables.view"), resolveOutlet, tableController.listTables);
 router.post("/", authorize("tables.manage"), resolveOutlet, tableController.createTable);
+// Many tables at once ("Add many tables"): all added, or none.
+router.post("/batch", authorize("tables.manage"), resolveOutlet, tableController.createTables);
 router.put("/:id", authorize("tables.manage"), resolveOutlet, tableController.updateTable);
 router.patch("/:id/qr", authorize("tables.manage"), resolveOutlet, tableController.regenerateQr);
 // Seeing the floor is needed to reset a table on it; then either permission.

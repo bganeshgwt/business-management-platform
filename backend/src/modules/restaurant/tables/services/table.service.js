@@ -573,6 +573,79 @@ const createTable = async (restaurantId, data, userId, scope = {}) => {
   }
 };
 
+// Many tables at once, as the "Add many tables" form lays them out (T1 to
+// T10 with 4 seats on the first floor, T11 to T14 with 6): each checked as
+// one table is, and all added or none. A number used twice in the list, or
+// one the restaurant already has, is named and nothing is added.
+const MOST_TABLES_AT_ONCE = 200;
+
+const createTables = async (restaurantId, list, userId, scope = {}) => {
+  requireRestaurantId(restaurantId);
+
+  if (!list.length) {
+    throw new AppError(400, "Give at least one table to add");
+  }
+
+  if (list.length > MOST_TABLES_AT_ONCE) {
+    throw new AppError(400, `Add up to ${MOST_TABLES_AT_ONCE} tables at a time`);
+  }
+
+  const seen = new Set();
+  const twice = new Set();
+
+  for (const data of list) {
+    const key = data.tableNo.toLowerCase();
+
+    if (seen.has(key)) {
+      twice.add(data.tableNo);
+    }
+
+    seen.add(key);
+  }
+
+  if (twice.size) {
+    throw new AppError(400, `These table numbers come twice in the list: ${[...twice].join(", ")}`);
+  }
+
+  const rows = [];
+  const checked = new Set();
+
+  for (const data of list) {
+    const row = { ...data, outletId: await outletForSave(restaurantId, data, scope) };
+    const links = `${row.floorId}/${row.areaId || ""}/${row.outletId || ""}`;
+
+    // Each floor, area and outlet is checked once, however many tables share it.
+    if (!checked.has(links)) {
+      await validateTableLinks(restaurantId, row);
+      checked.add(links);
+    }
+
+    rows.push({ ...row, qrToken: newQrToken() });
+  }
+
+  const taken = await tableRepository.findTakenTableNos(restaurantId, rows.map((row) => row.tableNo));
+
+  if (taken.length) {
+    throw new AppError(
+      409,
+      `${taken.length === 1 ? "Table" : "Tables"} ${taken.join(", ")} already ${taken.length === 1 ? "exists" : "exist"}. Change the numbers or start after them; nothing was added.`,
+      { reason: "table_numbers_taken", taken }
+    );
+  }
+
+  try {
+    const ids = await tableRepository.createTables(restaurantId, rows, userId);
+
+    return { created: ids.length, tableNos: rows.map((row) => row.tableNo) };
+  } catch (error) {
+    if (error.code === DUPLICATE) {
+      throw new AppError(409, "Another person added one of these table numbers just now; nothing was added. Try again.");
+    }
+
+    throw error;
+  }
+};
+
 const updateTable = async (restaurantId, id, data, userId, scope = {}) => {
   requireRestaurantId(restaurantId);
   const current = await requireOwnTable(restaurantId, id, scope);
@@ -741,6 +814,7 @@ module.exports = {
   removeArea,
   listTables,
   createTable,
+  createTables,
   updateTable,
   regenerateQr,
   removeTable,

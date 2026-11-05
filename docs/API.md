@@ -1273,6 +1273,12 @@ Query/Body: `floorId` (required), `areaId`, `outletId` (null = shared), `tableNo
 Returns: `data` = the table (new random `qrToken`); status 201.
 Errors: 400 floor/area/outlet does not exist or area on another floor; 403 `{ reason: "table_other_outlet" }` another outlet's table; 409 table number already exists.
 
+#### `POST /api/tables/batch`
+Permission: `tables.manage`
+Query/Body: `tables` (1-200), each as `POST /api/tables` takes it.
+Returns: `data` = `{ created, tableNos[] }`; all added in one transaction, each with its own `qrToken`; status 201.
+Errors: 400 not a list, empty, over 200, a number twice in the list (case ignored), or a bad row (`Row n: …`); as create for floor, area and outlet; 409 `{ reason: "table_numbers_taken", taken[] }` numbers the restaurant already has. Nothing is added on any error.
+
 #### `PUT /api/tables/:id`
 Permission: `tables.manage`
 Query/Body: same as create; `outletId` left out keeps the table's outlet.

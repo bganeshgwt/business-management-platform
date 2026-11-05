@@ -366,6 +366,47 @@ test("floor and service", { timeout: 600000 }, async (t) => {
     assert.equal(Number((await one("SELECT outlet_id FROM dining_tables WHERE id = $1", [bTable.id])).outlet_id), outletB.id);
   });
 
+  await t.test("many tables at once: each its own seats and area, all added or none", async () => {
+    const hall = await O("POST", "/tables/floors", { name: "Banquet hall" }, 201);
+    const window = await O("POST", "/tables/areas", { floorId: hall.id, name: "Window" }, 201);
+    const row = (tableNo, extra = {}) => ({ floorId: hall.id, tableNo, capacity: 4, ...extra });
+    const countOn = async () => Number((await one("SELECT count(*) AS n FROM dining_tables WHERE floor_id = $1", [hall.id])).n);
+
+    const made = await O("POST", "/tables/batch", { tables: [row("H1"), row("H2"), row("H3", { capacity: 6, areaId: window.id })] }, 201);
+    assert.deepEqual(made, { created: 3, tableNos: ["H1", "H2", "H3"] });
+    const saved = await all("SELECT table_no, capacity, area_id, qr_token, status FROM dining_tables WHERE floor_id = $1 ORDER BY table_no", [hall.id]);
+    assert.deepEqual(saved.map((r) => [r.table_no, r.capacity, r.area_id && Number(r.area_id), r.status]),
+      [["H1", 4, null, "active"], ["H2", 4, null, "active"], ["H3", 6, window.id, "active"]]);
+    assert.equal(new Set(saved.map((r) => r.qr_token)).size, 3);
+
+    // A number the restaurant has, or one given twice: named, and nothing added.
+    const taken = await send("POST", "/tables/batch", { tables: [row("H4"), row("H2"), row("M1")] }, owner);
+    assert.equal(taken.status, 409);
+    assert.match(taken.body.message, /Tables H2, M1 already exist/);
+    assert.deepEqual(taken.body.data.taken, ["H2", "M1"]);
+    const twice = await send("POST", "/tables/batch", { tables: [row("H5"), row("h5")] }, owner);
+    assert.equal(twice.status, 400);
+    assert.match(twice.body.message, /come twice in the list: h5/);
+    // A bad row is named by its place; an area of another floor is refused.
+    const bad = await send("POST", "/tables/batch", { tables: [row("H6"), row("H7", { capacity: 2.5 })] }, owner);
+    assert.equal(bad.status, 400);
+    assert.match(bad.body.message, /^Row 2: /);
+    await O("POST", "/tables/batch", { tables: [row("H8", { areaId: patio.id })] }, 400);
+    await O("POST", "/tables/batch", { tables: [] }, 400);
+    await O("POST", "/tables/batch", { tables: Array.from({ length: 201 }, (_, i) => row(`Z${i}`)) }, 400);
+    await O("POST", "/tables/batch", {}, 400);
+    assert.equal(await countOn(), 3);
+
+    // A manager tied to outlet A adds A's tables only; a captain cannot add any.
+    await expect("POST", "/tables/batch", { tables: [row("HB1", { outletId: outletB.id })] }, 403, managerA);
+    const own = await expect("POST", "/tables/batch", { tables: [row("HA1"), row("HA2")] }, 201, managerA);
+    assert.equal(own.created, 2);
+    const outlets = await all("SELECT DISTINCT outlet_id FROM dining_tables WHERE table_no IN ('HA1','HA2')");
+    assert.deepEqual(outlets.map((r) => Number(r.outlet_id)), [outletA.id]);
+    await expect("POST", "/tables/batch", { tables: [row("HC1")] }, 403, captain);
+    assert.equal(await countOn(), 5);
+  });
+
   await t.test("a QR order is never added to another outlet's running order", async () => {
     const shared = await table("SQ");
     const running = await O("POST", "/orders", { orderType: "dine_in", tableId: shared.id, items: [{ productId: chai.id, quantity: 1 }] }, 201, atB);
