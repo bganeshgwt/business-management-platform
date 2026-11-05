@@ -1,8 +1,14 @@
-/* The captain app (workspaces/captain): a waiter's phone, held in one hand.
-   The header and the tabs stay put while the screen between them scrolls,
-   everything a thumb presses is 44 px or more, and on a wider screen the
-   screen stays a phone's width, in the middle. Colours from the tokens only,
-   so dark mode follows by itself. */
+/* The captain app (workspaces/captain): a waiter's phone held in one hand,
+   a tablet on the pass, a laptop at the host stand. The header and the tabs
+   stay put while the screen between them scrolls, and everything a thumb
+   presses is 44 px or more. The screen grows with the device:
+
+     phone            one column; tables two (three from 560 px) to a row
+     tablet (720+)    up to 1240 px wide; tables four to a row, dishes two
+     on its side      tables five to a row (1000+), six (1240+); the order
+     (1024+)          beside the menu instead of a sheet over it (PosPage)
+
+   Colours from the tokens only, so dark mode follows by itself. */
 
 .cpt-shell {
   display: flex;
@@ -138,12 +144,44 @@
 }
 
 /* The POS's bar at the thumb (taking an order) reaches the screen's edges by
-   these same sides and foot. */
+   these same sides and foot. At least the screen's height, so that bar sits
+   at the foot of a short order screen too, never halfway up a tablet. */
 .cpt-content {
+  --cpt-side: 16px;
+  display: flex;
+  flex-direction: column;
   width: 100%;
+  min-height: 100%;
   max-width: 680px;
   margin-inline: auto;
-  padding: 14px 16px 32px;
+  padding: 14px var(--cpt-side) 32px;
+}
+
+.cpt-content > * {
+  flex-shrink: 0;
+}
+
+.cpt-shell .pos-page {
+  flex: 1 0 auto;
+}
+
+.cpt-shell .pos-captain-bar {
+  margin: auto calc(var(--cpt-side) * -1) -32px;
+  padding-inline: var(--cpt-side);
+}
+
+/* A tablet and up: the room the screen has, to a comfortable reading width;
+   the header's ends line up with the page under it. */
+@media (min-width: 720px) {
+  .cpt-content {
+    --cpt-side: 24px;
+    max-width: 1240px;
+    padding-top: 18px;
+  }
+
+  .cpt-top {
+    padding-inline: max(12px, calc((100% - 1240px) / 2 + 24px));
+  }
 }
 
 .cpt-page {
@@ -192,6 +230,12 @@
   display: flex;
 }
 
+@media (min-width: 720px) {
+  .cpt-mine {
+    flex: 0 1 420px;
+  }
+}
+
 .cpt-mine .segment {
   flex: 1 1 0;
   min-height: 44px;
@@ -212,10 +256,11 @@
   margin: 0;
 }
 
-/* --- The tables: two to a row on a phone, three on a wider one, tall
-   enough for a thumb and for what is waiting there. ------------------------- */
+/* --- The tables: two to a row on a phone, more as the screen widens, tall
+   enough for a thumb and for what is waiting there. The same on the Tables
+   tab and on the order screen's table step. ------------------------------------ */
 
-.cpt-shell .cpt-tables.is-compact .pos-table-grid {
+.cpt-shell .pos-table-groups.is-compact .pos-table-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
@@ -226,8 +271,94 @@
 }
 
 @media (min-width: 560px) {
-  .cpt-shell .cpt-tables.is-compact .pos-table-grid {
+  .cpt-shell .pos-table-groups.is-compact .pos-table-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 720px) {
+  .cpt-shell .pos-table-groups.is-compact .pos-table-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+@media (min-width: 1000px) {
+  .cpt-shell .pos-table-groups.is-compact .pos-table-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1240px) {
+  .cpt-shell .pos-table-groups.is-compact .pos-table-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+/* --- Taking an order on a bigger screen ------------------------------------------ */
+
+/* The dishes two or three to a row once a row has the room. */
+@media (min-width: 720px) {
+  .cpt-shell .pos-dish-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+  }
+}
+
+/* On its side and up (PosPage's is-side-order): the order beside the menu.
+   The screen does not scroll as a page: the menu scrolls inside its card and
+   the order inside its own, so the order's total and Send are always in
+   view. A very short window falls back to the page scrolling, the order
+   pinned. */
+@media (min-width: 1024px) {
+  .cpt-shell .pos-page.is-side-order .pos-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 400px);
+    align-items: start;
+    gap: 16px;
+  }
+
+  .cpt-shell .pos-page.is-side-order .pos-cart {
+    position: sticky;
+    top: 0;
+    max-height: calc(100vh - 110px);
+    max-height: calc(100dvh - 110px);
+  }
+}
+
+@media (min-width: 1024px) and (min-height: 600px) {
+  .cpt-content:has(> .pos-page.is-side-order) {
+    height: 100%;
+    padding-bottom: 18px;
+  }
+
+  .cpt-shell .pos-page.is-side-order {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  .cpt-shell .pos-page.is-side-order > * {
+    flex-shrink: 0;
+  }
+
+  .cpt-shell .pos-page.is-side-order > .pos-layout {
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .cpt-shell .pos-page.is-side-order .pos-menu {
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+
+  .cpt-shell .pos-page.is-side-order .pos-cart {
+    position: static;
+    height: 100%;
+    max-height: none;
   }
 }
 
@@ -422,6 +553,15 @@ body:has(.cpt-shell) .toaster {
   padding-bottom: env(safe-area-inset-bottom, 0px);
   border-top: 1px solid var(--border);
   background: var(--surface);
+}
+
+/* A tablet and up: the tabs together in the middle, not at the far ends of a
+   wide screen. */
+@media (min-width: 720px) {
+  .cpt-tabs {
+    grid-auto-columns: minmax(0, 168px);
+    justify-content: center;
+  }
 }
 
 .cpt-tab {

@@ -123,6 +123,8 @@ const KITCHEN_STAGE_WORDS = {
 
 // The captain's screen: a phone held in one hand at the table.
 const PHONE = "(max-width: 600px)";
+// Wide enough for the captain app to show the order beside the menu.
+const SIDE_ORDER = "(min-width: 1024px)";
 
 const timeOf = (value) =>
   value ? new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "";
@@ -379,6 +381,11 @@ export default function PosPage({ captain = null }) {
     forcedPhone || (typeof window !== "undefined" && window.matchMedia ? window.matchMedia(PHONE).matches : false)
   );
   const [sheetOpen, setSheetOpen] = useState(false);
+  // The captain app on a tablet on its side or a desktop: the same phone
+  // flow, with the order beside the menu instead of a sheet over it.
+  const [sideOrder, setSideOrder] = useState(() =>
+    Boolean(captain) && typeof window !== "undefined" && window.matchMedia ? window.matchMedia(SIDE_ORDER).matches : false
+  );
   // The captain app: when the dishes being added go to the kitchen (now, or a
   // later course held until Fire), and the dish whose note is being typed.
   const [course, setCourse] = useState({ course: 1, hold: false });
@@ -579,6 +586,26 @@ export default function PosPage({ captain = null }) {
     query.addEventListener("change", follow);
     return () => query.removeEventListener("change", follow);
   }, [forcedPhone]);
+
+  // The captain's tablet turned on its side, or a window made wider: the
+  // order moves beside the menu (and back under it on a narrower screen).
+  useEffect(() => {
+    if (!captain || !window.matchMedia) {
+      return undefined;
+    }
+
+    const query = window.matchMedia(SIDE_ORDER);
+    const follow = (event) => {
+      setSideOrder(event.matches);
+
+      if (event.matches) {
+        setSheetOpen(false);
+      }
+    };
+
+    query.addEventListener("change", follow);
+    return () => query.removeEventListener("change", follow);
+  }, [captain]);
 
   useEffect(() => {
     const tick = setInterval(() => setNow(Date.now()), 60000);
@@ -2702,7 +2729,7 @@ export default function PosPage({ captain = null }) {
   // ------------------------------------------------------------ the page
 
   return (
-    <div className={`stack pos-page ${compact ? "is-compact" : ""} ${captain ? "is-captain" : ""}`.trim()}>
+    <div className={`stack pos-page ${compact ? "is-compact" : ""} ${captain ? "is-captain" : ""} ${sideOrder ? "is-side-order" : ""}`.replace(/\s+/g, " ").trim()}>
       {/* The captain app has a header of its own, with its live mark. */}
       {captain ? null : compact ? (
         <PageHeader
@@ -2851,7 +2878,7 @@ export default function PosPage({ captain = null }) {
               {dishCards}
             </section>
 
-            {!compact && (
+            {(!compact || sideOrder) && (
               <section className="card pos-cart" aria-label="The order">
                 <div className="pos-cart-body stack">{cartBody}</div>
                 {cartFoot}
@@ -2859,7 +2886,7 @@ export default function PosPage({ captain = null }) {
             )}
           </div>
 
-          {compact && (
+          {compact && !sideOrder && (
             // Everything the captain needs next, on the thumb: what is on the
             // order and the button that sends it.
             <div className="pos-captain-bar">
@@ -2908,7 +2935,7 @@ export default function PosPage({ captain = null }) {
         </>
       )}
 
-      {compact && sheetOpen && (
+      {compact && sheetOpen && !sideOrder && (
         <div className="pos-sheet" role="dialog" aria-modal="true" aria-label="The order">
           <div className="pos-sheet-head">
             <button type="button" className="button button-ghost button-sm pos-sheet-back" onClick={() => setSheetOpen(false)} aria-label="Back to the menu">

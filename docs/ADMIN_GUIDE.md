@@ -1625,7 +1625,17 @@ read the menu and call staff.
 ### Captain app
 
 **Daily work → Captain app** (the address `/captain`) is the waiters' own
-screen, made for a phone held in one hand at the table. It is part of the
+screen, made for a phone held in one hand at the table, and it fits a tablet
+or a laptop as well:
+
+| Screen | Tables to a row | Taking an order |
+| --- | --- | --- |
+| Phone | 2 (3 from 560 px wide) | Dishes one under another; the order is a bar at the foot, **View order** opens it |
+| Tablet upright (720 px and up) | 4 | Dishes two to a row; the bar at the foot |
+| Tablet on its side, laptop (1024 px and up) | 5, then 6 from 1240 px | The order beside the menu, its total and **Send** always in view |
+
+On a tablet and up the page is up to 1240 px wide in the middle, and the tabs
+sit together at the foot. It is part of the
 staff app and installs as an app of its own: a captain signs in on their
 phone, opens it and installs it (**⋯ → Install the captain app**; on an
 iPhone, Share, then Add to Home Screen:
