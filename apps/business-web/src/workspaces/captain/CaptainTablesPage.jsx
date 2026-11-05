@@ -72,16 +72,6 @@ export default function CaptainTablesPage() {
         <MineSwitch />
       </div>
 
-      {startTypes.length > 0 && (
-        <div className="cpt-start-types" role="group" aria-label="New order without a table">
-          {startTypes.map((start) => (
-            <Link key={start.type} className="button button-secondary cpt-start-type" to={`${ORDER_SCREEN}?type=${start.type}`}>
-              <Icon name={start.icon} size={17} /> {start.label}
-            </Link>
-          ))}
-        </div>
-      )}
-
       {/* Offline, the strip under the header says so: the floor shown is the last read. */}
       <ErrorMessage message={online && !floor.fromCopy ? floor.errors.tables : ""} />
 
@@ -100,6 +90,20 @@ export default function CaptainTablesPage() {
         />
       ) : (
         !floor.errors.tables && <Loading label="Reading the tables…" />
+      )}
+
+      {/* After the floors, headed like one: orders that need no table. */}
+      {startTypes.length > 0 && (
+        <div className="cpt-start-types" role="group" aria-labelledby="cpt-no-table">
+          <h3 id="cpt-no-table" className="pos-table-group-name">No table</h3>
+          <div className="cpt-start-row">
+            {startTypes.map((start) => (
+              <Link key={start.type} className="button button-secondary button-sm cpt-start-type" to={`${ORDER_SCREEN}?type=${start.type}`}>
+                <Icon name={start.icon} size={16} /> {start.label}
+              </Link>
+            ))}
+          </div>
+        </div>
       )}
 
       {table && (

@@ -165,16 +165,26 @@
   font-size: 1.35rem;
 }
 
-/* Takeaway and Delivery: a new order with no table, one tap from the tables. */
+/* Takeaway and Delivery after the floors: a new order with no table. */
 .cpt-start-types {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cpt-start-types .pos-table-group-name {
+  margin: 0;
+}
+
+.cpt-start-row {
+  display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
 .cpt-start-type {
-  flex: 1 1 0;
-  min-height: 48px;
-  justify-content: center;
+  min-height: 44px;
+  padding-inline: 16px;
 }
 
 .cpt-mine {

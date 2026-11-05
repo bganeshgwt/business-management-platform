@@ -16,7 +16,7 @@ test("a captain starts a takeaway from the tables, with no table to pick", async
   await page.goto(`${fixture().urls.staff}/captain`);
   await expect(page.getByRole("heading", { level: 1, name: /tables$/i })).toBeVisible({ timeout: 30_000 });
 
-  const starts = page.getByRole("group", { name: "New order without a table" });
+  const starts = page.getByRole("group", { name: "No table" });
   await expect(starts.getByRole("link", { name: "Takeaway" })).toBeVisible({ timeout: 30_000 });
   await page.screenshot({ path: testInfo.outputPath("captain-start-types.png") });
   await starts.getByRole("link", { name: "Takeaway" }).click();
