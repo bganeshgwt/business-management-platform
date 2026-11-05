@@ -729,8 +729,11 @@ export default function PosPage({ captain = null }) {
     const table = params.get("table");
     // ?bill=1 (the dashboard's "Bill"): straight on to the bill dialog.
     const toBill = params.get("bill") === "1";
+    // ?type=takeaway or delivery (the captain's Takeaway and Delivery): a new
+    // order of that kind, with no table.
+    const type = ["takeaway", "delivery"].includes(params.get("type")) ? params.get("type") : null;
 
-    if (!orderId && !table) {
+    if (!orderId && !table && !type) {
       return;
     }
 
@@ -748,10 +751,15 @@ export default function PosPage({ captain = null }) {
           openBill(order);
         }
       });
-    } else {
+    } else if (table) {
       Promise.resolve().then(() => {
         setOrderType("dine_in");
         setTableId(table);
+      });
+    } else {
+      Promise.resolve().then(() => {
+        setOrderType(type);
+        setTableId("");
       });
     }
 

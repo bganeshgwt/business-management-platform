@@ -405,6 +405,10 @@ test("floor and service", { timeout: 600000 }, async (t) => {
     assert.deepEqual(outlets.map((r) => Number(r.outlet_id)), [outletA.id]);
     await expect("POST", "/tables/batch", { tables: [row("HC1")] }, 403, captain);
     assert.equal(await countOn(), 5);
+
+    // The floor plan counts the numbers: M1, M2 … M10, not M1, M10, M11, M2.
+    const plan = (await O("GET", "/tables")).filter((one) => /^M\d+$/.test(one.tableNo)).map((one) => one.tableNo);
+    assert.deepEqual(plan, Array.from({ length: 16 }, (_, i) => `M${i + 1}`));
   });
 
   await t.test("a QR order is never added to another outlet's running order", async () => {

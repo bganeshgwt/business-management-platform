@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import Icon from "@bmp/ui/Icon";
 import { ErrorMessage, Loading } from "../../components/Feedback";
+import { getServiceSettings } from "../../modules/restaurant/orders/services/order.service";
 import useAuth from "../../hooks/useAuth";
 import useOnline from "../../hooks/useOnline";
 import TableGrid from "../../modules/restaurant/orders/pages/TableGrid";
@@ -21,7 +24,7 @@ import "../../modules/restaurant/orders/styles/pos.css";
 export default function CaptainTablesPage() {
   const floor = useFloor();
   const { online } = useOnline();
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasFeature } = useAuth();
   const [openId, setOpenId] = useState(null);
   const table = openId ? (floor.tables || []).find((row) => String(row.id) === String(openId)) || null : null;
   // The sheet's waiting clocks move by the second; the tiles by the minute.
@@ -33,6 +36,29 @@ export default function CaptainTablesPage() {
   const requests = useRequestActions(floor);
   const serving = useServe(floor);
   const billAsk = useBillAsk(floor);
+  // Orders with no table: a parcel at the counter, a phone order for delivery.
+  // Offered as the POS takes them (Service settings: Orders the POS takes;
+  // delivery only with Deliveries on), to whoever may take orders.
+  const [orderTypes, setOrderTypes] = useState(null);
+
+  useEffect(() => {
+    let current = true;
+
+    getServiceSettings()
+      .then((loaded) => current && setOrderTypes(loaded.posOrderTypes || ["dine_in", "takeaway", "delivery"]))
+      .catch(() => current && setOrderTypes(["dine_in", "takeaway"]));
+
+    return () => {
+      current = false;
+    };
+  }, []);
+
+  const startTypes = hasPermission("orders.create") && orderTypes
+    ? [
+        orderTypes.includes("takeaway") && { type: "takeaway", label: "Takeaway", icon: "box" },
+        orderTypes.includes("delivery") && hasFeature("deliveries") && { type: "delivery", label: "Delivery", icon: "scooter" },
+      ].filter(Boolean)
+    : [];
 
   const close = () => {
     setOpenId(null);
@@ -45,6 +71,16 @@ export default function CaptainTablesPage() {
         <h1 id="cpt-title">{floor.onlyMine ? "My tables" : "Tables"}</h1>
         <MineSwitch />
       </div>
+
+      {startTypes.length > 0 && (
+        <div className="cpt-start-types" role="group" aria-label="New order without a table">
+          {startTypes.map((start) => (
+            <Link key={start.type} className="button button-secondary cpt-start-type" to={`${ORDER_SCREEN}?type=${start.type}`}>
+              <Icon name={start.icon} size={17} /> {start.label}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* Offline, the strip under the header says so: the floor shown is the last read. */}
       <ErrorMessage message={online && !floor.fromCopy ? floor.errors.tables : ""} />

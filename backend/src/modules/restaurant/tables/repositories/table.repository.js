@@ -5,6 +5,13 @@ const { todayStartsSql } = require("../../orders/repositories/tradingClock");
 // set its own figure (see floor_settings).
 const DEFAULT_CLEANING_MINUTES = 10;
 
+// Table numbers in the order people count them: the letters in front, then
+// the first number as a number (T2 before T10), then the whole text for
+// anything else ("Bar 1A").
+const NATURAL_TABLE_ORDER = `lower(substring(t.table_no from '^\\D*')),
+       substring(t.table_no from '\\d+')::numeric NULLS FIRST,
+       t.table_no`;
+
 // --- Floors ---
 
 const findFloors = async (restaurantId) => {
@@ -315,7 +322,8 @@ const findTables = async (restaurantId, filters = {}) => {
        AND ($3::bigint IS NULL OR t.id = $3)
        -- One outlet's floor: its own tables and those that belong to no outlet.
        AND ($4::bigint IS NULL OR t.outlet_id IS NULL OR t.outlet_id = $4)
-     ORDER BY f.sort_order, f.name, t.table_no`,
+     -- Numbers in counting order (T1, T2 … T10), not as text (T1, T10, T2).
+     ORDER BY f.sort_order, f.name, ${NATURAL_TABLE_ORDER}`,
     [restaurantId, filters.floorId || null, filters.tableId || null, filters.outletId || null]
   );
 

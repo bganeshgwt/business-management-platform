@@ -165,6 +165,18 @@
   font-size: 1.35rem;
 }
 
+/* Takeaway and Delivery: a new order with no table, one tap from the tables. */
+.cpt-start-types {
+  display: flex;
+  gap: 10px;
+}
+
+.cpt-start-type {
+  flex: 1 1 0;
+  min-height: 48px;
+  justify-content: center;
+}
+
 .cpt-mine {
   flex: 1 1 260px;
   display: flex;
