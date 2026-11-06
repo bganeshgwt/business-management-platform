@@ -365,7 +365,10 @@ function PersonStep({ page, people, any, chosen, onPick }) {
 
 function TimeStep({ token, selection, today, date, time, nextFree, onDate, onTime, onPickNext, loaders }) {
   const [days, setDays] = useState(null);
-  const [times, setTimes] = useState(null);
+  // The times with the day and choice they were read for: another day's are
+  // never drawn under this one, not even for the moment before its own
+  // arrive (a quick tap once took today's 5:00 pm for Sunday).
+  const [loaded, setLoaded] = useState({ key: null, times: null });
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   const fetchDays = loaders?.days || ((s) => getDays(token, s));
@@ -386,14 +389,15 @@ function TimeStep({ token, selection, today, date, time, nextFree, onDate, onTim
     // The days follow the services and the person chosen.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectionKey, attempt]);
+  const timesKey = `${selectionKey}|${date}|${attempt}`;
+  const times = loaded.key === timesKey ? loaded.times : null;
   useEffect(() => {
     if (!date) return undefined;
     let alive = true;
-    setTimes(null);
-    fetchTimes(selection, date).then((r) => alive && setTimes(r)).catch((err) => alive && setError(guestErrorMessage(err)));
+    fetchTimes(selection, date).then((r) => alive && setLoaded({ key: timesKey, times: r })).catch((err) => alive && setError(guestErrorMessage(err)));
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectionKey, date, attempt]);
+  }, [timesKey]);
   const strip = useRef(null);
   useEffect(() => {
     const node = strip.current?.querySelector(".is-on");

@@ -55,8 +55,12 @@ async function fitsDark(page, where) {
 }
 
 // The day after tomorrow in the strip of days (the first is today), and its first free time.
+// The third day, and its first free time. Today's times never stand in for
+// that day's while they load (TimeStep keeps each day's times to itself).
 async function pickTime(page) {
-  await page.getByRole("listbox", { name: "Days" }).getByRole("option").nth(2).click();
+  const day = page.getByRole("listbox", { name: "Days" }).getByRole("option").nth(2);
+  await day.click();
+  await expect(day).toHaveAttribute("aria-selected", "true");
   const first = page.locator(".ap-time-chip").first();
   await expect(first).toBeVisible({ timeout: 15_000 });
   const label = (await first.textContent()).trim();
