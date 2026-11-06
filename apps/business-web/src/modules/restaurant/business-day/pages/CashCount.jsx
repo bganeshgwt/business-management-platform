@@ -1,6 +1,10 @@
 import { moneyExact } from "@bmp/shared/format";
 import { NOTES, notesTotal } from "./cashMath";
 
+// The count the note boxes give: empty while none has anything in it (an
+// empty count is refused, never read as ₹0), else their total.
+const fromNotes = (notes, total) => (Object.values(notes || {}).some((item) => String(item ?? "").trim() !== "") ? String(total) : "");
+
 // A drawer counted note by note or as one typed total. The figure a count
 // gives is `value` (a string, so an empty box stays empty: an empty count is
 // refused, never read as ₹0).
@@ -20,8 +24,19 @@ export default function CashCount({
     const total = notesTotal(all, denominations);
 
     onNotes(all);
-    // Nothing counted yet stays empty, not "0".
-    onChange(Object.values(all).some((item) => String(item).trim() !== "") ? String(total) : "");
+    onChange(fromNotes(all, total));
+  };
+
+  // Back to note by note: the count is the notes on the screen again, never a
+  // total typed in the other view and left behind (empty boxes once showed
+  // "Counted ₹0.01"). Note by note to a typed total keeps the figure to start
+  // from.
+  const chooseMethod = (next) => {
+    if (next === "notes" && method !== "notes") {
+      onChange(fromNotes(notes, notesTotal(notes, denominations)));
+    }
+
+    onMethod(next);
   };
 
   return (
@@ -34,7 +49,7 @@ export default function CashCount({
             role="radio"
             aria-checked={method === "notes"}
             className={`segment ${method === "notes" ? "is-active" : ""}`}
-            onClick={() => onMethod("notes")}
+            onClick={() => chooseMethod("notes")}
           >
             Note by note
           </button>
@@ -43,7 +58,7 @@ export default function CashCount({
             role="radio"
             aria-checked={method === "total"}
             className={`segment ${method === "total" ? "is-active" : ""}`}
-            onClick={() => onMethod("total")}
+            onClick={() => chooseMethod("total")}
           >
             Type the total
           </button>
