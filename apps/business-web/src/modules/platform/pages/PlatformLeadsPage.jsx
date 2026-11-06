@@ -13,7 +13,7 @@ import { count, dateShort, dateTime } from "@bmp/shared/format";
 import { daysAgo, today } from "@bmp/shared/dates";
 import { addLeadNote, getTrialFunnel, listLeads, setLeadStatus } from "../services/dashboards.service";
 import {
-  BUCKETS, avgDaysText, conversionText, funnelRows, funnelShares, leadStatusWord, outcomeWord, sourceWord, stateWord, trialLengthWord,
+  BUCKETS, conversionText, funnelRows, funnelShares, leadStatusWord, outcomeWord, sourceWord, stateWord, timeToPaySentence, trialLengthWord,
 } from "../funnelWords";
 import "../styles/console.css";
 import "../styles/dashboards.css";
@@ -70,9 +70,13 @@ export default function PlatformLeadsPage() {
         description="Who asked to be called back, who started a free trial, who went on to pay and who stopped. Every number opens the businesses behind it, with the owner to call." />
       <ErrorMessage message={error} />
       <SectionCard icon="chart" title="Free-trial funnel"
-        description="Trials that started in these dates, on each business's own date; enquiries on the day they came in. A trial replaced by given time is not counted.">
-        <div className="pd-filters">
+        description="Free trials that started on these dates (each business's own date), and the enquiries that came in on them. A trial the platform swapped for Give time is left out.">
+        {/* The dates on a line of their own; the five filters and the split
+            under them, all one width, their labels in a line. */}
+        <div className="pd-filters pd-funnel-dates">
           <DateRangeFilter from={range.from} to={range.to} label="trial dates" onChange={(next) => { if (next.from && next.to) setRange(next); }} />
+        </div>
+        <div className="pd-funnel-filters">
           <label className="field">
             <span>Business type</span>
             <select aria-label="Business type" value={filters.type} onChange={(event) => setFilters((before) => ({ ...before, type: event.target.value, plan: "" }))}>
@@ -117,7 +121,7 @@ export default function PlatformLeadsPage() {
           </label>
         </div>
         {funnel && <FunnelTable funnel={funnel} onOpen={setOpen} />}
-        {funnel && <p className="pd-funnel-summary">From a trial's start to its first payment, on average: {avgDaysText(funnel.avgDaysToPay)}.</p>}
+        {funnel && <p className="pd-funnel-summary">{timeToPaySentence(funnel.avgDaysToPay)}</p>}
         {funnel && by && funnel.groups && <FunnelGroups by={by} groups={funnel.groups} />}
       </SectionCard>
       {open && <FunnelList key={`${open} ${JSON.stringify(query)}`} bucket={open} query={query} onClose={() => setOpen(null)} />}

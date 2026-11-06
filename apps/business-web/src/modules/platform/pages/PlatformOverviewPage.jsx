@@ -9,7 +9,7 @@ import { ErrorMessage, ScreenLoading } from "../../../components/Feedback";
 import { getErrorMessage } from "../../../services/api";
 import { count, dateShort, money, moneyExact } from "@bmp/shared/format";
 import { getPlatformOverview } from "../services/dashboards.service";
-import { avgDaysText, funnelRows, funnelShares } from "../funnelWords";
+import { funnelRows, funnelShares, timeToPaySentence } from "../funnelWords";
 import "../styles/console.css";
 import "../styles/dashboards.css";
 
@@ -165,7 +165,7 @@ function TrialsBlock({ funnel }) {
           </li>
         ))}
       </ul>
-      <p className="pd-funnel-summary">From a trial's start to its first payment, on average: {avgDaysText(funnel.avgDaysToPay)}.</p>
+      <p className="pd-funnel-summary">{timeToPaySentence(funnel.avgDaysToPay)}</p>
     </SectionCard>
   );
 }

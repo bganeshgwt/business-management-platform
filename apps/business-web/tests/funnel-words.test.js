@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  BUCKETS, avgDaysText, conversionText, funnelRows, funnelShares, leadStatusWord, outcomeWord, percent, sourceWord, stateWord, trialLengthWord,
+  BUCKETS, avgDaysText, conversionText, funnelRows, funnelShares, leadStatusWord, outcomeWord, percent, sourceWord, stateWord, timeToPaySentence, trialLengthWord,
 } from "../src/modules/platform/funnelWords.js";
 
 // How the platform's trial funnel is said on Leads & trials and the overview
@@ -41,7 +41,8 @@ test("a funnel with nothing in it, and one filtered by plan, where enquiries are
     continued: 0, continuedDuringTrial: 0, continuedAfterTrial: 0, stopped: 0, stoppedLast30: 0, conversion: null, avgDaysToPay: null,
   });
   assert.deepEqual(empty.map((row) => [row.key, row.value, row.note, row.parts.map((part) => part.text)]), [
-    ["enquiries", 0, "", ["none signed up yet"]], ["trialsStarted", 0, "", []], ["activated", 0, "", []], ["stillOnTrial", 0, "", []],
+    // No enquiry: nothing said of who signed up.
+    ["enquiries", 0, "", []], ["trialsStarted", 0, "", []], ["activated", 0, "", []], ["stillOnTrial", 0, "", []],
     ["continued", 0, "", []], ["stopped", 0, "", []]]);
   const byPlan = funnelRows({ ...FUNNEL, enquiries: null, enquiriesSignedUp: null, stoppedLast30: 1, stopped: 3, continuedAfterTrial: 0, continued: 1, conversion: "25.00" });
   assert.deepEqual(byPlan[0], { key: "enquiries", label: "Enquiries (call-back requests)", value: null, depth: 0, note: "Enquiries have no plan or trial length", parts: [] });
@@ -65,6 +66,10 @@ test("shares, the conversion and the days to the first payment", () => {
   assert.equal(avgDaysText(10.5), "10.5 days");
   assert.equal(avgDaysText(0), "the same day");
   assert.equal(avgDaysText(null), "—");
+  // The line under the funnel never ends in a dash.
+  assert.equal(timeToPaySentence(12), "From a trial's start to its first payment: 12 days on average.");
+  assert.equal(timeToPaySentence(0), "From a trial's start to its first payment: the same day on average.");
+  assert.equal(timeToPaySentence(null), "No trial has paid yet, so there is no time to first payment to show.");
   assert.equal(trialLengthWord(14), "14 days");
   assert.equal(trialLengthWord(1), "1 day");
 });

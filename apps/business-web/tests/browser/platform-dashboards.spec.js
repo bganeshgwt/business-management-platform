@@ -78,7 +78,7 @@ test("the overview: payments to confirm, and what going live still needs, each w
   expect(problems).toEqual([]);
 });
 
-test("Leads & trials: the funnel's numbers, and the businesses behind Stopped and Continued", async ({ page }) => {
+test("Leads & trials: the funnel's numbers, and the businesses behind Stopped and Continued", async ({ page }, testInfo) => {
   const problems = watch(page);
   watchNetwork(page);
   await signIn(page, "SUPER_ADMIN");
@@ -93,6 +93,22 @@ test("Leads & trials: the funnel's numbers, and the businesses behind Stopped an
   await expect(numbers.locator('[data-bucket="stopped"]')).toContainText("Stopped (did not pay)");
   await expect(numbers.getByRole("button", { name: `Continued (paid): ${funnel.continued}. Show the list` })).toBeVisible();
   await expect(numbers.getByRole("button", { name: `Free trials started: ${funnel.trialsStarted}. Show the list` })).toBeVisible();
+  // The line under the funnel is a sentence, never "on average: —.".
+  await expect(page.locator(".pd-funnel-summary")).toHaveText(
+    funnel.avgDaysToPay === null ? "No trial has paid yet, so there is no time to first payment to show." : /^From a trial's start to its first payment: .+ on average\.$/
+  );
+  // The filters line up: one width, their labels in one line.
+  const filterBoxes = await page.locator(".pd-funnel-filters select").evaluateAll((all) => all.map((el) => {
+    const box = el.getBoundingClientRect();
+    return { top: Math.round(box.top), width: Math.round(box.width) };
+  }));
+  expect(filterBoxes).toHaveLength(6);
+  const firstRow = filterBoxes.filter((box) => box.top === filterBoxes[0].top);
+  expect(new Set(firstRow.map((box) => box.width)).size, "the filters on a row are one width").toBe(1);
+  // From, To and Quick pick: their labels on one line.
+  const dateLabels = await page.locator(".pd-funnel-dates > .field > span").evaluateAll((all) => all.map((el) => Math.round(el.getBoundingClientRect().top)));
+  expect(new Set(dateLabels).size, "the date labels on one line").toBe(1);
+  await page.screenshot({ path: testInfo.outputPath("leads-funnel.png") });
 
   await numbers.getByRole("button", { name: `Stopped (did not pay): ${funnel.stopped}. Show the list` }).click();
   const stopped = card(page, "Stopped (did not pay)");

@@ -40,6 +40,12 @@ export const avgDaysText = (days) => {
   return `${Number(days)} ${Number(days) === 1 ? "day" : "days"}`;
 };
 
+// The line under the funnel: how long a trial takes to pay, or that none has.
+export const timeToPaySentence = (days) =>
+  days === null || days === undefined
+    ? "No trial has paid yet, so there is no time to first payment to show."
+    : `From a trial's start to its first payment: ${avgDaysText(days)} on average.`;
+
 export const trialLengthWord = (days) => plural(days, "day", "days");
 
 const part = (key, value, text) => ({ key, value, text });
@@ -63,7 +69,10 @@ export function funnelRows(funnel) {
     {
       key: "enquiries", label: BUCKETS.enquiries, value: counted ? funnel.enquiries : null, depth: 0,
       note: counted ? "" : "Enquiries have no plan or trial length",
-      parts: counted ? [part("enquiriesSignedUp", funnel.enquiriesSignedUp, funnel.enquiriesSignedUp ? `${count(funnel.enquiriesSignedUp)} signed up` : "none signed up yet")] : [],
+      // How many signed up, said once there is an enquiry to say it of.
+      parts: counted && Number(funnel.enquiries) > 0
+        ? [part("enquiriesSignedUp", funnel.enquiriesSignedUp, funnel.enquiriesSignedUp ? `${count(funnel.enquiriesSignedUp)} signed up` : "none signed up yet")]
+        : [],
     },
     { key: "trialsStarted", label: BUCKETS.trialsStarted, value: funnel.trialsStarted, depth: 0, note: "", parts: sources },
     {

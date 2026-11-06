@@ -12,6 +12,37 @@
   min-width: 0;
 }
 
+/* Leads & trials: the dates on their own line, then the filters and the split
+   in even columns, their labels in one line, as many to a row as fit. */
+.pd-funnel-dates {
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+/* Quick pick as tall as the date boxes beside it, so the three labels and
+   the three boxes line up. */
+.pd-funnel-dates .segmented {
+  box-sizing: border-box;
+  min-height: 42px;
+  align-items: stretch;
+}
+
+.pd-funnel-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  align-items: end;
+  gap: 10px 12px;
+  margin-bottom: 4px;
+}
+
+.pd-funnel-filters .field {
+  min-width: 0;
+}
+
+.pd-funnel-filters select {
+  width: 100%;
+}
+
 .pd-filter-box {
   padding: 12px 14px;
   border: 1px solid var(--border);
