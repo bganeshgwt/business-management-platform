@@ -66,3 +66,29 @@
 .qt-take-line input[type="number"] {
   width: 7rem;
 }
+
+/* A gym's quotation: its plans sold one member at a time, and the memberships sold from it. */
+.qt-plans-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--info-bg);
+  color: var(--info-text);
+}
+
+.qt-plans-note svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.qt-memberships ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.qt-memberships li + li {
+  margin-top: 2px;
+}

@@ -331,7 +331,28 @@ function readSale(body) {
     addons: readAddons(body.addons), seats: readSeats(body.seatMembers),
     soldBy: c.given(body.soldBy) ? Number(id(body.soldBy, 'Sold by')) : null, trainerId: c.given(body.trainerId) ? Number(id(body.trainerId, 'Trainer')) : null,
     leadId: c.given(body.leadId) ? Number(id(body.leadId, 'Enquiry')) : null,
+    // Sold from a quotation's plan line, at its quoted price: { id, lineId }.
+    quotation: body.quotation && typeof body.quotation === 'object'
+      ? { quotationId: Number(id(body.quotation.id, 'Quotation')), lineId: Number(id(body.quotation.lineId, 'Quotation line')) } : null,
   };
+}
+
+// A sale from a quotation (quotations.service forMembership): the quoted plan,
+// at the quoted price, with the joining fee if the quotation quoted one; no
+// discount, add-ons or renewal of its own (the quotation's price is the deal).
+async function fromQuotation(db, business, input, { lock }) {
+  if (!input.quotation) return null;
+  // Selling from a quotation uses it up, as billing it does.
+  await access.require(business, lock ? 'quotations.edit' : 'quotations.view');
+  if (input.discount) fail('A membership sold from a quotation is at the quoted price: its discount is in it already');
+  if ((input.addons || []).length) fail('Bill the quotation\'s other lines with the quotation; a membership sold from it carries no add-ons of its own');
+  if (input.renewalOf) fail('A renewal is sold from the membership it renews, not from a quotation');
+  const sold = await quotes().forMembership(db, business, input.quotation, { lock });
+  if (Number(input.planId) !== sold.planId) fail(`That line of quotation ${sold.q.quotation_no} is another plan`, 409);
+  if (Number(input.locationId) !== Number(sold.q.location_id)) fail(`Quotation ${sold.q.quotation_no} is for another branch: sell it there`, 409);
+  // The joining fee is billed as the quotation quoted it: with it while one is left, else not.
+  input.joiningFee = Boolean(sold.joining);
+  return sold;
 }
 
 async function planFor(db, business, planId) {
@@ -413,10 +434,12 @@ async function preview(business, user, body) {
   return repo.transaction(async (db) => {
     const day = await c.today(db, business);
     const contact = input.contactId ? await customer(db, business, input.contactId) : null;
+    const sold = await fromQuotation(db, business, input, { lock: false });
     const sale = await prepare(db, business, user, input, { day, contact });
-    const quoted = await quotes().priceIn(db, business, user, { locationId: input.locationId, contact, lines: sale.lines, discount: input.discount });
+    const quoted = await quotes().priceIn(db, business, user, { locationId: input.locationId, contact, lines: sale.lines, discount: input.discount, fixed: sold ? sold.fixed : null });
     const p = sale.plan;
     return { ...quoted, startOn: sale.start, endOn: sale.end, sessions: p.sessions, joiningFee: sale.joining, term: c.termWords(p),
+      ...(sold ? { quotation: { id: Number(sold.q.id), quotationNo: sold.q.quotation_no, line: sold.line.label, leftAfter: sold.leftAfter } } : {}),
       renewalOf: sale.renewal ? { id: sale.renewal.old.id, membershipNo: sale.renewal.old.membership_no, endOn: sale.renewal.old.end_on } : null, today: day,
       // The terms disclosed before the sale: the late fee, the freeze and transfer fees, the joining fee's part that comes back.
       terms: { seats: p.seats, visitLimit: p.visit_limit, visitPeriod: p.visit_period, hours: c.hoursWords(p), lateFee: p.late_fee, lateFeeAfterDays: p.late_fee_after_days,
@@ -487,8 +510,9 @@ async function giveSeats(db, business, user, membership, holder, seats, plan) {
 
 // Posts the bill of a sale and writes the membership (inside the caller's
 // transaction). Returns { membership, document }.
+// `fixed`: the lines' prices given already (sold from a quotation: its quoted prices).
 async function postSale(db, business, user, sale, { contact, locationId, requestKey, hash, paidNow, discount, instalments, notes, buyer, upgradedFrom = null, kind, day, note = null,
-  sellers: who = { soldBy: Number(user.id), trainerId: null }, seats = null }) {
+  sellers: who = { soldBy: Number(user.id), trainerId: null }, seats = null, fixed = null, quotationNo = null }) {
   const lastDue = instalments ? instalments.at(-1).dueOn : null;
   const documentBody = {
     kind: 'sale', locationId, contactId: contact.id, lines: sale.lines, ...(discount ? { discount } : {}),
@@ -496,7 +520,7 @@ async function postSale(db, business, user, sale, { contact, locationId, request
     buyer: { pan: buyer?.pan, panDeclaration: buyer?.panDeclaration },
   };
   const document = await core.postDocument(db, business, user, documentBody, { kind: 'sale', requestKey: c.derivedKey(requestKey, 'bill'), hash: c.hashOf(documentBody),
-    lines: sale.lines, paidNow, membership: true, dueDay: lastDue });
+    lines: sale.lines, paidNow, membership: true, dueDay: lastDue, fixed });
   checkInstalments(instalments, day, paise(document.total));
   const lines = await repo.all(db, 'SELECT id,sku_id,net,tax,tax_rate FROM business_document_lines WHERE business_id=$1 AND document_id=$2 ORDER BY id', [business.id, document.id]);
   const planLine = lines.find((l) => Number(l.sku_id) === Number(sale.plan.price_sku_id));
@@ -522,7 +546,8 @@ async function postSale(db, business, user, sale, { contact, locationId, request
     joiningFee: rupees(joiningLine ? paise(joiningLine.net) + paise(joiningLine.tax) : 0), ...(instalments ? { instalments: instalments.length } : {}),
     ...(sale.renewal ? { renewalOf: sale.renewal.old.membership_no } : {}), ...(sale.addons?.length ? { addons: sale.addons.map((a) => a.label) } : {}),
     ...(seated.length ? { seats: seated.length } : {}) };
-  await event(db, business, user, membership.id, kind, note || (kind === 'renewal' ? `Renewal of ${sale.renewal.old.membership_no}` : `Sold on ${document.document_no}`), details);
+  await event(db, business, user, membership.id, kind, note || (kind === 'renewal' ? `Renewal of ${sale.renewal.old.membership_no}`
+    : `Sold on ${document.document_no}${quotationNo ? ` from quotation ${quotationNo}` : ''}`), details);
   return { membership, document };
 }
 
@@ -567,9 +592,12 @@ async function sell(business, user, body) {
     const contact = contactId ? await customer(db, business, contactId)
       : await core.createContact(business, user, input.newMember || { kind: 'customer', name: lead.name, phone: lead.phone || undefined, email: lead.email || undefined }, db);
     const who = await sellers(db, business, user, input);
+    const sold = await fromQuotation(db, business, input, { lock: true });
     const sale = await prepare(db, business, user, input, { day, contact });
     const { membership, document } = await postSale(db, business, user, sale, { contact, locationId: location.id, requestKey, hash, paidNow: parts, discount: input.discount,
-      instalments: input.instalments, notes: input.notes, buyer: body.buyer, kind: sale.renewal ? 'renewal' : 'sold', day, sellers: who, seats: input.seats });
+      instalments: input.instalments, notes: [sold && `Quotation ${sold.q.quotation_no}`, input.notes].filter(Boolean).join(' · ') || null, buyer: body.buyer,
+      kind: sale.renewal ? 'renewal' : 'sold', day, sellers: who, seats: input.seats, fixed: sold ? sold.fixed : null, quotationNo: sold ? sold.q.quotation_no : null });
+    if (sold) await quotes().recordMembership(db, business, user, sold, document, membership);
     if (lead) {
       await db.query("UPDATE member_leads SET status='member',contact_id=$3,membership_id=$4,updated_by=$5,updated_at=now() WHERE business_id=$1 AND id=$2",
         [business.id, lead.id, contact.id, membership.id, user.id]);

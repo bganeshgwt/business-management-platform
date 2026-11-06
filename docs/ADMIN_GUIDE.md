@@ -3843,6 +3843,20 @@ general store, an optical shop, a jeweller and a wholesaler. It is under
   customer on credit hold is let through here as on *Sales orders*: someone
   with credit control gives the reason; anyone else chooses a manager, who
   types their PIN, and gives the reason.
+- **Sell membership** — at a gym, studio or coaching centre with Membership
+  plans on. A plan is quoted like any line: a corporate rate for 25
+  employees, a couple's two plans, a walk-in's six months with the joining
+  fee. Its line says *Membership plan · 3 of 25 sold* and has **Sell
+  membership**. That opens the sale on the quoted plan, at the quoted price
+  (its share of any discount), for one member. A line for one person starts
+  with the quotation's customer; a line for many asks each member in turn.
+  The plan's joining fee is billed with it while the quotation quoted one and
+  has one left; otherwise none. The sale takes no discount or add-ons of its
+  own. Each membership counts against the line; the quotation lists the
+  memberships sold from it and is *Billed* once nothing is left. **Make the
+  bill** takes only its other lines (PT sessions, a locker, products): a plan
+  and its joining fee are never billed loose. Expired, it is revised first,
+  as for a bill.
 - **Book a spectacle order** — at an optical shop, for a saved customer, while
   nothing of the quotation is billed: a spectacle order at the quoted prices,
   its frame and lenses chosen from the quotation's lines ([Optical

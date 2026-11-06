@@ -150,9 +150,10 @@ function readDiscount(body) {
 // not saved: one line for each line asked for. A kit sells as its parts, each
 // at its share of the kit's price and at its own GST; on a quotation it is
 // one line, its parts kept with it as priced (kitParts).
-async function priceIn(db, business, user, { locationId, contact, lines, discount }) {
+// `fixed`: lines at prices given already (a membership sold from a quotation: the quoted price).
+async function priceIn(db, business, user, { locationId, contact, lines, discount, fixed = null }) {
   const body = { kind: 'sale', locationId, contactId: contact?.id || null, lines, ...(discount ? { discount } : {}) };
-  const quoted = await core.postDocument(db, business, user, body, { kind: 'sale', requestKey: crypto.randomUUID(), hash: '', lines, paidNow: null, quote: 'estimate' });
+  const quoted = await core.postDocument(db, business, user, body, { kind: 'sale', requestKey: crypto.randomUUID(), hash: '', lines, paidNow: null, quote: 'estimate', fixed });
   if (!quoted.lines.some((line) => line.kitSkuId)) return quoted;
   const kitIds = [...new Set(quoted.lines.filter((line) => line.kitSkuId).map((line) => Number(line.kitSkuId)))];
   const kits = new Map((await repo.all(db, 'SELECT id,label,unit,tax_rate,mrp FROM catalog_skus WHERE business_id=$1 AND id=ANY($2::bigint[])', [business.id, kitIds]))
@@ -244,6 +245,8 @@ async function load(db, business, quotationId) {
   const rows = await repo.all(db, `SELECT x.*,s.code AS sku_code,s.tracking FROM business_quotation_lines x JOIN catalog_skus s ON s.business_id=x.business_id AND s.id=x.sku_id
     WHERE x.business_id=$1 AND x.quotation_id=$2 ORDER BY x.id`, [business.id, q.id]);
   const billed = await billedOf(db, business, q.id);
+  // A gym's plans quoted, and their joining fees: each sold as a membership from the quotation.
+  const planLines = await planLinesOf(db, business, rows);
   // A kit's parts with how each is kept in stock (a serial-numbered part is chosen on the bill).
   const partIds = rows.flatMap((line) => (line.kit_parts || []).map((part) => Number(part.skuId)));
   const tracking = new Map(partIds.length ? (await repo.all(db, 'SELECT id,tracking FROM catalog_skus WHERE business_id=$1 AND id=ANY($2::bigint[])', [business.id, partIds]))
@@ -251,8 +254,14 @@ async function load(db, business, quotationId) {
   const lines = rows.map((line) => {
     const done = billed.get(Number(line.id)) || nothing;
     return { ...line, kit_parts: line.kit_parts ? line.kit_parts.map((part) => ({ ...part, tracking: tracking.get(Number(part.skuId)) || null })) : null,
-      billed_quantity: qty(done.quantityMilli), left_quantity: qty(milli(line.quantity) - done.quantityMilli), billed_net: rupees(done.net), billed_tax: rupees(done.tax) };
+      billed_quantity: qty(done.quantityMilli), left_quantity: qty(milli(line.quantity) - done.quantityMilli), billed_net: rupees(done.net), billed_tax: rupees(done.tax),
+      plan: planLines.get(Number(line.id)) || null };
   });
+  // The memberships sold from it, each with its member.
+  const memberships = planLines.size ? await repo.all(db, `SELECT DISTINCT ON (m.id) m.id,m.membership_no,m.contact_id,m.plan_name,m.start_on::text AS start_on,ct.name AS member_name,b.line_id
+    FROM business_quotation_billed b JOIN member_memberships m ON m.business_id=b.business_id AND m.document_id=b.document_id
+    JOIN business_contacts ct ON ct.business_id=m.business_id AND ct.id=m.contact_id
+    WHERE b.business_id=$1 AND b.quotation_id=$2 ORDER BY m.id`, [business.id, q.id]) : [];
   const bills = await repo.all(db, `SELECT d.id,d.document_no,d.total,d.created_at,u.name AS created_by_name,
       json_agg(json_build_object('line_id',b.line_id,'quantity',b.quantity) ORDER BY b.line_id) AS lines
     FROM business_quotation_billed b JOIN business_documents d ON d.business_id=b.business_id AND d.id=b.document_id JOIN users u ON u.id=b.created_by
@@ -269,7 +278,7 @@ async function load(db, business, quotationId) {
   const notices = q.status === 'open'
     ? await taxChanges().notices(db, business, open.flatMap((line) => (line.kit_parts ? line.kit_parts.map((part) => part.skuId) : [line.sku_id]))) : [];
   const state = q.expired ? 'expired' : q.status === 'open' && bills.length ? 'part_billed' : q.status;
-  return { ...q, state, lines, bills, revisions, seller: core.branchSeller(settings, q.location), site, tints, calculations: workings, tax_notices: notices };
+  return { ...q, state, lines, bills, memberships, revisions, seller: core.branchSeller(settings, q.location), site, tints, calculations: workings, tax_notices: notices };
 }
 
 async function detail(business, quotationId) {
@@ -637,12 +646,18 @@ async function bill(business, user, quotationId, body) {
     const all = await repo.all(db, 'SELECT * FROM business_quotation_lines WHERE business_id=$1 AND quotation_id=$2 ORDER BY id', [business.id, q.id]);
     const billed = await billedOf(db, business, q.id);
     const leftOf = (line) => milli(line.quantity) - (billed.get(Number(line.id)) || nothing).quantityMilli;
+    // A plan quoted, and its joining fee, are sold as memberships, one at a time, never on this bill.
+    const planLines = await planLinesOf(db, business, all);
     // How much of each line goes on this bill, in its stock unit (a kit's in kits).
     const now = new Map();
     if (asked) {
       for (const [lineId, quantity] of asked) {
         const line = all.find((l) => Number(l.id) === lineId);
         if (!line) fail('That line is not on this quotation', 404);
+        const plan = planLines.get(lineId);
+        if (plan) {
+          fail(`${line.label} is ${plan.role === 'plan' ? 'a membership plan' : `the joining fee of ${plan.planName}`}: sell each membership from the quotation with Sell membership, which makes the membership with its bill`, 409);
+        }
         let quantityMilli = milli(quantity);
         if (line.kit_parts && quantityMilli % 1000) fail(`${line.label} is billed in whole kits`);
         if (line.entered_unit && !line.kit_parts) {
@@ -658,9 +673,14 @@ async function bill(business, user, quotationId, body) {
         now.set(lineId, quantityMilli);
       }
     } else {
-      for (const line of all) if (leftOf(line) > 0) now.set(Number(line.id), leftOf(line));
+      for (const line of all) if (leftOf(line) > 0 && !planLines.has(Number(line.id))) now.set(Number(line.id), leftOf(line));
     }
-    if (!now.size) fail(`Nothing is left to bill on quotation ${q.quotation_no}`, 409);
+    if (!now.size) {
+      if (all.some((line) => leftOf(line) > 0 && planLines.has(Number(line.id)))) {
+        fail(`What is left on quotation ${q.quotation_no} is membership plans: sell each from the quotation with Sell membership`, 409);
+      }
+      fail(`Nothing is left to bill on quotation ${q.quotation_no}`, 409);
+    }
     const lines = await checkedLines(db, business, q, all.filter((l) => now.has(Number(l.id))));
     for (const lineId of choices.keys()) if (!lines.some((l) => Number(l.id) === lineId)) fail('That line is not on this bill', 404);
     // A tinted line goes on the bill tinted, from one batch.
@@ -806,4 +826,97 @@ async function order(business, user, quotationId, body) {
 // priceIn, readDiscount, readStockChoices, stockPieces and pricePieces also price
 // and bill an optical shop's spectacle orders, and readyToClose and
 // checkedLines book one from a quotation (optical/services/opticalOrders.service.js).
-module.exports = { preview, detail, create, revise, cancel, bill, order, priceIn, readDiscount, readStockChoices, stockPieces, pricePieces, readyToClose, checkedLines };
+// --- Membership plans quoted (gyms, studios, coaching centres) ------------------------------------
+//
+// A plan's item is quoted like any line: a corporate rate for 25 employees, a
+// couple's two plans, a walk-in's six months with the joining fee. It is never
+// billed loose: each membership is sold from its line by Members & plans
+// (memberships.service sell, body.quotation), one at a time, at the quoted
+// price, with the plan's joining fee at its quoted price while the quotation
+// has one left. Each sale counts against the quotation like a bill; the
+// quotation is billed when nothing is left. Expired, or priced in other GST
+// terms, it is revised first, as for a bill.
+
+// The quotation's plan lines, and the joining-fee lines of the plans quoted on
+// it: Map(line id → { planId, planName, role: 'plan' | 'joining' }).
+async function planLinesOf(db, business, lines) {
+  if (!business.modules.includes('member_plans') || !lines.length) return new Map();
+  const skuIds = [...new Set(lines.map((line) => Number(line.sku_id)))];
+  const plans = await repo.all(db, `SELECT id,name,price_sku_id,joining_sku_id FROM member_plan_types
+    WHERE business_id=$1 AND (price_sku_id=ANY($2::bigint[]) OR joining_sku_id=ANY($2::bigint[]))`, [business.id, skuIds]);
+  const quoted = plans.filter((plan) => skuIds.includes(Number(plan.price_sku_id)));
+  const out = new Map();
+  for (const line of lines) {
+    const plan = quoted.find((p) => Number(p.price_sku_id) === Number(line.sku_id));
+    const joiningOf = plan ? null : quoted.find((p) => p.joining_sku_id && Number(p.joining_sku_id) === Number(line.sku_id));
+    if (plan) out.set(Number(line.id), { planId: Number(plan.id), planName: plan.name, role: 'plan' });
+    else if (joiningOf) out.set(Number(line.id), { planId: Number(joiningOf.id), planName: joiningOf.name, role: 'joining' });
+  }
+  return out;
+}
+
+// One membership sold from a plan line: { quotationId, lineId }, checked. The
+// quotation open, within its date and in today's GST terms; the line a plan
+// with one left. Returns the quotation, the plan, and one membership's quoted
+// prices as the bill takes them (`fixed`): the plan's, and the joining fee's
+// while the quotation has one left. `lock`: the sale locks the quotation; a
+// preview reads it.
+async function forMembership(db, business, { quotationId, lineId }, { lock = true } = {}) {
+  const q = await repo.one(db, `SELECT * FROM business_quotations WHERE business_id=$1 AND id=$2${lock ? ' FOR UPDATE' : ''}`, [business.id, quotationId]);
+  if (!q) fail('Quotation not found', 404);
+  access.requireLocation(business, q.location_id);
+  await readyToClose(db, business, q, 'a membership');
+  const all = await repo.all(db, 'SELECT * FROM business_quotation_lines WHERE business_id=$1 AND quotation_id=$2 ORDER BY id', [business.id, q.id]);
+  const line = all.find((l) => Number(l.id) === Number(lineId));
+  if (!line) fail('That line is not on this quotation', 404);
+  const plans = await planLinesOf(db, business, all);
+  const mine = plans.get(Number(line.id));
+  if (!mine || mine.role !== 'plan') fail(`${line.label} is not a membership plan: bill it with the quotation's other lines`);
+  const billed = await billedOf(db, business, q.id);
+  const before = (billed.get(Number(line.id)) || nothing).quantityMilli;
+  if (milli(line.quantity) - before < 1000) fail(`Every ${line.label} on quotation ${q.quotation_no} is sold`, 409);
+  const joiningLine = all.find((l) => {
+    const role = plans.get(Number(l.id));
+    return role && role.role === 'joining' && role.planId === mine.planId;
+  });
+  const joiningBefore = joiningLine ? (billed.get(Number(joiningLine.id)) || nothing).quantityMilli : 0;
+  const joining = joiningLine && milli(joiningLine.quantity) - joiningBefore >= 1000 ? joiningLine : null;
+  await checkedLines(db, business, q, [line, ...(joining ? [joining] : [])]);
+  const one = [{ quantityMilli: 1000, lotCode: null }];
+  const planPiece = pricePieces(q, line, one, before)[0];
+  const joiningPiece = joining ? pricePieces(q, joining, one, joiningBefore)[0] : null;
+  return {
+    q, all, line, joining, planId: mine.planId, planPiece, joiningPiece,
+    fixed: [planPiece.fixed, ...(joiningPiece ? [joiningPiece.fixed] : [])],
+    // Left of the line after this one, for the words of the sale.
+    leftAfter: (milli(line.quantity) - before - 1000) / 1000,
+  };
+}
+
+// Counts a membership's bill against the quotation it was sold from (inside
+// the sale's transaction): its plan line, and the joining fee when it came
+// from the quotation. The quotation is billed once nothing is left.
+async function recordMembership(db, business, user, sold, document, membership) {
+  const taken = [{ line: sold.line, piece: sold.planPiece }, ...(sold.joining ? [{ line: sold.joining, piece: sold.joiningPiece }] : [])];
+  for (const { line, piece } of taken) {
+    await db.query(`INSERT INTO business_quotation_billed(business_id,quotation_id,line_id,document_id,quantity,net,tax,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [business.id, sold.q.id, line.id, document.id, qty(1000), rupees(piece.fixed.net), rupees(piece.fixed.tax), user.id]);
+  }
+  const after = await billedOf(db, business, sold.q.id);
+  const finished = sold.all.every((line) => (after.get(Number(line.id)) || nothing).quantityMilli >= milli(line.quantity));
+  let saved = sold.q;
+  if (finished) {
+    saved = await repo.one(db, "UPDATE business_quotations SET status='billed',document_id=$3,closed_by=$4,closed_at=now() WHERE business_id=$1 AND id=$2 RETURNING *",
+      [business.id, sold.q.id, document.id, user.id]);
+  }
+  const action = finished ? 'quotation.billed' : 'quotation.part_billed';
+  const lines = taken.map(({ line }) => ({ lineId: Number(line.id), label: line.label, quantity: qty(1000) }));
+  await repo.audit(db, business.id, user.id, action, saved.id, { quotationNo: saved.quotation_no, documentNo: document.document_no, total: document.total,
+    membershipNo: membership.membership_no, lines, nothingLeft: finished });
+  await repo.event(db, business.id, user.id, action, 'quotation', saved.id, { quotationNo: saved.quotation_no, documentId: document.id,
+    documentNo: document.document_no, total: document.total, membershipId: membership.id, lines, nothingLeft: finished });
+  return saved;
+}
+
+module.exports = { preview, detail, create, revise, cancel, bill, order, priceIn, readDiscount, readStockChoices, stockPieces, pricePieces, readyToClose, checkedLines,
+  forMembership, recordMembership };

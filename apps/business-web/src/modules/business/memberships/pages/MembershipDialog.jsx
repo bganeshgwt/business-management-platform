@@ -25,7 +25,10 @@ import { consentChanges } from "../../../personal-data/personalData";
 // for, may carry add-ons (a locker with its number), gives a shared plan's
 // seats, and closes the enquiry it came from.
 //   mode: sell | renew | upgrade; member: the member (none: choose or type one);
-//   membership: the one renewed or upgraded; lead: the enquiry sold from.
+//   membership: the one renewed or upgraded; lead: the enquiry sold from;
+//   quotation: { q, line } a quotation's plan line sold from, at its quoted
+//   price: the plan, branch and joining fee as quoted, no discount or add-ons
+//   of its own; a line for one person starts with the quotation's customer.
 
 const PAY_KINDS = ["cash", "upi", "card", "bank"];
 const PAN_ABOVE = 200000;
@@ -42,7 +45,7 @@ function useList(biz, path, allowed) {
   return rows;
 }
 
-export default function MembershipDialog({ mode = "sell", member, membership, lead, onClose, onSaved }) {
+export default function MembershipDialog({ mode = "sell", member, membership, lead, quotation = null, onClose, onSaved }) {
   const biz = useOpenBusiness();
   const { user } = useAuth();
   const methods = usePaymentMethods();
@@ -53,11 +56,17 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
   const today = businessToday(biz.business.timezone);
   const { options, error: plansError } = useOptions(["member-plans/plans?active=true"]);
   const plans = useMemo(() => (options?.["member-plans/plans?active=true"] || []), [options]);
-  const [chosen, setChosen] = useState(member || (lead?.contact_id ? { id: lead.contact_id, name: lead.name } : null));
+  // A quotation's line for one person is that person's (its customer); a line for many (a company's employees) asks each one.
+  const quotedFor = quotation && Number(quotation.line.quantity) === 1 ? quotation.q : null;
+  const [chosen, setChosen] = useState(member || (lead?.contact_id ? { id: lead.contact_id, name: lead.name } : null)
+    || (quotedFor?.contact_id ? { id: quotedFor.contact_id, name: quotedFor.customer_name, phone: quotedFor.customer_phone } : null));
   const [form, setForm] = useState(() => ({
     soldBy: "", trainerId: "", addons: [], seats: [], difference: "credit", refundMethod: "cash", refundOn: "",
-    planId: mode === "renew" && membership ? String(membership.plan_id) : "", newMember: Boolean(lead && !lead.contact_id), name: lead?.name || "", phone: lead?.phone || "", startOn: today, joining: null,
-    locationId: String(biz.currentLocationId || biz.member.location_id || biz.locations[0]?.id || ""), amount: "", method: "cash", reference: "",
+    planId: mode === "renew" && membership ? String(membership.plan_id) : quotation ? String(quotation.line.plan.planId) : "",
+    newMember: Boolean(lead && !lead.contact_id) || Boolean(quotedFor && !quotedFor.contact_id),
+    name: lead?.name || (quotedFor && !quotedFor.contact_id ? quotedFor.customer_name : "") || "",
+    phone: lead?.phone || (quotedFor && !quotedFor.contact_id ? quotedFor.customer_phone : "") || "", startOn: today, joining: null,
+    locationId: String(quotation ? quotation.q.location_id : biz.currentLocationId || biz.member.location_id || biz.locations[0]?.id || ""), amount: "", method: "cash", reference: "",
     discountAmount: "", discountReason: "", split: false, parts: "4", firstDue: today, instalments: [], pan: "", declaration: false, notes: "",
   }));
   const [figures, setPreview] = useState(null);
@@ -65,8 +74,10 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
   const set = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
   const plan = plans.find((p) => String(p.id) === String(form.planId));
   const contactId = form.newMember ? null : chosen?.id || null;
-  const discount = form.discountAmount ? { discount: { amount: form.discountAmount, reason: form.discountReason } } : {};
-  const addons = form.addons.filter((a) => a.item).map((a) => ({ skuId: a.item.id, kind: a.kind, ...(a.kind === "locker" ? { lockerNo: a.lockerNo } : {}) }));
+  const discount = form.discountAmount && !quotation ? { discount: { amount: form.discountAmount, reason: form.discountReason } } : {};
+  const addons = quotation ? [] : form.addons.filter((a) => a.item).map((a) => ({ skuId: a.item.id, kind: a.kind, ...(a.kind === "locker" ? { lockerNo: a.lockerNo } : {}) }));
+  // The quotation line it is sold from, sent with the figures and the sale.
+  const fromQuotation = quotation ? { quotation: { id: quotation.q.id, lineId: quotation.line.id } } : {};
   // The figures as the server works them out, each time what decides them changes.
   const asked = JSON.stringify({ planId: form.planId, contactId, startOn: form.startOn, joining: form.joining, discount, locationId: form.locationId, addons });
   // The figures shown are those worked out for what is asked now.
@@ -77,7 +88,7 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
     const timer = setTimeout(() => {
       const body = mode === "upgrade" ? { planId: form.planId, locationId: form.locationId, ...discount }
         : { planId: form.planId, locationId: form.locationId, ...(contactId ? { contactId } : {}), ...(mode === "renew" ? { renewalOf: membership.id } : { startOn: form.startOn }),
-          ...(form.joining === null ? {} : { joiningFee: form.joining }), ...discount, ...(addons.length ? { addons } : {}) };
+          ...(form.joining === null || quotation ? {} : { joiningFee: form.joining }), ...discount, ...(addons.length ? { addons } : {}), ...fromQuotation };
       const path = mode === "upgrade" ? `member-plans/memberships/${membership.id}/upgrade/preview` : "member-plans/memberships/preview";
       businessWrite(biz.id, path, body).then((p) => { if (!controller.signal.aborted) { setPreview({ ...p, asked }); setProblem(""); } })
         .catch((err) => { if (!controller.signal.aborted) { setPreview(null); setProblem(getErrorMessage(err)); } });
@@ -91,7 +102,8 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
   const searchServices = (q, { signal }) => businessRead(biz.id, "catalog", { kind: "service", active: "true", q, limit: 15 }, signal).then((page) => page.items);
   const searchMembers = (q, { signal }) => businessRead(biz.id, "contacts", { kind: "customer", active: "true", q, limit: 15 }, signal).then((page) => page.items);
   const due = preview ? Number(mode === "upgrade" ? preview.due : preview.total) : 0;
-  const joiningShown = mode === "sell" && plan?.joining_sku_id;
+  // From a quotation the joining fee is as quoted (said under the bill), not a choice.
+  const joiningShown = mode === "sell" && plan?.joining_sku_id && !quotation;
   const joiningOn = form.joining === null ? Boolean(preview?.joiningFee) : form.joining;
   const instalments = form.split ? (form.instalments.length ? form.instalments : splitInstalments(total, form.parts, form.firstDue)) : [];
   const instalmentSum = instalments.reduce((s, i) => s + Math.round(Number(i.amount || 0) * 100), 0);
@@ -117,7 +129,7 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
       ...(form.newMember ? { member: { name: form.name, phone: form.phone || undefined, consents: consentChanges(form.consents, []) || undefined } } : chosen ? { contactId: chosen.id } : {}),
       ...(mode === "renew" ? { renewalOf: membership.id } : { startOn: form.startOn }), ...(joiningShown ? { joiningFee: joiningOn } : {}),
       ...(addons.length ? { addons } : {}), ...(seats && contactId ? { seatMembers: seats } : {}), ...(form.soldBy ? { soldBy: form.soldBy } : {}),
-      ...(form.trainerId ? { trainerId: form.trainerId } : {}), ...(lead ? { leadId: lead.id } : {}) });
+      ...(form.trainerId ? { trainerId: form.trainerId } : {}), ...(lead ? { leadId: lead.id } : {}), ...fromQuotation });
   };
   const titles = { sell: biz.t.ex("phrase.sell_plan") || "Sell a membership", renew: `Renew ${membership?.membership_no || ""}`, upgrade: `Change the plan of ${membership?.membership_no || ""}` };
   const choices = plans.filter((p) => mode !== "upgrade" || String(p.id) !== String(membership?.plan_id));
@@ -133,7 +145,8 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
       submitLabel={mode === "upgrade" ? "Change the plan and post the bill" : "Post the bill"}
       description={mode === "renew" ? "The renewal starts the day after this membership ends, or today if it ended more than its grace days ago."
         : mode === "upgrade" ? "The new plan starts today. The part of this membership not used comes back as a credit note on its bill, and pays the new bill first."
-          : lead ? `Sold from ${lead.name}'s enquiry, which closes as the member they became.` : "The bill is posted with the membership; what is not paid now stays on the member's dues."}>
+          : quotation ? `From quotation ${quotation.q.quotation_no}: ${quotation.line.label} at the quoted price, for one member.${Number(quotation.line.left_quantity) > 1 ? ` ${Number(quotation.line.left_quantity) - 1} more can be sold from it after this one.` : ""}`
+            : lead ? `Sold from ${lead.name}'s enquiry, which closes as the member they became.` : "The bill is posted with the membership; what is not paid now stays on the member's dues."}>
       {mode === "sell" && !member && !lead?.contact_id && (
         <>
           {form.newMember ? (
@@ -156,7 +169,7 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
       <Field label={mode === "upgrade" ? "New plan" : "Plan"} hint={plansHint}>
         {/* Off until the plans have come: a renewal's plan is set already (its bill is worked
             out meanwhile), and an empty list must not stop it as "Choose plan". */}
-        <select required disabled={!options} value={form.planId} onChange={(e) => setForm((f) => ({ ...f, planId: e.target.value, joining: null, instalments: [] }))}>
+        <select required disabled={!options || Boolean(quotation)} value={form.planId} onChange={(e) => setForm((f) => ({ ...f, planId: e.target.value, joining: null, instalments: [] }))}>
           <option value="">{options ? (noPlans ? "No plans to choose from" : "Choose the plan…") : plansError ? "No plans to choose from" : "Loading the plans…"}</option>
           {choices.map((p) => <option key={p.id} value={p.id}>{p.name} · {termWords(p)} · {biz.exact(p.price)}{Number(p.tax_rate) ? ` + GST ${Number(p.tax_rate)}%` : ""}</option>)}
         </select>
@@ -197,7 +210,7 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
           )}
         </fieldset>
       )}
-      {mode === "sell" && (
+      {mode === "sell" && !quotation && (
         <fieldset className="field-wide mem-addons">
           <legend>Add-ons (optional)</legend>
           {form.addons.map((a, n) => (
@@ -215,7 +228,7 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
           <small className="muted">An add-on ends with the membership.</small>
         </fieldset>
       )}
-      {biz.locations.length > 1 && (
+      {biz.locations.length > 1 && !quotation && (
         <Field label="Sold at"><select value={form.locationId} onChange={set("locationId")}>{biz.locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></Field>
       )}
       {joiningShown && (
@@ -238,6 +251,9 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
           {mode !== "upgrade" && (
             <>
               <dt>The bill</dt><dd><strong>{biz.exact(preview.total)}</strong> ({biz.exact(preview.subtotal)} before GST, GST {biz.exact(preview.tax)}{Number(preview.roundOff) ? `, round-off ${biz.exact(preview.roundOff)}` : ""})</dd>
+              {preview.quotation && (
+                <><dt>As quoted</dt><dd>{preview.quotation.quotationNo} · {preview.joiningFee ? "with the joining fee it quoted" : "no joining fee (the quotation has none left)"}</dd></>
+              )}
               {(preview.lines || []).map((l, i) => <Fragment key={i}><dt className="muted">{l.label}</dt><dd className="muted">{biz.exact(Number(l.net) + Number(l.tax))} (GST {Number(l.taxRate)}%)</dd></Fragment>)}
               {preview.terms && <TermsDisclosed biz={biz} terms={preview.terms} />}
             </>
@@ -259,7 +275,7 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
           )}
         </>
       )}
-      {biz.can("sales.discount") && mode !== "renew" && (
+      {biz.can("sales.discount") && mode !== "renew" && !quotation && (
         <>
           <Field label="Discount (optional)"><input type="number" min="0" step="0.01" value={form.discountAmount} onChange={set("discountAmount")} /></Field>
           {form.discountAmount && <Field label="Why the discount"><input required maxLength={120} value={form.discountReason} onChange={set("discountReason")} placeholder="e.g. Couple plan" /></Field>}

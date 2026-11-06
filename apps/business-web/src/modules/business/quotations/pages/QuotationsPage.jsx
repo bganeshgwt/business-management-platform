@@ -24,6 +24,7 @@ import FitterField from "../../hardware/pages/FitterField";
 import { SEASONS, seasonWord, useOpenSeasons, usesAgri } from "../../agri/pages/agri";
 import AgriOverrideDialog from "../../agri/pages/AgriOverrideDialog";
 import QuotationDialog from "./QuotationDialog";
+import MembershipDialog from "../../memberships/pages/MembershipDialog";
 import { STATES, quotedUnits, validityWords } from "./quotation";
 import { printQuotation, quotationMessage } from "./quotationPrint";
 // A quotation on WhatsApp needs the customer's consent to bills on WhatsApp (asked first, in one tap).
@@ -133,7 +134,12 @@ export function QuotationDetail({ quotationId, onClose, onChanged }) {
   const live = open && q.state !== "expired";
   // Some of it billed: what each line has billed and has left, and no revising.
   const billedSome = (q?.bills || []).length > 0;
-  const canBill = live && biz.can("quotations.edit") && biz.can("sales.create");
+  // A gym's plans quoted are sold as memberships, one at a time (Sell membership); the bill takes the rest.
+  const planLines = (q?.lines || []).filter((l) => l.plan?.role === "plan");
+  const billable = (q?.lines || []).some((l) => !l.plan && Number(l.left_quantity) > 0);
+  const canBill = live && biz.can("quotations.edit") && biz.can("sales.create") && billable;
+  const canSell = live && biz.has("member_plans") && biz.can("member_plans.create") && biz.can("quotations.edit") && biz.can("sales.create");
+  const [selling, setSelling] = useState(null);
   const canOrder = live && biz.can("quotations.edit") && biz.has("sales_orders") && biz.can("sales_orders.create");
   // An optical shop's quotation for a saved customer becomes a spectacle order at its prices.
   const canSpectacles = live && q?.contact_id && biz.type === "optical" && biz.has("optical") && biz.can("quotations.edit") && biz.can("optical.create") && biz.can("sales.create");
@@ -184,14 +190,24 @@ export function QuotationDetail({ quotationId, onClose, onChanged }) {
               </p>
             )}
             <TaxNotices notices={q.tax_notices} />
+            {planLines.length > 0 && open && (
+              <p className="small qt-plans-note" role="note">
+                <Icon name="idCard" size={14} /> Membership plans on this quotation are sold one member at a time with <strong>Sell membership</strong>, at the quoted price
+                {q.lines.some((l) => l.plan?.role === "joining") ? " with the joining fee it quoted" : ""}. {billable ? "The other lines go on a bill." : ""}
+              </p>
+            )}
             <DataGrid variant="compact" id="business-quotation-lines" caption="Lines" rows={q.lines} currency={biz.symbol} rowNoun={["line", "lines"]} columns={[
               { key: "label", header: "Item", mobile: "title", render: (l) => (
                 <span className="bz-two-line">
                   <span>{l.label}</span>
                   {l.kit_parts && <small className="muted">Kit: {l.kit_parts.map((p) => `${p.label} × ${Number(p.quantity)}`).join(", ")}</small>}
                   {(l.offers || []).length > 0 && <small className="muted">{l.offers.map((o) => o.label).join(", ")}</small>}
+                  {l.plan?.role === "plan" && <small className="muted">Membership plan · {Number(l.billed_quantity)} of {Number(l.quantity)} sold</small>}
+                  {l.plan?.role === "joining" && <small className="muted">Joining fee of {l.plan.planName}: billed with its membership</small>}
                 </span>
               ) },
+              planLines.length > 0 && { key: "sell", header: "", label: "Sell membership", type: "actions", render: (l) => (l.plan?.role === "plan" && canSell && Number(l.left_quantity) > 0
+                ? <button type="button" className="chip-button" onClick={() => setSelling(l)}><Icon name="user-plus" size={14} /> Sell membership</button> : null) },
               { key: "quantity", header: "Qty", value: (l) => Number(l.entered_quantity || l.quantity), render: (l) => (l.entered_unit ? `${quantity(l.entered_quantity, l.entered_unit)} (${quantity(l.quantity, l.unit)})` : quantity(l.quantity, l.unit)) },
               billedSome && { key: "billed", header: "Billed so far", value: (l) => Number(l.billed_quantity), render: (l) => (Number(l.billed_quantity) ? shownQuantity(l, l.billed_quantity) : <span className="muted">—</span>) },
               billedSome && { key: "left", header: "Left to bill", value: (l) => Number(l.left_quantity), render: (l) => (Number(l.left_quantity) ? <strong>{shownQuantity(l, l.left_quantity)}</strong> : <span className="muted">None</span>) },
@@ -210,6 +226,18 @@ export function QuotationDetail({ quotationId, onClose, onChanged }) {
               <span>Total <strong>{biz.exact(q.total)}</strong></span>
             </div>
             {q.discount_reason && <p className="small muted">Discount: {q.discount_amount ? biz.exact(q.discount_amount) : `${Number(q.discount_percent)}%`} · {q.discount_reason}</p>}
+            {(q.memberships || []).length > 0 && (
+              <div className="small qt-memberships">
+                <strong>Memberships sold from it ({q.memberships.length})</strong>
+                <ul>
+                  {q.memberships.map((m) => (
+                    <li key={m.id}>
+                      <span className="mono">{m.membership_no}</span> · <Link to={biz.path(`members/${m.contact_id}`)}>{m.member_name}</Link> · {m.plan_name} from {dateShort(m.start_on)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <TintedLines tints={q.tints} lines={q.lines} />
             <Workings workings={q.calculations} />
             {q.notes && <p className="small">{q.notes}</p>}
@@ -253,6 +281,8 @@ export function QuotationDetail({ quotationId, onClose, onChanged }) {
       {action === "order" && q && <OrderDialog quotation={q} onClose={() => setAction(null)}
         onSaved={(result) => { toast.success(`Sales order ${result.order.order_no} made from ${q.quotation_no}${result.order.hold_released ? " (credit hold released)" : ""}.`); changed(); }} />}
       {billId && <DocumentDetail documentId={billId} onClose={() => setBillId(null)} onChanged={() => {}} />}
+      {selling && q && <MembershipDialog quotation={{ q, line: selling }} onClose={() => setSelling(null)}
+        onSaved={(sold) => { setSelling(null); toast.success(`Membership ${sold.membership_no} sold from ${q.quotation_no}.`); changed(); }} />}
     </>
   );
 }
@@ -268,7 +298,8 @@ function BillDialog({ quotation: q, onClose, onSaved }) {
   const { t } = biz;
   const methods = usePaymentMethods();
   const [requestKey] = useState(newKey);
-  const left = q.lines.filter((l) => Number(l.left_quantity) > 0);
+  // A plan quoted, and its joining fee, are sold as memberships, never on this bill.
+  const left = q.lines.filter((l) => Number(l.left_quantity) > 0 && !l.plan);
   const leftShown = (l) => quotedUnits(l, l.left_quantity);
   const [take, setTake] = useState(() => Object.fromEntries(left.map((l) => [l.id, { on: true, quantity: String(leftShown(l).quantity) }])));
   const chosen = left.filter((l) => take[l.id]?.on && Number(take[l.id].quantity) > 0);
@@ -347,7 +378,7 @@ function BillDialog({ quotation: q, onClose, onSaved }) {
   return (
     <>
     <FormDialog title={`Make the bill for ${q.quotation_no}`} icon="receipt" width={680} onClose={onClose} onSaved={onSaved} onSubmit={submit}
-      submitLabel={everything && !q.bills.length ? `Make the bill · ${biz.exact(q.total)}` : `Make the bill · about ${biz.exact(value)}`}
+      submitLabel={everything && !q.bills.length && !q.lines.some((l) => l.plan) ? `Make the bill · ${biz.exact(q.total)}` : `Make the bill · about ${biz.exact(value)}`}
       description={`${q.customer_name} · at the quoted prices. Bill every line that is left, or only some lines or less of them now: the rest stays open on the quotation.${takesStock ? " Stock leaves this location now." : ""}`}>
       <fieldset className="field-wide bz-fieldset qt-take">
         <legend className="small">What goes on this bill</legend>

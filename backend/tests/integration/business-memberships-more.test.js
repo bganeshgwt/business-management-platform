@@ -212,6 +212,84 @@ test('gyms, studios and coaching: classes, pay, plan options, fees, changes, stu
     assert.ok(await one("SELECT 1 FROM business_audit WHERE business_id=$1 AND action='member_plan.updated' AND details ? 'freezeFee'", [gym.id]));
   });
 
+  await t.test('a quotation\'s plans sold as memberships at the quoted price, one at a time; its other lines billed', async () => {
+    await request('PUT', G('modules/quotations'), { enabled: true });
+    const company = await customer('Infosys Ltd', '9848044404');
+    const lines = (q) => Object.fromEntries(q.lines.map((l) => [l.label, l]));
+    // A corporate rate: three Gym 30 days at 10% off, and two PT sessions.
+    const corporate = await request('POST', G('quotations'), { requestKey: key(), locationId: shop.id, contactId: company.id, validUntil: daysFrom(30),
+      lines: [{ skuId: gym30.price_sku_id, quantity: '3' }, { skuId: ptSession.id, quantity: '2' }], discount: { percent: '10', reason: 'Corporate rate' } }, 201);
+    const planLine = lines(corporate)['Gym 30 days'];
+    assert.deepEqual(planLine.plan, { planId: Number(gym30.id), planName: 'Gym 30 days', role: 'plan' });
+    assert.equal(lines(corporate)['Personal training session'].plan, null);
+
+    // The quotation's bill leaves the plan to Sell membership: only the PT sessions go on it.
+    let answer = await refused('POST', G(`quotations/${corporate.id}/bill`), { requestKey: key(), parts: [{ lineId: planLine.id, quantity: '1' }] });
+    assert.equal(answer.status, 409);
+    assert.match(answer.message, /Gym 30 days is a membership plan: sell each membership from the quotation with Sell membership/);
+    const ptBill = await request('POST', G(`quotations/${corporate.id}/bill`), { requestKey: key(), payments: [{ amount: 'full', method: 'cash' }] }, 201);
+    assert.equal(ptBill.quotation.state, 'part_billed');
+    assert.deepEqual(lines(ptBill.quotation)['Gym 30 days'].left_quantity, '3.000');
+    answer = await refused('POST', G(`quotations/${corporate.id}/bill`), { requestKey: key() });
+    assert.equal(answer.status, 409);
+    assert.match(answer.message, /What is left on quotation .* is membership plans/);
+
+    // Refused: a discount of its own, another plan, another branch.
+    const from = { quotation: { id: corporate.id, lineId: planLine.id } };
+    answer = await refused('POST', G('member-plans/memberships'), { requestKey: key(), locationId: shop.id, planId: gym30.id, member: { name: 'Employee X' }, ...from,
+      discount: { amount: '50', reason: 'More off' } });
+    assert.equal(answer.status, 400);
+    answer = await refused('POST', G('member-plans/memberships'), { requestKey: key(), locationId: shop.id, planId: gym90.id, member: { name: 'Employee X' }, ...from });
+    assert.equal(answer.status, 409);
+    answer = await refused('POST', G('member-plans/memberships'), { requestKey: key(), locationId: branch.id, planId: gym30.id, member: { name: 'Employee X' }, ...from });
+    assert.equal(answer.status, 409);
+
+    // The preview: the quoted price, and how many are left after this one.
+    const look = await request('POST', G('member-plans/memberships/preview'), { locationId: shop.id, planId: gym30.id, ...from });
+    assert.deepEqual([look.quotation.quotationNo, look.quotation.leftAfter, look.joiningFee], [corporate.quotation_no, 2, false]);
+
+    // Three employees, each a membership at a third of the quoted line, no joining fee (the quote had none).
+    const sold = [];
+    for (const name of ['Employee One', 'Employee Two', 'Employee Three']) sold.push(await sell({ planId: gym30.id, member: { name }, ...from }));
+    const billLines = [];
+    for (const m of sold) {
+      const rows = (await pool.query('SELECT sku_id,net,tax FROM business_document_lines WHERE document_id=$1', [m.document_id])).rows;
+      assert.deepEqual(rows.map((r) => Number(r.sku_id)), [Number(gym30.price_sku_id)], 'only the plan, no joining fee');
+      assert.equal(paise(m.price), paise(rows[0].net) + paise(rows[0].tax));
+      billLines.push(rows[0]);
+    }
+    assert.equal(billLines.reduce((sum, r) => sum + paise(r.net), 0), paise(planLine.net), 'the three add up to the quoted line');
+    assert.equal(billLines.reduce((sum, r) => sum + paise(r.tax), 0), paise(planLine.tax));
+    const closed = await request('GET', G(`quotations/${corporate.id}`));
+    assert.equal(closed.status, 'billed');
+    assert.deepEqual(closed.memberships.map((m) => m.member_name), ['Employee One', 'Employee Two', 'Employee Three']);
+    const event = await one("SELECT note FROM member_events WHERE membership_id=$1 AND kind='sold'", [sold[0].id]);
+    assert.match(event.note, new RegExp(`from quotation ${corporate.quotation_no}`));
+    answer = await refused('POST', G('member-plans/memberships'), { requestKey: key(), locationId: shop.id, planId: gym30.id, member: { name: 'Employee Four' }, ...from });
+    assert.equal(answer.status, 409);
+
+    // A walk-in's quote with the joining fee: the membership bills both at the quoted prices.
+    const walkIn = await request('POST', G('quotations'), { requestKey: key(), locationId: shop.id, customerName: 'Rahul Walk-in', customerPhone: '9848055505',
+      validUntil: daysFrom(7), lines: [{ skuId: gym90.price_sku_id, quantity: '1' }, { skuId: joiningFee.id, quantity: '1' }] }, 201);
+    await request('PUT', G(`member-plans/plans/${gym90.id}`), { name: 'Gym 90 days', kind: 'duration', durationUnit: 'days', duration: '90', joiningSkuId: joiningFee.id, policy,
+      maxFreezes: '1', maxFreezeDays: '10', freezeNoticeDays: '3' });
+    const fresh = await request('GET', G(`quotations/${walkIn.id}`));
+    assert.equal(lines(fresh)['Joining fee'].plan.role, 'joining');
+    const rahul = await sell({ planId: gym90.id, member: { name: 'Rahul Walk-in', phone: '9848055505' }, quotation: { id: walkIn.id, lineId: lines(fresh)['Gym 90 days'].id } });
+    const rahulRows = (await pool.query('SELECT sku_id FROM business_document_lines WHERE document_id=$1 ORDER BY id', [rahul.document_id])).rows.map((r) => Number(r.sku_id));
+    assert.deepEqual(rahulRows, [Number(gym90.price_sku_id), Number(joiningFee.id)]);
+    assert.equal((await request('GET', G(`quotations/${walkIn.id}`))).status, 'billed');
+
+    // Past its date: revised first.
+    const late = await request('POST', G('quotations'), { requestKey: key(), locationId: shop.id, customerName: 'Late Lead', validUntil: daysFrom(3),
+      lines: [{ skuId: gym30.price_sku_id, quantity: '1' }] }, 201);
+    await pool.query('UPDATE business_quotations SET valid_until=valid_until-10 WHERE id=$1', [late.id]);
+    answer = await refused('POST', G('member-plans/memberships'), { requestKey: key(), locationId: shop.id, planId: gym30.id, member: { name: 'Late Lead' },
+      quotation: { id: late.id, lineId: late.lines[0].id } });
+    assert.equal(answer.status, 409);
+    assert.match(answer.message, /was valid until .* Revise it/);
+  });
+
   let asha, ravi, meena, coachRows;
   await t.test('classes: a timetable, the waitlist promoted, two asking for the last place at once, penalties, attendance at check-in', async () => {
     const room = await request('POST', G('member-plans/rooms'), { locationId: shop.id, name: 'Studio A', capacity: '20' }, 201);
