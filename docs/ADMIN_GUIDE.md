@@ -2972,6 +2972,16 @@ are hidden from anyone without *See salaries and payroll money*
 (`staff.salaries`). An employee with attendance is set inactive, not deleted.
 The row menu also sets, resets, unlocks or removes their **time-clock PIN**.
 
+**Give a login** (row menu, for someone with no login, to whoever may manage
+users) makes an employee's sign-in from their record in one step: their name,
+mobile, email and outlet as the record has them; you choose **What they do**
+(their role, started from a designation that names one) and a **First
+password**, which they replace with their own at their first sign-in. The
+login is linked to them in the same save. It needs a mobile or an email on the
+record (**Edit** opens it). If a login here already has that mobile or email,
+it is named, with **Link <name>'s login** instead of making a second. Roles, PINs
+and resets stay in Users.
+
 **Leave** (tab on Employees). *Add leave type*: paid up to an allowance (days
 per month or per calendar year, optionally carried forward) or unpaid; one
 type is the default. A yearly allowance is pro-rated in the first year (12 days

@@ -67,6 +67,9 @@ router.get("/", authorize("staff.view"), staffController.listEmployees);
 router.get("/:id/salary-history", authorize("staff.view"), authorize("staff.salaries"), staffController.salaryHistory);
 router.post("/", authorize("staff.manage"), staffController.createEmployee);
 router.put("/:id", authorize("staff.manage"), staffController.updateEmployee);
+// "Give a login" from the employee's record, or link one they have (making a
+// login also needs users.manage, checked in the controller).
+router.post("/:id/login", authorize("staff.manage"), staffController.giveLogin);
 router.delete("/:id", authorize("staff.manage"), staffController.removeEmployee);
 
 module.exports = router;

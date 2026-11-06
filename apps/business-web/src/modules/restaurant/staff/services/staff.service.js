@@ -7,6 +7,9 @@ export const createEmployee = async (payload) => (await api.post("/staff", paylo
 export const updateEmployee = async (id, payload) =>
   (await api.put(`/staff/${id}`, payload)).data.data;
 export const deleteEmployee = async (id) => (await api.delete(`/staff/${id}`)).data;
+// "Give a login" from the employee's record ({ roleIds, password }), or link
+// a login they have ({ linkUserId }): { message, data: { employee, user, linked } }.
+export const giveEmployeeLogin = async (id, payload) => (await api.post(`/staff/${id}/login`, payload)).data;
 // Every salary someone has had and from when (needs "see salaries").
 export const getSalaryHistory = async (id) => (await api.get(`/staff/${id}/salary-history`)).data.data;
 

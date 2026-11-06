@@ -638,7 +638,10 @@ const findMobileClash = async (digits, excludingUserId, restaurantId) => {
 };
 
 // The user row and its role links are written together, or not at all.
-const create = async (restaurantId, data, userId) => {
+// `andThen(client, newId)`, when given, runs inside the same transaction once
+// the login and its roles are written (an employee's "Give a login" links the
+// employee to it there): it throwing writes nothing at all.
+const create = async (restaurantId, data, userId, { andThen = null } = {}) => {
   const client = await pool.connect();
 
   try {
@@ -667,6 +670,10 @@ const create = async (restaurantId, data, userId) => {
         "INSERT INTO user_roles (user_id, role_id, created_by) VALUES ($1, $2, $3)",
         [newId, roleId, userId]
       );
+    }
+
+    if (andThen) {
+      await andThen(client, newId);
     }
 
     await client.query("COMMIT");

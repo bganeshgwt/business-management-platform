@@ -215,6 +215,47 @@ const createEmployee = async (req, res) => {
   res.status(201).json({ success: true, message: "Employee added", data: employee });
 };
 
+// "Give a login" (staff.service giveLogin): { roleIds, password } makes the
+// employee's login from their record, which needs users.manage as adding a
+// user does; { linkUserId } links a login they already have.
+const giveLogin = async (req, res) => {
+  const id = v.requiredId(req.params.id, "Employee id");
+  const body = req.body || {};
+  const linkUserId = body.linkUserId === undefined || body.linkUserId === null ? null : v.requiredId(body.linkUserId, "Login");
+
+  if (!linkUserId && !(req.user.permissions || []).includes("users.manage")) {
+    throw new AppError(403, "Giving someone a login needs permission to manage users");
+  }
+
+  const input = linkUserId
+    ? { linkUserId }
+    : {
+        roleIds: [...new Set(v.requiredArray(body.roleIds, "Roles").map((roleId) => v.requiredId(roleId, "Role id")))],
+        password: v.requiredPassword(body.password),
+      };
+  const result = await staffService.giveLogin(req.user.restaurantId, id, input, req.user, { salaries: seesSalaries(req) });
+
+  logAction(req, "update", "employee", {
+    id: result.employee.id,
+    label: result.employee.name,
+    details: { changes: { userId: [null, result.employee.userId] }, login: result.linked ? "linked" : "given" },
+  });
+
+  if (result.user) {
+    logAction(req, "create", "user", {
+      id: result.user.id,
+      label: result.user.name,
+      details: { roles: result.user.roleNames, email: result.user.email, mobile: result.user.mobile, outlet: result.user.outletName, employee: result.employee.name },
+    });
+  }
+
+  res.status(201).json({
+    success: true,
+    message: result.linked ? `${result.employee.name}'s login is linked` : `${result.employee.name} can now sign in`,
+    data: result,
+  });
+};
+
 // Pay, status, dates and the linked login are the changes an owner looks for
 // later ("who raised his salary?"), so each edit records them before and after.
 const updateEmployee = async (req, res) => {
@@ -925,6 +966,7 @@ const copyWeek = async (req, res) => {
 };
 
 module.exports = {
+  giveLogin,
   listLeaveTypes,
   saveLeaveType,
   removeLeaveType,

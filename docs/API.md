@@ -3224,6 +3224,12 @@ Body: as for create; salary and statutory fields left out stay as they are (a ch
 Returns: `data` = the employee as the caller may see it.
 Errors: 400 as for create; 404 not found; 409 new salary would start inside a period already marked paid; 409 code or login taken.
 
+#### `POST /api/staff/:id/login`
+Permission: `staff.manage`; making a login also needs `users.manage`
+Body: `roleIds` (required) and `password` (8-72) to make the employee's login from their record (name, mobile, email, outlet), linked to them in the same transaction; or `linkUserId` alone to link a login of this restaurant they already have.
+Returns: 201, `data` = `{ employee, user, linked }` (`user` only when made; `linked: true` when an existing login was linked).
+Errors: 400 short password, employee inactive, `{ reason: "no_contact" }` no mobile or email on the record, `{ reason: "bad_mobile" }`; 403 making a login without `users.manage`, or a role with permissions the caller lacks; 404 employee not in this restaurant; 409 `{ reason: "employee_has_login" }`, `{ reason: "login_exists", userId, userName }` a login here already has that mobile or email (link it instead), `{ reason: "email_elsewhere" }` another business's login has the email, or the login to link is another employee's. Nothing is written on any error.
+
 #### `DELETE /api/staff/:id`
 Permission: `staff.manage`
 Returns: message only.

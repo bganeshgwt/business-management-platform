@@ -28,6 +28,7 @@ import useAuth from "../../../../hooks/useAuth";
 import useQueryFilter from "../../../../hooks/useQueryFilter";
 import LeavePanel from "./LeavePanel";
 import ClockPinModal from "./ClockPinModal";
+import GiveLoginDialog from "./GiveLoginDialog";
 import "../../../../styles/access.css";
 import "../../../../styles/staff.css";
 
@@ -139,6 +140,10 @@ export default function EmployeesPage() {
   // about to be removed.
   const [pinEditing, setPinEditing] = useState(null);
   const [pinRemoving, setPinRemoving] = useState(null);
+  // "Give a login": their sign-in made from the record (making a login needs
+  // users.manage, as adding a user does).
+  const [givingLogin, setGivingLogin] = useState(null);
+  const canGiveLogin = hasPermission("users.manage");
 
   const refreshPins = useCallback(
     () =>
@@ -704,9 +709,12 @@ export default function EmployeesPage() {
                   <ActionMenu
                     label={`More actions for ${employee.name}`}
                     items={[
+                      canGiveLogin && !employee.userId && employee.status === "active"
+                        ? { label: "Give a login", icon: "login", onClick: () => setGivingLogin(employee) }
+                        : null,
                       ...pinMenuItems(employee),
                       { label: "Delete", icon: "trash", danger: true, onClick: () => setDeleting(employee) },
-                    ]}
+                    ].filter(Boolean)}
                   />
                 </div>
               ),
@@ -1116,6 +1124,29 @@ export default function EmployeesPage() {
           onConfirm={confirmDelete}
           onCancel={() => setDeleting(null)}
           busy={saving}
+        />
+      )}
+
+      {givingLogin && (
+        <GiveLoginDialog
+          employee={givingLogin}
+          outletName={givingLogin.outletId ? (outlets.find((outlet) => String(outlet.id) === String(givingLogin.outletId)) || {}).name : ""}
+          onClose={() => setGivingLogin(null)}
+          onEdit={() => {
+            const person = givingLogin;
+            setGivingLogin(null);
+            openEdit(person);
+          }}
+          onDone={(message) => {
+            setGivingLogin(null);
+            setError("");
+            setSuccess(message);
+            load();
+            // The new login is one the record's Linked login can show.
+            listUsers()
+              .then(setUsers)
+              .catch(() => undefined);
+          }}
         />
       )}
 

@@ -125,6 +125,19 @@ const createEmployee = async (restaurantId, data, userId, startsOn = null) => {
 };
 
 // The one UPDATE both kinds of save use.
+// Links a login to an employee who has none ("Give a login"): no row when
+// someone gave them one meanwhile, so the caller can refuse.
+const linkEmployeeLogin = async (db, restaurantId, employeeId, loginId, by) => {
+  const result = await db.query(
+    `UPDATE employees SET user_id = $3, updated_by = $4
+     WHERE restaurant_id = $1 AND id = $2 AND user_id IS NULL
+     RETURNING id`,
+    [restaurantId, employeeId, loginId, by]
+  );
+
+  return result.rows[0] || null;
+};
+
 const UPDATE_EMPLOYEE_SQL = `UPDATE employees
      SET outlet_id = $3, user_id = $4, employee_code = $5, name = $6, mobile = $7, email = $8,
          designation = $9, department = $10, employment_type = $11, salary_type = $12,
@@ -1257,6 +1270,7 @@ const findPaidRanges = async (db, restaurantId, from, to) => {
 
 module.exports = {
   pool,
+  linkEmployeeLogin,
   findEsiCovered,
   findStatutorySettings,
   findGstNumber,

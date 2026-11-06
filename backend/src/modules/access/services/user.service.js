@@ -178,7 +178,9 @@ const getById = async (restaurantId, id) => {
   return toUser(await findTarget(restaurantId, id));
 };
 
-const create = async (restaurantId, input, caller) => {
+// options.andThen(client, newUserId): written in the same transaction as the
+// login (user.repository create).
+const create = async (restaurantId, input, caller, { andThen = null } = {}) => {
   requireRestaurantId(restaurantId);
   await validateRoles(restaurantId, input.roleIds);
   await validateOutlet(restaurantId, input.outletId);
@@ -188,7 +190,7 @@ const create = async (restaurantId, input, caller) => {
   const passwordHash = await bcrypt.hash(data.password, authService.BCRYPT_ROUNDS);
 
   try {
-    const row = await userRepository.create(restaurantId, { ...data, passwordHash }, caller.id);
+    const row = await userRepository.create(restaurantId, { ...data, passwordHash }, caller.id, { andThen });
     return toUser(row);
   } catch (error) {
     if (error.code === DUPLICATE) {

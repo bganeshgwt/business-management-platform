@@ -154,6 +154,74 @@ test("access features: two-step, tips, leave, statutory pay, register, roster, l
   const cashierToken = await tokenOf(cashier.email);
 
   // ---------------------------------------------------------------------------
+  await t.test("give an employee a login from their record, or link the one they have", async () => {
+    const managerToken = await tokenOf(manager.email);
+    const cashierRole = (await one("SELECT id FROM roles WHERE code = 'CASHIER' AND restaurant_id IS NULL")).id;
+    const employee = (body) => request("POST", "/staff", body, 201, ownerToken);
+    const give = (id, body, token = ownerToken) => call("POST", `/staff/${id}/login`, body, token);
+    const loginPassword = `Pw-${crypto.randomBytes(6).toString("hex")}`;
+
+    const ravi = await employee({ name: "Ravi Kumar", mobile: "+91 98480 22202", designation: "Cashier" });
+
+    // Making a login needs users.manage: the manager may not.
+    let answer = await give(ravi.id, { roleIds: [cashierRole], password: loginPassword }, managerToken);
+    assert.equal(answer.status, 403);
+    // A short password is refused, and nothing is made.
+    answer = await give(ravi.id, { roleIds: [cashierRole], password: "short" });
+    assert.equal(answer.status, 400);
+    assert.equal(await one("SELECT id FROM users WHERE name = 'Ravi Kumar'"), undefined);
+
+    // The owner: the login from his record, linked in the same save.
+    answer = await give(ravi.id, { roleIds: [cashierRole], password: loginPassword });
+    assert.equal(answer.status, 201, JSON.stringify(answer.body));
+    const login = answer.body.data.user;
+    assert.equal(login.name, "Ravi Kumar");
+    assert.equal(login.mobile, "9848022202");
+    assert.equal(Number(answer.body.data.employee.userId), Number(login.id));
+    assert.deepEqual(
+      (await pool.query("SELECT r.code FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = $1", [login.id])).rows.map((r) => r.code),
+      ["CASHIER"]
+    );
+    // He signs in with his mobile and that password.
+    const first = await call("POST", "/auth/login", { identifier: "9848022202", password: loginPassword });
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+
+    // Twice: refused, he has one.
+    answer = await give(ravi.id, { roleIds: [cashierRole], password: loginPassword });
+    assert.equal(answer.status, 409);
+    assert.equal(answer.body.data.reason, "employee_has_login");
+
+    // No mobile and no email: add one first.
+    const helper = await employee({ name: "Dish Helper" });
+    answer = await give(helper.id, { roleIds: [cashierRole], password: loginPassword });
+    assert.equal(answer.status, 400);
+    assert.equal(answer.body.data.reason, "no_contact");
+
+    // The email of a login already here: that login is named, to link instead,
+    // and the manager (staff.manage) may link it.
+    const one1 = await employee({ name: "Cashier One", email: cashier.email });
+    answer = await give(one1.id, { roleIds: [cashierRole], password: loginPassword });
+    assert.equal(answer.status, 409);
+    assert.equal(answer.body.data.reason, "login_exists");
+    assert.equal(answer.body.data.userId, Number(cashier.id));
+    answer = await give(one1.id, { linkUserId: cashier.id }, managerToken);
+    assert.equal(answer.status, 201, JSON.stringify(answer.body));
+    assert.equal(answer.body.data.linked, true);
+    assert.equal(Number((await one("SELECT user_id FROM employees WHERE id = $1", [one1.id])).user_id), Number(cashier.id));
+    // A login already linked to someone else is not linked twice.
+    const twin = await employee({ name: "Cashier Twin" });
+    answer = await give(twin.id, { linkUserId: cashier.id });
+    assert.equal(answer.status, 409);
+
+    // Someone who has left gets no login; another business's employee is not found.
+    const gone = await employee({ name: "Left Already", mobile: "9848033303", status: "inactive" });
+    answer = await give(gone.id, { roleIds: [cashierRole], password: loginPassword });
+    assert.equal(answer.status, 400);
+    answer = await give(ravi.id, { roleIds: [cashierRole], password: loginPassword }, foreignToken);
+    assert.equal(answer.status, 404);
+  });
+
+  // ---------------------------------------------------------------------------
   await t.test("two-step sign-in", async () => {
     // Switching it on from My profile: password first, then the first code.
     const setup = await request("POST", "/auth/two-factor/setup", { password: passwordOf(base, owner.email, password) }, 200, ownerToken);

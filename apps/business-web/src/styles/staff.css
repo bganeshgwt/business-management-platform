@@ -1575,3 +1575,45 @@
   overflow-wrap: anywhere;
   word-break: normal;
 }
+
+/* Give a login: what the login is made from, and a login to link instead. */
+.give-login-facts {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.give-login-facts div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.give-login-facts dt {
+  color: var(--muted);
+}
+
+.give-login-facts dd {
+  margin: 0;
+  font-weight: var(--weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.give-login-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.give-login-offer span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

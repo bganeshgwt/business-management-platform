@@ -2,6 +2,8 @@ const staffRepository = require("../repositories/staff.repository");
 const queryAll = require("../../../../utils/queryAll");
 const outletRepository = require("../../setup/repositories/outlet.repository");
 const userRepository = require("../../../access/repositories/user.repository");
+const userService = require("../../../access/services/user.service");
+const authService = require("../../../access/services/auth.service");
 const timeclockRepository = require("../repositories/timeclock.repository");
 const { shiftWindow, zonedInstant, addDays, localDate, safeZone } = require("./timeclock.service");
 const leaveService = require("./leave.service");
@@ -209,6 +211,107 @@ const createEmployee = async (restaurantId, data, userId, { salaries = true } = 
 
     throw error;
   }
+};
+
+// --- "Give a login": an employee's own sign-in, from their record --------------
+//
+// The login takes the employee's name, mobile, email and outlet, with the
+// role and first password the owner picks (they choose their own at the
+// first sign-in), and is linked to them in the same transaction: there is
+// never a login left unlinked. Refused, saying what to do:
+//   - an employee who already has a login, or has left (status inactive);
+//   - one with neither a mobile nor an email (staff sign in with either);
+//   - a mobile or email already on a login of this restaurant: that login is
+//     named (`reason: "login_exists"`, its id and name), to link instead;
+//   - one on another business's login: said, nothing named.
+// Linking an existing login (`linkUserId`) checks it as the employee form
+// does: this restaurant's, and nobody else's employee yet.
+const giveLogin = async (restaurantId, employeeId, input, caller, { salaries = true } = {}) => {
+  requireRestaurantId(restaurantId);
+
+  const employee = await staffRepository.findEmployeeById(restaurantId, employeeId);
+
+  if (!employee) {
+    throw new AppError(404, "Employee not found");
+  }
+
+  if (employee.user_id) {
+    throw new AppError(409, `${employee.name} already has a login`, { reason: "employee_has_login" });
+  }
+
+  if (input.linkUserId) {
+    await validateLinks(restaurantId, { userId: input.linkUserId }, employeeId);
+
+    if (!(await staffRepository.linkEmployeeLogin(staffRepository.pool, restaurantId, employeeId, input.linkUserId, caller.id))) {
+      throw new AppError(409, `${employee.name} was given a login by someone else just now`, { reason: "employee_has_login" });
+    }
+
+    return { employee: toEmployee(await staffRepository.findEmployeeById(restaurantId, employeeId), { salaries }), linked: true };
+  }
+
+  if (employee.status !== "active") {
+    throw new AppError(400, `${employee.name} has left: a login is only given to someone who works here`);
+  }
+
+  const mobile = employee.mobile || null;
+  const email = employee.email ? String(employee.email).trim().toLowerCase() : null;
+
+  if (!mobile && !email) {
+    throw new AppError(
+      400,
+      `Add ${employee.name}'s mobile number or email on their record first: staff sign in with either.`,
+      { reason: "no_contact" }
+    );
+  }
+
+  const digits = mobile ? authService.mobileDigits(mobile) : null;
+
+  if (mobile && !digits) {
+    throw new AppError(400, `${employee.name}'s mobile on their record is not a 10-digit number. Correct it first.`, {
+      reason: "bad_mobile",
+    });
+  }
+
+  const sameMobile = digits ? await userRepository.findMobileClash(digits, null, restaurantId) : null;
+  const sameEmail = !sameMobile && email ? await userRepository.findByEmail(email) : null;
+  const existing = sameMobile || (sameEmail && Number(sameEmail.restaurant_id) === Number(restaurantId) ? sameEmail : null);
+
+  if (existing) {
+    throw new AppError(
+      409,
+      `${existing.name}'s login already uses this ${sameMobile ? "mobile number" : "email"}. Link that login to ${employee.name} instead.`,
+      { reason: "login_exists", userId: Number(existing.id), userName: existing.name }
+    );
+  }
+
+  if (sameEmail) {
+    throw new AppError(409, `Another business's login uses ${employee.name}'s email. Clear the email on their record, or change it.`, {
+      reason: "email_elsewhere",
+    });
+  }
+
+  const user = await userService.create(
+    restaurantId,
+    {
+      name: employee.name,
+      email,
+      mobile,
+      outletId: employee.outlet_id || null,
+      status: "active",
+      roleIds: input.roleIds,
+      password: input.password,
+    },
+    caller,
+    {
+      andThen: async (client, loginId) => {
+        if (!(await staffRepository.linkEmployeeLogin(client, restaurantId, employeeId, loginId, caller.id))) {
+          throw new AppError(409, `${employee.name} was given a login by someone else just now`, { reason: "employee_has_login" });
+        }
+      },
+    }
+  );
+
+  return { employee: toEmployee(await staffRepository.findEmployeeById(restaurantId, employeeId), { salaries }), user, linked: false };
 };
 
 // The day a first salary applies from when no date is given: the day they
@@ -1942,6 +2045,7 @@ const copyWeek = async (restaurantId, { weekStart, replace }, userId) => {
 };
 
 module.exports = {
+  giveLogin,
   restaurantToday,
   getStatutorySettings,
   saveStatutorySettings,
