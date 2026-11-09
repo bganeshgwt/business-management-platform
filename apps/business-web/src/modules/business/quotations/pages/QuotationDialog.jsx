@@ -190,6 +190,8 @@ export default function QuotationDialog({ quotation, initial, onClose, onSaved }
 
   const { t } = biz;
   const customerWord = t("customer");
+  // A business that sells membership plans (a gym, a studio, a coaching centre).
+  const plansSold = biz.has("member_plans");
   return (
     <>
     <FormDialog title={editing ? `Revise ${quotation.quotation_no}` : "New quotation"} icon="clipboard" width={1080}
@@ -206,7 +208,9 @@ export default function QuotationDialog({ quotation, initial, onClose, onSaved }
           </select>
         </Field>
       )}
-      <Field label={customerWord}>
+      {/* A gym quotes a company too (a corporate rate for its people): it is billed only once saved, with its GSTIN. */}
+      <Field label={plansSold ? `${customerWord} or company` : customerWord}
+        hint={plansSold ? "For a company paying for its people, save it first: its memberships can then be billed to it, with its GSTIN." : undefined}>
         <select value={form.contactId} onChange={set("contactId")}>
           <option value="">Someone not saved yet</option>
           {customers.map((c) => <option key={c.id} value={c.id}>{c.name}{c.phone ? ` · ${c.phone}` : ""}</option>)}

@@ -3856,7 +3856,20 @@ general store, an optical shop, a jeweller and a wholesaler. It is under
   memberships sold from it and is *Billed* once nothing is left. **Make the
   bill** takes only its other lines (PT sessions, a locker, products): a plan
   and its joining fee are never billed loose. Expired, it is revised first,
-  as for a bill.
+  as for a bill. A plan's line counts *memberships*, on the screen, the print
+  and the message.
+
+  **Who pays.** A quotation to a saved customer (the box reads *Member or
+  company* in a gym; save a company first, with its GSTIN) asks who pays
+  each membership. **The company** (the default for a line of more than one):
+  the bill is the company's, with its GSTIN, on its dues, and names the
+  member; the membership is the member's, and its page says *paid by* the
+  company. The company's unpaid bills never turn its people away at
+  check-in, and a company's bill has no instalments. Such a membership is
+  not moved to another plan, since its credit is the company's: cancel it
+  (what is unused goes back to the company) and sell the new plan. **The
+  member**: they pay the quoted price on their own bill. A quotation for
+  someone not saved is always paid by the member.
 - **Book a spectacle order** — at an optical shop, for a saved customer, while
   nothing of the quotation is billed: a spectacle order at the quoted prices,
   its frame and lenses chosen from the quotation's lines ([Optical

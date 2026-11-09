@@ -54,7 +54,7 @@ const MEMBERSHIPS_SQL = `SELECT x.*,CASE WHEN x.status IN ('upcoming','active','
     m.price,m.joining_fee,m.tax_rate,m.start_on,m.base_end_on,m.frozen_days,m.end_on,m.grace_days,
     CASE WHEN m.end_on IS NULL THEN NULL ELSE m.end_on+m.grace_days END AS grace_until,
     m.closed,m.closed_on,m.renewal_of,m.upgraded_from,m.transferred_from,m.document_id,d.document_no,m.credit,m.refunded,m.created_at,
-    m.origin,m.paid_elsewhere,m.seats,m.personal_training,m.trainer_id,m.sold_by,m.moved_days,
+    m.origin,m.paid_elsewhere,m.seats,m.personal_training,m.trainer_id,m.sold_by,m.moved_days,m.paid_by_contact_id,pb.name AS paid_by_name,
     ${c.STATUS_SQL('m', 't.today')} AS status,
     (m.closed IS NULL AND m.end_on IS NOT NULL AND t.today > m.end_on AND t.today <= m.end_on+m.grace_days) AS in_grace,
     CASE WHEN m.end_on IS NULL THEN NULL ELSE m.end_on-t.today END AS days_left,
@@ -66,6 +66,7 @@ const MEMBERSHIPS_SQL = `SELECT x.*,CASE WHEN x.status IN ('upcoming','active','
   JOIN business_contacts ct ON ct.business_id=m.business_id AND ct.id=m.contact_id
   LEFT JOIN member_profiles pr ON pr.business_id=m.business_id AND pr.contact_id=m.contact_id
   LEFT JOIN business_documents d ON d.business_id=m.business_id AND d.id=m.document_id
+  LEFT JOIN business_contacts pb ON pb.business_id=m.business_id AND pb.id=m.paid_by_contact_id
   WHERE m.business_id=$1) x`;
 
 // A membership the member holds, or a seat of a shared one they use (`y`: a row of MEMBERSHIPS_SQL; `contact`: an SQL id).
@@ -334,13 +335,21 @@ function readSale(body) {
     // Sold from a quotation's plan line, at its quoted price: { id, lineId }.
     quotation: body.quotation && typeof body.quotation === 'object'
       ? { quotationId: Number(id(body.quotation.id, 'Quotation')), lineId: Number(id(body.quotation.lineId, 'Quotation line')) } : null,
+    // Who the bill is to: the member, or the quotation's customer (a company paying for its people).
+    billTo: v.optionalEnum(body.billTo, 'Who pays', ['member', 'quotation'], 'member'),
   };
 }
 
 // A sale from a quotation (quotations.service forMembership): the quoted plan,
 // at the quoted price, with the joining fee if the quotation quoted one; no
 // discount, add-ons or renewal of its own (the quotation's price is the deal).
+// `billTo: 'quotation'`: a company paying for its people. The bill is the
+// quotation's saved customer's (its name and GSTIN, on its dues, paid by it),
+// naming the member; the membership is the member's, and its fees falling
+// overdue are the company's, never turning the member away at check-in. No
+// instalments: the company's bill falls due as its own.
 async function fromQuotation(db, business, input, { lock }) {
+  if (input.billTo === 'quotation' && !input.quotation) fail('Only a membership sold from a quotation is billed to its customer');
   if (!input.quotation) return null;
   // Selling from a quotation uses it up, as billing it does.
   await access.require(business, lock ? 'quotations.edit' : 'quotations.view');
@@ -352,6 +361,11 @@ async function fromQuotation(db, business, input, { lock }) {
   if (Number(input.locationId) !== Number(sold.q.location_id)) fail(`Quotation ${sold.q.quotation_no} is for another branch: sell it there`, 409);
   // The joining fee is billed as the quotation quoted it: with it while one is left, else not.
   input.joiningFee = Boolean(sold.joining);
+  if (input.billTo === 'quotation') {
+    if (!sold.q.contact_id) fail(`Quotation ${sold.q.quotation_no} is for someone not saved: save them as a customer, or bill the member`, 409);
+    if (input.instalments) fail(`A bill to ${sold.q.customer_name} has no instalments: it falls due as their own bill does`);
+    sold.payer = await customer(db, business, sold.q.contact_id);
+  }
   return sold;
 }
 
@@ -436,10 +450,12 @@ async function preview(business, user, body) {
     const contact = input.contactId ? await customer(db, business, input.contactId) : null;
     const sold = await fromQuotation(db, business, input, { lock: false });
     const sale = await prepare(db, business, user, input, { day, contact });
-    const quoted = await quotes().priceIn(db, business, user, { locationId: input.locationId, contact, lines: sale.lines, discount: input.discount, fixed: sold ? sold.fixed : null });
+    const quoted = await quotes().priceIn(db, business, user, { locationId: input.locationId, contact: sold?.payer || contact, lines: sale.lines, discount: input.discount,
+      fixed: sold ? sold.fixed : null });
     const p = sale.plan;
     return { ...quoted, startOn: sale.start, endOn: sale.end, sessions: p.sessions, joiningFee: sale.joining, term: c.termWords(p),
-      ...(sold ? { quotation: { id: Number(sold.q.id), quotationNo: sold.q.quotation_no, line: sold.line.label, leftAfter: sold.leftAfter } } : {}),
+      ...(sold ? { quotation: { id: Number(sold.q.id), quotationNo: sold.q.quotation_no, line: sold.line.label, leftAfter: sold.leftAfter,
+        billTo: sold.payer ? { id: Number(sold.payer.id), name: sold.payer.name, gstin: sold.payer.gstin || null } : null } } : {}),
       renewalOf: sale.renewal ? { id: sale.renewal.old.id, membershipNo: sale.renewal.old.membership_no, endOn: sale.renewal.old.end_on } : null, today: day,
       // The terms disclosed before the sale: the late fee, the freeze and transfer fees, the joining fee's part that comes back.
       terms: { seats: p.seats, visitLimit: p.visit_limit, visitPeriod: p.visit_period, hours: c.hoursWords(p), lateFee: p.late_fee, lateFeeAfterDays: p.late_fee_after_days,
@@ -463,9 +479,9 @@ async function insertMembership(db, business, user, values) {
       sessions_total,price,price_net,price_tax,tax_rate,joining_fee,policy_version,max_freeze_days,max_freezes,grace_days,transferable,start_on,base_end_on,end_on,
       renewal_of,upgraded_from,transferred_from,document_id,line_id,joining_line_id,notes,request_key,request_hash,created_by,updated_by,
       origin,paid_elsewhere,visit_limit,visit_period,access_locations,access_from,access_to,seats,class_names,personal_training,freeze_fee,freeze_notice_days,transfer_fee,late_fee,
-      late_fee_after_days,joining_refund_percent,sold_by,trainer_id)
+      late_fee_after_days,joining_refund_percent,sold_by,trainer_id,paid_by_contact_id)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$33,
-      $34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51) RETURNING *`,
+      $34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,$47,$48,$49,$50,$51,$52) RETURNING *`,
   [business.id, values.locationId, number.number, number.seriesId, values.contactId, values.plan.id, values.planName || values.plan.name, values.plan.kind, values.plan.duration_unit,
     values.plan.duration, values.sessionsTotal, rupees(values.net + values.tax), rupees(values.net), rupees(values.tax), values.taxRate, rupees(values.joiningFee),
     values.policyVersion, values.maxFreezeDays, values.maxFreezes, values.plan.grace_days, values.plan.transferable, values.start, values.end,
@@ -473,7 +489,7 @@ async function insertMembership(db, business, user, values) {
     values.requestKey, values.hash, user.id,
     values.origin || 'sale', values.paidElsewhere ?? null, t.visit_limit, t.visit_period, t.access_locations, t.access_from, t.access_to, t.seats ?? 1, t.class_names,
     Boolean(t.personal_training), t.freeze_fee ?? 0, t.freeze_notice_days ?? 0, t.transfer_fee ?? 0, t.late_fee ?? 0, t.late_fee_after_days ?? 0, t.joining_refund_percent ?? 100,
-    values.soldBy || null, values.trainerId || null]);
+    values.soldBy || null, values.trainerId || null, values.paidBy || null]);
   return row;
 }
 async function event(db, business, user, membershipId, kind, note, details = {}) {
@@ -511,12 +527,15 @@ async function giveSeats(db, business, user, membership, holder, seats, plan) {
 // Posts the bill of a sale and writes the membership (inside the caller's
 // transaction). Returns { membership, document }.
 // `fixed`: the lines' prices given already (sold from a quotation: its quoted prices).
+// `billTo`: who the bill is to when not the member (a company paying for its
+// people): the bill names the member it is for.
 async function postSale(db, business, user, sale, { contact, locationId, requestKey, hash, paidNow, discount, instalments, notes, buyer, upgradedFrom = null, kind, day, note = null,
-  sellers: who = { soldBy: Number(user.id), trainerId: null }, seats = null, fixed = null, quotationNo = null }) {
+  sellers: who = { soldBy: Number(user.id), trainerId: null }, seats = null, fixed = null, quotationNo = null, billTo = null }) {
   const lastDue = instalments ? instalments.at(-1).dueOn : null;
   const documentBody = {
-    kind: 'sale', locationId, contactId: contact.id, lines: sale.lines, ...(discount ? { discount } : {}),
-    notes: [`${sale.plan.name} · ${c.dateWords(sale.start)}${sale.end ? ` to ${c.dateWords(sale.end)}` : ''}`, notes].filter(Boolean).join(' · ').slice(0, 500),
+    kind: 'sale', locationId, contactId: (billTo || contact).id, lines: sale.lines, ...(discount ? { discount } : {}),
+    notes: [`${sale.plan.name} · ${c.dateWords(sale.start)}${sale.end ? ` to ${c.dateWords(sale.end)}` : ''}`, billTo && `for ${contact.name}${contact.phone ? ` (${contact.phone})` : ''}`, notes]
+      .filter(Boolean).join(' · ').slice(0, 500),
     buyer: { pan: buyer?.pan, panDeclaration: buyer?.panDeclaration },
   };
   const document = await core.postDocument(db, business, user, documentBody, { kind: 'sale', requestKey: c.derivedKey(requestKey, 'bill'), hash: c.hashOf(documentBody),
@@ -531,6 +550,7 @@ async function postSale(db, business, user, sale, { contact, locationId, request
     joiningFee: joiningLine ? paise(joiningLine.net) + paise(joiningLine.tax) : 0, policyVersion: sale.plan.policy_version, maxFreezeDays: sale.plan.max_freeze_days,
     maxFreezes: sale.plan.max_freezes, start: sale.start, end: sale.end, renewalOf: sale.renewal?.old.id, upgradedFrom, documentId: document.id, lineId: planLine.id,
     joiningLineId: joiningLine?.id, notes, requestKey, hash, terms: c.termsOf(sale.plan), soldBy: who.soldBy, trainerId: who.trainerId,
+    paidBy: billTo && Number(billTo.id) !== Number(contact.id) ? billTo.id : null,
   });
   for (const [i, x] of (instalments || []).entries()) {
     await db.query('INSERT INTO member_instalments(business_id,membership_id,seq,due_on,amount,created_by) VALUES($1,$2,$3,$4,$5,$6)',
@@ -596,7 +616,8 @@ async function sell(business, user, body) {
     const sale = await prepare(db, business, user, input, { day, contact });
     const { membership, document } = await postSale(db, business, user, sale, { contact, locationId: location.id, requestKey, hash, paidNow: parts, discount: input.discount,
       instalments: input.instalments, notes: [sold && `Quotation ${sold.q.quotation_no}`, input.notes].filter(Boolean).join(' · ') || null, buyer: body.buyer,
-      kind: sale.renewal ? 'renewal' : 'sold', day, sellers: who, seats: input.seats, fixed: sold ? sold.fixed : null, quotationNo: sold ? sold.q.quotation_no : null });
+      kind: sale.renewal ? 'renewal' : 'sold', day, sellers: who, seats: input.seats, fixed: sold ? sold.fixed : null, quotationNo: sold ? sold.q.quotation_no : null,
+      billTo: sold?.payer || null });
     if (sold) await quotes().recordMembership(db, business, user, sold, document, membership);
     if (lead) {
       await db.query("UPDATE member_leads SET status='member',contact_id=$3,membership_id=$4,updated_by=$5,updated_at=now() WHERE business_id=$1 AND id=$2",

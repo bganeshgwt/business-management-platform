@@ -326,6 +326,13 @@ async function runUpgrade(db, business, user, membershipId, body, { quote, appro
   requireRunning(m, 'upgraded');
   if (m.transferred_from) fail(`Membership ${m.membership_no} was passed on by another member, on their bill: it is not upgraded. Renew it, or sell a new plan.`, 409);
   if (m.origin !== 'sale') fail(`Membership ${m.membership_no} ${m.origin === 'trial' ? 'is a trial pass' : 'was brought in from another system'} and has no bill here: sell the new plan instead.`, 409);
+  // A membership a company paid for (sold from its quotation): the company's
+  // credit never pays the member's own bill.
+  const payer = await repo.one(db, `SELECT d.contact_id,ct.name FROM business_documents d LEFT JOIN business_contacts ct ON ct.business_id=d.business_id AND ct.id=d.contact_id
+    WHERE d.business_id=$1 AND d.id=$2`, [business.id, m.document_id]);
+  if (payer && payer.contact_id && Number(payer.contact_id) !== Number(m.contact_id)) {
+    fail(`Membership ${m.membership_no} was paid by ${payer.name}: its credit is theirs. Cancel it (what is unused goes back to ${payer.name}) and sell the new plan.`, 409, { reason: 'paid_by_other' });
+  }
   const plan = await ms.planFor(db, business, id(body.planId, 'New plan'));
   if (Number(plan.id) === Number(m.plan_id)) fail(`Membership ${m.membership_no} is already ${plan.name}: renew it instead`, 409);
   const locationId = c.given(body.locationId) ? id(body.locationId, 'Location') : m.location_id;

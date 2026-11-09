@@ -155,7 +155,9 @@ function MembershipCard({ m, member, onDialog, onChanged }) {
         {termLines(m, biz).map(([label, words]) => <Fragment key={label}><dt>{label}</dt><dd>{words}</dd></Fragment>)}
         {money && <><dt>Price as sold</dt><dd>{biz.exact(m.price)} ({biz.exact(m.price_net)} + GST {biz.exact(m.price_tax)}){Number(m.joining_fee) > 0 ? ` · joining fee ${biz.exact(m.joining_fee)}` : ""}</dd></>}
         {money && m.bill && <><dt>Bill</dt><dd><span className="mono">{m.bill.document_no}</span>
-          {Number(m.bill.due) > 0 ? <span className="bz-minus"> · {biz.exact(m.bill.due)} to pay</span> : " · paid"}</dd></>}
+          {Number(m.bill.due) > 0 ? <span className="bz-minus"> · {biz.exact(m.bill.due)} to pay</span> : " · paid"}
+          {/* A company paying for its people: the bill, and what is owed on it, are theirs. */}
+          {m.paid_by_name && <span className="muted"> · paid by {m.paid_by_name}</span>}</dd></>}
         {m.source_no && <><dt>{m.renewal_of ? "Renews" : m.upgraded_from ? "Upgraded from" : "Passed on from"}</dt><dd className="mono">{m.source_no}</dd></>}
         {(m.followed_by || []).map((f) => <Fragment key={f.id}><dt>{HOW[f.how]}</dt><dd><span className="mono">{f.membership_no}</span>{f.how === "transfer" ? ` · ${f.member_name}` : ""}</dd></Fragment>)}
         {m.max_freezes > 0 && running && <><dt>Freezes left</dt><dd>{m.freeze_left.freezes} freeze{m.freeze_left.freezes === 1 ? "" : "s"}, {m.freeze_left.days} days</dd></>}

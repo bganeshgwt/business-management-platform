@@ -12,6 +12,8 @@ import MemberApproval from "./MemberApproval";
 import { ADDON_KINDS, approvalBody, dayWords, emptyApproval, splitInstalments, termWords, wordOf, VISIT_PERIODS } from "./memberships";
 import { NewCustomerConsents } from "../../../personal-data/components/ConsentChoices";
 import { consentChanges } from "../../../personal-data/personalData";
+// Its own looks wherever it opens (a quotation's Sell membership too).
+import "../styles/memberships.css";
 
 // Selling a membership, renewing one or upgrading one to another plan. The
 // bill is worked out by the server as it will be posted (the plan's price as
@@ -58,6 +60,7 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
   const plans = useMemo(() => (options?.["member-plans/plans?active=true"] || []), [options]);
   // A quotation's line for one person is that person's (its customer); a line for many (a company's employees) asks each one.
   const quotedFor = quotation && Number(quotation.line.quantity) === 1 ? quotation.q : null;
+  // A company's quotation for many: each member is asked; the company is not one of them.
   const [chosen, setChosen] = useState(member || (lead?.contact_id ? { id: lead.contact_id, name: lead.name } : null)
     || (quotedFor?.contact_id ? { id: quotedFor.contact_id, name: quotedFor.customer_name, phone: quotedFor.customer_phone } : null));
   const [form, setForm] = useState(() => ({
@@ -76,10 +79,15 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
   const contactId = form.newMember ? null : chosen?.id || null;
   const discount = form.discountAmount && !quotation ? { discount: { amount: form.discountAmount, reason: form.discountReason } } : {};
   const addons = quotation ? [] : form.addons.filter((a) => a.item).map((a) => ({ skuId: a.item.id, kind: a.kind, ...(a.kind === "locker" ? { lockerNo: a.lockerNo } : {}) }));
+  // Who pays a sale from a quotation: the member, or the quotation's saved
+  // customer (a company paying for its people, billed with its GSTIN).
+  const companyCanPay = Boolean(quotation?.q.contact_id);
+  const [billTo, setBillTo] = useState(() => (companyCanPay && Number(quotation.line.quantity) > 1 ? "quotation" : "member"));
+  const companyPays = companyCanPay && billTo === "quotation";
   // The quotation line it is sold from, sent with the figures and the sale.
-  const fromQuotation = quotation ? { quotation: { id: quotation.q.id, lineId: quotation.line.id } } : {};
+  const fromQuotation = quotation ? { quotation: { id: quotation.q.id, lineId: quotation.line.id }, ...(companyPays ? { billTo: "quotation" } : {}) } : {};
   // The figures as the server works them out, each time what decides them changes.
-  const asked = JSON.stringify({ planId: form.planId, contactId, startOn: form.startOn, joining: form.joining, discount, locationId: form.locationId, addons });
+  const asked = JSON.stringify({ planId: form.planId, contactId, startOn: form.startOn, joining: form.joining, discount, locationId: form.locationId, addons, billTo });
   // The figures shown are those worked out for what is asked now.
   const preview = figures && figures.asked === asked && form.planId ? figures : null;
   useEffect(() => {
@@ -147,6 +155,26 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
         : mode === "upgrade" ? "The new plan starts today. The part of this membership not used comes back as a credit note on its bill, and pays the new bill first."
           : quotation ? `From quotation ${quotation.q.quotation_no}: ${quotation.line.label} at the quoted price, for one member.${Number(quotation.line.left_quantity) > 1 ? ` ${Number(quotation.line.left_quantity) - 1} more can be sold from it after this one.` : ""}`
             : lead ? `Sold from ${lead.name}'s enquiry, which closes as the member they became.` : "The bill is posted with the membership; what is not paid now stays on the member's dues."}>
+      {companyCanPay && (
+        <fieldset className="field-wide mem-payer">
+          <legend>Who pays</legend>
+          <div className="segmented" role="radiogroup" aria-label="Who pays">
+            {[["quotation", `${quotation.q.customer_name} (bill to them)`], ["member", "The member"]].map(([value, label]) => (
+              <button key={value} type="button" role="radio" aria-checked={billTo === value} className={`segment ${billTo === value ? "is-active" : ""}`}
+                onClick={() => {
+                  setBillTo(value);
+                  // The company pays for its people: it is not the member.
+                  if (value === "quotation" && String(chosen?.id) === String(quotation.q.contact_id)) setChosen(null);
+                  if (value === "quotation") setForm((f) => ({ ...f, split: false, instalments: [] }));
+                }}>{label}</button>
+            ))}
+          </div>
+          <small className="muted">
+            {companyPays ? `The bill is ${quotation.q.customer_name}'s, with their GSTIN, on their dues; it names the member. The membership is the member's.`
+              : "The member pays the quoted price; the bill is theirs."}
+          </small>
+        </fieldset>
+      )}
       {mode === "sell" && !member && !lead?.contact_id && (
         <>
           {form.newMember ? (
@@ -254,6 +282,9 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
               {preview.quotation && (
                 <><dt>As quoted</dt><dd>{preview.quotation.quotationNo} · {preview.joiningFee ? "with the joining fee it quoted" : "no joining fee (the quotation has none left)"}</dd></>
               )}
+              {preview.quotation?.billTo && (
+                <><dt>Billed to</dt><dd>{preview.quotation.billTo.name}{preview.quotation.billTo.gstin ? ` · GSTIN ${preview.quotation.billTo.gstin}` : ""}</dd></>
+              )}
               {(preview.lines || []).map((l, i) => <Fragment key={i}><dt className="muted">{l.label}</dt><dd className="muted">{biz.exact(Number(l.net) + Number(l.tax))} (GST {Number(l.taxRate)}%)</dd></Fragment>)}
               {preview.terms && <TermsDisclosed biz={biz} terms={preview.terms} />}
             </>
@@ -283,14 +314,14 @@ export default function MembershipDialog({ mode = "sell", member, membership, le
       )}
       {canPay && (
         <>
-          <Field label="Paid now" hint={preview ? `Up to ${biz.exact(due)}; empty or 0 leaves it on the member's dues.` : undefined}>
+          <Field label="Paid now" hint={preview ? `Up to ${biz.exact(due)}; empty or 0 leaves it on ${companyPays ? `${quotation.q.customer_name}'s` : "the member's"} dues.` : undefined}>
             <input type="number" min="0" step="0.01" value={form.amount} onChange={set("amount")} placeholder={preview ? due.toFixed(2) : ""} />
           </Field>
           {paying && <Field label="Paid by"><select value={methods.resolve(form.method, PAY_KINDS)} onChange={set("method")}>{methods.options(PAY_KINDS).map((m) => <option key={m.key} value={m.key}>{m.name}</option>)}</select></Field>}
           {paying && <Field label="Reference (optional)"><input maxLength={100} value={form.reference} onChange={set("reference")} /></Field>}
         </>
       )}
-      <label className="checkbox bz-check field-wide"><input type="checkbox" checked={form.split} onChange={(e) => setForm((f) => ({ ...f, split: e.target.checked, instalments: [] }))} /> The fee in instalments</label>
+      {!companyPays && <label className="checkbox bz-check field-wide"><input type="checkbox" checked={form.split} onChange={(e) => setForm((f) => ({ ...f, split: e.target.checked, instalments: [] }))} /> The fee in instalments</label>}
       {form.split && (
         <>
           <Field label="Instalments"><input type="number" min="2" max="36" value={form.parts} onChange={(e) => setForm((f) => ({ ...f, parts: e.target.value, instalments: [] }))} /></Field>

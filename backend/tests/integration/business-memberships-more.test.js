@@ -280,6 +280,39 @@ test('gyms, studios and coaching: classes, pay, plan options, fees, changes, stu
     assert.deepEqual(rahulRows, [Number(gym90.price_sku_id), Number(joiningFee.id)]);
     assert.equal((await request('GET', G(`quotations/${walkIn.id}`))).status, 'billed');
 
+    // A plan is counted in memberships on the quotation.
+    assert.deepEqual([planLine.unit, lines(fresh)['Gym 90 days'].unit], ['memberships', 'membership']);
+
+    // The company pays for its people: the bill is the company's, naming the member; the membership is the member's.
+    const tcs = await customer('TCS Ltd', '9848066606');
+    const companyDeal = await request('POST', G('quotations'), { requestKey: key(), locationId: shop.id, contactId: tcs.id, validUntil: daysFrom(60),
+      lines: [{ skuId: gym30.price_sku_id, quantity: '2' }] }, 201);
+    const forCompany = { quotation: { id: companyDeal.id, lineId: companyDeal.lines[0].id }, billTo: 'quotation' };
+    const priced = await request('POST', G('member-plans/memberships/preview'), { locationId: shop.id, planId: gym30.id, ...forCompany });
+    assert.equal(priced.quotation.billTo.name, 'TCS Ltd');
+    answer = await refused('POST', G('member-plans/memberships'), { requestKey: key(), locationId: shop.id, planId: gym30.id, member: { name: 'TCS Staff X' }, ...forCompany,
+      instalments: [{ dueOn: daysFrom(1), amount: '500' }, { dueOn: daysFrom(30), amount: '549.95' }] });
+    assert.equal(answer.status, 400);
+    assert.match(answer.message, /A bill to TCS Ltd has no instalments/);
+    answer = await refused('POST', G('member-plans/memberships'), { requestKey: key(), locationId: shop.id, planId: gym30.id, member: { name: 'No Quote' }, billTo: 'quotation' });
+    assert.equal(answer.status, 400);
+    const staffer = await sell({ planId: gym30.id, member: { name: 'TCS Staff One' }, ...forCompany, payments: undefined });
+    const bill = await one('SELECT contact_id,notes FROM business_documents WHERE id=$1', [staffer.document_id]);
+    assert.equal(Number(bill.contact_id), Number(tcs.id), 'the bill is the company\'s');
+    assert.match(bill.notes, /for TCS Staff One/);
+    assert.notEqual(Number(staffer.contact_id), Number(tcs.id), 'the membership is the member\'s');
+    assert.deepEqual([Number(staffer.paid_by_contact_id), staffer.paid_by_name], [Number(tcs.id), 'TCS Ltd']);
+    // The company's credit never pays the member's own bill: no move to another plan.
+    answer = await refused('POST', G(`member-plans/memberships/${staffer.id}/upgrade`), { requestKey: key(), planId: gym90.id });
+    assert.equal(answer.status, 409);
+    assert.equal(answer.data.reason, 'paid_by_other');
+    // A walk-in's quotation (no saved customer) is never billed to "them".
+    const unsaved = await request('POST', G('quotations'), { requestKey: key(), locationId: shop.id, customerName: 'Not Saved Co', validUntil: daysFrom(7),
+      lines: [{ skuId: gym30.price_sku_id, quantity: '1' }] }, 201);
+    answer = await refused('POST', G('member-plans/memberships'), { requestKey: key(), locationId: shop.id, planId: gym30.id, member: { name: 'Their Staff' },
+      quotation: { id: unsaved.id, lineId: unsaved.lines[0].id }, billTo: 'quotation' });
+    assert.equal(answer.status, 409);
+
     // Past its date: revised first.
     const late = await request('POST', G('quotations'), { requestKey: key(), locationId: shop.id, customerName: 'Late Lead', validUntil: daysFrom(3),
       lines: [{ skuId: gym30.price_sku_id, quantity: '1' }] }, 201);

@@ -52,6 +52,8 @@ test("a gym's quotation: its plan sold as a membership at the quoted price", asy
     const sale = page.getByRole("dialog", { name: "Sell a membership" });
     await expect(sale).toBeVisible();
     await expect(sale.getByText(`From quotation ${q.quotation_no}: ${MEMBERSHIPS.monthly.name} at the quoted price, for one member.`)).toBeVisible();
+    // Someone not saved pays for themselves: no choice of who pays.
+    await expect(sale.getByRole("group", { name: "Who pays" })).toHaveCount(0);
     // The quoted person, the quoted plan; no discount or add-ons of its own.
     await expect(sale.getByLabel("Member's name")).toHaveValue(name);
     await expect(sale.getByLabel("Plan")).toBeDisabled();
@@ -71,6 +73,62 @@ test("a gym's quotation: its plan sold as a membership at the quoted price", asy
     await expect(detail.getByRole("link", { name })).toBeVisible();
     await expect(detail.getByText(/^Billed on/)).toBeVisible();
     await expect(detail.getByRole("button", { name: "Sell membership" })).toHaveCount(0);
+    expect(errors).toEqual([]);
+  } finally {
+    if (!quotationsOn) await callApi(page, "put", `/businesses/${gym.id}/modules/quotations`, { enabled: false }).catch(() => {});
+  }
+});
+
+// A company's quotation for two of its people: Who pays starts on the
+// company, the member is asked (not the company), the bill is the company's,
+// and the quotation counts one of two sold. Instalments are not offered.
+test("a company pays for its people: the membership is the member's, the bill the company's", async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
+  const gym = business("memberships");
+  const errors = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await signIn(page);
+  const tag = Date.now().toString().slice(-5);
+  const company = `Wipro Ltd ${tag}`;
+  const quotationsOn = (await callApi(page, "get", `/businesses/${gym.id}/modules`)).find((m) => m.code === "quotations")?.enabled;
+  if (!quotationsOn) await callApi(page, "put", `/businesses/${gym.id}/modules/quotations`, { enabled: true });
+
+  try {
+    const plans = await callApi(page, "get", `/businesses/${gym.id}/member-plans/plans?active=true`);
+    const monthly = (Array.isArray(plans) ? plans : plans.items).find((plan) => plan.name === MEMBERSHIPS.monthly.name);
+    const location = (await callApi(page, "get", `/businesses/${gym.id}/locations`)).items[0];
+    const saved = await callApi(page, "post", `/businesses/${gym.id}/contacts`, { kind: "customer", name: company, phone: `98481${tag}` });
+    const q = await callApi(page, "post", `/businesses/${gym.id}/quotations`, {
+      requestKey: crypto.randomUUID(), locationId: location.id, contactId: saved.id, validUntil: localDate(60),
+      lines: [{ skuId: monthly.price_sku_id, quantity: "2" }], discount: { percent: "10", reason: "Corporate rate" },
+    });
+
+    await page.goto(`/business-admin/${gym.id}/quotations?quotation=${q.id}`);
+    const detail = page.getByRole("dialog", { name: `Quotation ${q.quotation_no}` });
+    await expect(detail).toBeVisible({ timeout: 30_000 });
+    await expect(detail.getByText("Membership plan · 0 of 2 sold")).toBeVisible();
+    await expect(detail.getByText("2 memberships", { exact: true })).toBeVisible();
+    await detail.getByRole("button", { name: "Sell membership" }).click();
+
+    const sale = page.getByRole("dialog", { name: "Sell a membership" });
+    const payer = sale.getByRole("group", { name: "Who pays" });
+    await expect(payer.getByRole("radio", { name: `${company} (bill to them)` })).toHaveAttribute("aria-checked", "true");
+    await expect(sale.getByText(`Billed to`)).toBeVisible({ timeout: 15_000 });
+    await expect(sale.getByText(company, { exact: true })).toBeVisible();
+    await expect(sale.getByText("The fee in instalments")).toHaveCount(0);
+    // The member is one of the company's people: typed as a new member.
+    await sale.getByLabel("A new member").check();
+    await sale.getByLabel("Member's name").fill(`Wipro Staff ${tag}`);
+    await page.screenshot({ path: testInfo.outputPath("company-pays.png") });
+    await sale.getByRole("button", { name: "Post the bill" }).click();
+    await expect(sale).toHaveCount(0, { timeout: 15_000 });
+
+    await expect(detail.getByText("Membership plan · 1 of 2 sold")).toBeVisible({ timeout: 15_000 });
+    await expect(detail.getByRole("link", { name: `Wipro Staff ${tag}` })).toBeVisible();
+    // The bill is the company's.
+    const fresh = await callApi(page, "get", `/businesses/${gym.id}/quotations/${q.id}`);
+    const bill = await callApi(page, "get", `/businesses/${gym.id}/documents/${fresh.bills[0].id}`);
+    expect(Number(bill.contact_id)).toBe(Number(saved.id));
     expect(errors).toEqual([]);
   } finally {
     if (!quotationsOn) await callApi(page, "put", `/businesses/${gym.id}/modules/quotations`, { enabled: false }).catch(() => {});

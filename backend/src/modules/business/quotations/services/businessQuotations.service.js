@@ -255,7 +255,9 @@ async function load(db, business, quotationId) {
     const done = billed.get(Number(line.id)) || nothing;
     return { ...line, kit_parts: line.kit_parts ? line.kit_parts.map((part) => ({ ...part, tracking: tracking.get(Number(part.skuId)) || null })) : null,
       billed_quantity: qty(done.quantityMilli), left_quantity: qty(milli(line.quantity) - done.quantityMilli), billed_net: rupees(done.net), billed_tax: rupees(done.tax),
-      plan: planLines.get(Number(line.id)) || null };
+      plan: planLines.get(Number(line.id)) || null,
+      // A plan is counted in memberships (its item is billed per service), on the screen, the print and the message.
+      ...(planLines.get(Number(line.id))?.role === 'plan' ? { unit: milli(line.quantity) === 1000 ? 'membership' : 'memberships' } : {}) };
   });
   // The memberships sold from it, each with its member.
   const memberships = planLines.size ? await repo.all(db, `SELECT DISTINCT ON (m.id) m.id,m.membership_no,m.contact_id,m.plan_name,m.start_on::text AS start_on,ct.name AS member_name,b.line_id
