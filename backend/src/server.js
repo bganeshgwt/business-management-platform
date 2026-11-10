@@ -3,6 +3,7 @@ const app = require("./app");
 const pool = require("./config/database");
 const live = require("./modules/live/services/liveHub");
 const { assertMigrationsApplied } = require("./utils/migrationStatus");
+const { assertLoginFitForLive } = require("./utils/databaseLogin");
 
 // How long a stop may take before the process ends regardless.
 const STOP_WITHIN_MS = 10000;
@@ -11,6 +12,8 @@ const start = async () => {
   try {
     await pool.query("SELECT 1");
     await assertMigrationsApplied(pool);
+    // A live server runs on a login that can only read and write rows.
+    await assertLoginFitForLive(pool, { live: config.isLive });
     console.log(`Connected to PostgreSQL database "${config.db.database}"`);
   } catch (error) {
     console.error("Could not start API:", error.message);

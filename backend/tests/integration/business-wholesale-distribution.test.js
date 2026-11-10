@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
+const { rewriteHistory } = require('./helpers/history');
 const dates = require('./helpers/dates');
 const { signIn } = require('./helpers/signIn');
 const { publishNotice, giveConsent } = require('./helpers/privacy');
@@ -313,7 +314,7 @@ test('wholesale: cheques, settlement, schemes, hold, edits, delivery', { timeout
     await request('PUT', W('wholesale-settings'), { holdOverdueDays: 15 });
     // Om Sai's opening balance was covered; give them an old unpaid bill.
     const old = await bill(shop, 200); // 2,360: more than the 510 of advances they hold
-    await pool.query("UPDATE business_documents SET created_at=now()-interval '60 days', due_on=$2 WHERE id=$1", [old.id, day(-30)]);
+    await rewriteHistory(pool, "UPDATE business_documents SET created_at=now()-interval '60 days', due_on=$2 WHERE id=$1", [old.id, day(-30)]);
     const body = { locationId: location.id, contactId: shop.id, requestKey: key(), lines: [{ skuId: biscuits.id, quantity: '10' }] };
     const held = await call('POST', W('sales-orders'), body, tokens.cashier);
     assert.equal(held.status, 409);

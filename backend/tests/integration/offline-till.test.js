@@ -7,6 +7,7 @@ const { pathToFileURL } = require('node:url');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
+const { rewriteHistory } = require('./helpers/history');
 const { addDays, today } = require('./helpers/dates');
 const { signIn } = require('./helpers/signIn');
 
@@ -646,7 +647,7 @@ test('the offline till', { timeout: 900000 }, async (t) => {
     const firm = await request('POST', G('contacts'), { kind: 'customer', name: 'Rao Caterers', gstin: '36AAFFR1234L1Z6' }, 201);
     const contract = await item(grocery, { kind: 'service', name: 'Institutional supply contract', code: 'INST', unit: 'service', price: '60000000', taxRate: '0' });
     const sale = await request('POST', G('documents'), { kind: 'sale', requestKey: key(), locationId: gloc.id, contactId: firm.id, lines: [{ skuId: contract.id, quantity: '1' }] }, 201);
-    await pool.query("UPDATE business_documents SET created_at=now() - interval '400 days' WHERE id=$1", [sale.id]);
+    await rewriteHistory(pool, "UPDATE business_documents SET created_at=now() - interval '400 days' WHERE id=$1", [sale.id]);
     const snap = await fresh(tokenTwo);
     assert.equal(snap.settings.einvoicing, true);
     // The till refuses such a bill offline (tillCounter); one made all the same is posted and flagged.

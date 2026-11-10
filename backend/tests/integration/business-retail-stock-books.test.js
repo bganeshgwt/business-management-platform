@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
+const { rewriteHistory } = require('./helpers/history');
 const { withTools } = require('./helpers/tools');
 const { daysFrom } = require('./helpers/dates');
 const { signIn } = require('./helpers/signIn');
@@ -138,7 +139,7 @@ test('retail: items, sales list, expiry, books, bell', { timeout: 300000 }, asyn
     assert.deepEqual((await request('GET', G(`documents?kind=sale&created_by=${cashierUser.id}`))).items.map((r) => r.id), [upi.id]);
     assert.equal((await request('GET', G('documents?kind=sale&q=Retail%20cashier'))).total, 1);
     // A posting dated earlier sits on its own date in the stock ledger.
-    await pool.query("UPDATE business_stock_movements SET created_at=now()-interval '3 days' WHERE business_id=$1 AND document_id=$2", [grocery.id, upi.id]);
+    await rewriteHistory(pool, "UPDATE business_stock_movements SET created_at=now()-interval '3 days' WHERE business_id=$1 AND document_id=$2", [grocery.id, upi.id]);
     const ledger = (await request('GET', G(`movements?q=Moong&from=${day(-10)}&to=${day(0)}`))).items;
     const times = ledger.map((m) => Date.parse(m.created_at));
     assert.deepEqual(times, [...times].sort((a, b) => b - a));
@@ -198,7 +199,7 @@ test('retail: items, sales list, expiry, books, bell', { timeout: 300000 }, asyn
     const low = await item(G('catalog'), { name: 'Tea 250 g', code: 'TEA', price: '120', reorderLevel: '5', openingStock: { locationId: location.id, quantity: '2', unitCost: '90' } });
     const customer = await request('POST', G('contacts'), { kind: 'customer', name: 'Kiran', phone: '9800000002', creditDays: 1 }, 201);
     const bill = await request('POST', G('documents'), { kind: 'sale', locationId: location.id, contactId: customer.id, requestKey: key(), lines: [{ skuId: low.id, quantity: '1' }] }, 201);
-    await pool.query("UPDATE business_documents SET due_on=$3 WHERE business_id=$1 AND id=$2", [grocery.id, bill.id, day(-40)]);
+    await rewriteHistory(pool, "UPDATE business_documents SET due_on=$3 WHERE business_id=$1 AND id=$2", [grocery.id, bill.id, day(-40)]);
     // A reminder call needs the customer's consent to reminders.
     await publishNotice(request, `/businesses/${grocery.id}`);
     await giveConsent(request, `/businesses/${grocery.id}`, customer.id, ['reminders']);

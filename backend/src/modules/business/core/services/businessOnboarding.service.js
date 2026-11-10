@@ -386,29 +386,25 @@ async function createStaffAccount(business, user, body) {
   const email = v.requiredEmail(body.email, 'Email');
   const password = v.requiredPassword(body.password, 'Password');
   const mobile = readMobile(body.mobile, 'Mobile');
-  const created = await repo.transaction(async (db) => {
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  // The login and its access are saved together: a role, location or
+  // department that cannot be given leaves no login behind.
+  return repo.transaction(async (db) => {
+    await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
     if (await repo.one(db, 'SELECT 1 FROM users WHERE lower(email)=$1', [email])) {
       fail('That email already has a login. Give that person access with "Give access" instead.', 409);
     }
     if (mobile && await repo.one(db, 'SELECT 1 FROM users WHERE mobile=$1', [mobile])) fail('That mobile number already has a login', 409);
     // Staff of a restaurant's business stay with that restaurant (its till and staff list).
     const row = await repo.one(db, 'INSERT INTO users(restaurant_id,name,email,mobile,password_hash,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,name,email',
-      [business.legacy_restaurant_id || null, name, email, mobile, await bcrypt.hash(password, BCRYPT_ROUNDS), user.id]);
+      [business.legacy_restaurant_id || null, name, email, mobile, passwordHash, user.id]);
     await repo.audit(db, business.id, user.id, 'staff_account.created', row.id, { name, email });
-    return row;
-  });
-  // Their role, location and department go through the same checks as any
-  // other access (someone tied to a department makes logins in it only).
-  try {
+    // Their role, location and department go through the same checks as any
+    // other access (someone tied to a department makes logins in it only).
     const member = await access.setMember(business, user,
-      { userId: created.id, roleId: body.roleId, workLocationId: body.workLocationId, workDepartmentId: body.workDepartmentId, active: true }, { newLogin: true });
-    return { ...member, name: created.name, email: created.email };
-  } catch (error) {
-    // No login is left behind without access: the person is created again with valid choices.
-    await repo.pool.query('DELETE FROM business_audit WHERE business_id=$1 AND action=$2 AND entity_id=$3', [business.id, 'staff_account.created', created.id]).catch(() => {});
-    await repo.pool.query('DELETE FROM users WHERE id=$1 AND last_login_at IS NULL', [created.id]).catch(() => {});
-    throw error;
-  }
+      { userId: row.id, roleId: body.roleId, workLocationId: body.workLocationId, workDepartmentId: body.workDepartmentId, active: true }, { newLogin: true, db });
+    return { ...member, name: row.name, email: row.email };
+  });
 }
 
 // A new password for one of this business's staff: not an owner, and only

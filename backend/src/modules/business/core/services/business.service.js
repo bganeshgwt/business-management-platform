@@ -816,7 +816,7 @@ function readScheme(input) {
 
 async function postDocument(db, business, user, body, { kind, requestKey, hash, lines: inputLines, paidNow, fixed = null, quote = false, walkInPays = false, voucher = null, finance = null,
   membership = false, dueDay = null, jewellery = false, tenders = [], rental = false, fuel = false, lodging = false, noStock = false, advance = null, charge = false, issued = null,
-  offline = null }) {
+  offline = null, buyerState = null }) {
   {
     // Serializes document posting within a business: one lock order for every
     // posting (business, then document, then stock lots).
@@ -1061,7 +1061,7 @@ async function postDocument(db, business, user, body, { kind, requestKey, hash, 
     const buyerGstin = kind === 'sale' ? contact?.gstin || null : null;
     // A stay is supplied where the property stands, whoever the buyer is.
     const placeOfSupply = kind !== 'sale' ? null : lodging ? location.state_code || settings?.state_code || (buyerGstin ? buyerGstin.slice(0, 2) : null)
-      : buyerGstin ? buyerGstin.slice(0, 2) : location.state_code || settings?.state_code || null;
+      : buyerGstin ? buyerGstin.slice(0, 2) : buyerState || location.state_code || settings?.state_code || null;
     // The buyer's PAN: typed on the bill or saved with the customer. A sale
     // over ₹2,00,000 must have one (or the PAN inside the customer's GSTIN, or
     // on their wholesale profile), or the buyer's declaration that they have none.

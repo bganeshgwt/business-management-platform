@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
+const { rewriteHistory } = require('./helpers/history');
 const { withTools } = require('./helpers/tools');
 const { publishNotice, giveConsent } = require('./helpers/privacy');
 const { signIn } = require('./helpers/signIn');
@@ -349,7 +350,7 @@ test('retail: offers, loyalty, udhaar, barcodes, books and reports', { timeout: 
     const credit = (lines) => request('POST', root(grocery, 'documents'), { kind: 'sale', locationId: location.id, contactId: sunita.id, requestKey: key(), lines }, 201);
     const older = await credit([{ skuId: biscuit.id, quantity: '10' }]);
     const newer = await credit([{ skuId: salt.id, quantity: '1' }]);
-    await pool.query("UPDATE business_documents SET created_at=now()-interval '20 days',due_on=(now() AT TIME ZONE 'Asia/Kolkata')::date-13 WHERE business_id=$1 AND id=$2", [grocery.id, older.id]);
+    await rewriteHistory(pool, "UPDATE business_documents SET created_at=now()-interval '20 days',due_on=(now() AT TIME ZONE 'Asia/Kolkata')::date-13 WHERE business_id=$1 AND id=$2", [grocery.id, older.id]);
     const book = await request('GET', root(grocery, 'udhaar'));
     const row = book.items.find((r) => r.contact_id === sunita.id);
     assert.equal(Number(row.balance), Number(older.total) + Number(newer.total));

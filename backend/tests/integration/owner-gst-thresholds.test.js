@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { addDays, momentAt, today, zoneWithHour } = require('./helpers/dates');
+const { rewriteHistory } = require('./helpers/history');
 const { signIn } = require('./helpers/signIn');
 const rules = require('../../src/modules/gst-thresholds/services/gstThresholdsRules');
 
@@ -265,7 +266,7 @@ test('an owner\'s GST thresholds', { timeout: 900000 }, async (t) => {
   async function sell(business, shop, lines, at = null, by = request) {
     const sale = await by('POST', `/businesses/${business.id}/documents`, { kind: 'sale', requestKey: key(), locationId: shop.at.id, contactId: shop.buyer.id,
       lines: lines.map(([sku, quantity]) => ({ skuId: sku.id, quantity: String(quantity) })), payment: { method: 'bank', amount: 'full' } }, 201);
-    if (at) await pool.query('UPDATE business_documents SET created_at=$3 WHERE business_id=$1 AND id=$2', [business.id, sale.id, at]);
+    if (at) await rewriteHistory(pool, 'UPDATE business_documents SET created_at=$3 WHERE business_id=$1 AND id=$2', [business.id, sale.id, at]);
     return sale;
   }
   const local = (day, time) => momentAt(day, time, zone);

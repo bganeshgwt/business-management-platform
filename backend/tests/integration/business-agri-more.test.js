@@ -6,6 +6,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
+const { rewriteHistory } = require('./helpers/history');
 const { daysFrom, momentAt } = require('./helpers/dates');
 const { signIn } = require('./helpers/signIn');
 
@@ -422,9 +423,9 @@ test('the rest of the seeds, fertilisers & pesticides shop', { timeout: 600000 }
     const tz = 'Asia/Kolkata';
     // Six bags in the last minute of last month, three in the first of this one: only this month's count.
     const last = await sale({ ...cash, contactId: shankar.contact_id, agri: { posReceipt: '1024/0901' }, lines: [{ skuId: urea.id, quantity: '6' }] });
-    await pool.query(`UPDATE business_documents SET created_at=(date_trunc('month',now() AT TIME ZONE $2) - interval '1 minute') AT TIME ZONE $2 WHERE id=$1`, [last.id, tz]);
+    await rewriteHistory(pool, `UPDATE business_documents SET created_at=(date_trunc('month',now() AT TIME ZONE $2) - interval '1 minute') AT TIME ZONE $2 WHERE id=$1`, [last.id, tz]);
     const first = await sale({ ...cash, contactId: shankar.contact_id, agri: { posReceipt: '1024/0902' }, lines: [{ skuId: urea.id, quantity: '3' }] });
-    await pool.query(`UPDATE business_documents SET created_at=LEAST(now(),(date_trunc('month',now() AT TIME ZONE $2) + interval '1 minute') AT TIME ZONE $2) WHERE id=$1`, [first.id, tz]);
+    await rewriteHistory(pool, `UPDATE business_documents SET created_at=LEAST(now(),(date_trunc('month',now() AT TIME ZONE $2) + interval '1 minute') AT TIME ZONE $2) WHERE id=$1`, [first.id, tz]);
     const asked = await cashier('POST', A('agri/counter-check'), { locationId: shop.id, contactId: shankar.contact_id, lines: [{ skuId: urea.id, quantity: '1' }] });
     assert.deepEqual(asked.bags, { before: 3, after: 4, limit: 10 }, 'last month\'s six are not counted; with this one, four');
     // Five more: eight, near the limit.
@@ -679,10 +680,10 @@ test('the rest of the seeds, fertilisers & pesticides shop', { timeout: 600000 }
     } finally {
       await pool.query('ALTER TABLE agri_season_credits ENABLE TRIGGER agri_season_credits_guard');
     }
-    await pool.query('UPDATE business_documents SET created_at=$2,due_on=$3 WHERE id=$1', [billA.id, momentAt(daysFrom(-60), '10:00'), daysFrom(-20)]);
-    await pool.query('UPDATE business_documents SET created_at=$2,due_on=$3 WHERE id=$1', [billB.id, momentAt(daysFrom(-30), '10:00'), daysFrom(-20)]);
+    await rewriteHistory(pool, 'UPDATE business_documents SET created_at=$2,due_on=$3 WHERE id=$1', [billA.id, momentAt(daysFrom(-60), '10:00'), daysFrom(-20)]);
+    await rewriteHistory(pool, 'UPDATE business_documents SET created_at=$2,due_on=$3 WHERE id=$1', [billB.id, momentAt(daysFrom(-30), '10:00'), daysFrom(-20)]);
     await request('POST', A(`documents/${billA.id}/payments`), { amount: '4000', method: 'upi', requestKey: key() }, 201);
-    await pool.query('UPDATE business_payments SET created_at=$2 WHERE document_id=$1', [billA.id, momentAt(daysFrom(-10), '11:00')]);
+    await rewriteHistory(pool, 'UPDATE business_payments SET created_at=$2 WHERE document_id=$1', [billA.id, momentAt(daysFrom(-10), '11:00')]);
     // After the due date, 2% a month (a thirtieth a day): bill A owed 10,000 for 9 days and 6,000
     // for 11; bill B owed 5,000 for 20 days. (10,000×9 + 6,000×11) × 2% / 30 = 104.00;
     // 5,000 × 20 × 2% / 30 = 66.666… = 66.67. Interest is 170.67.
@@ -749,7 +750,7 @@ test('the rest of the seeds, fertilisers & pesticides shop', { timeout: 600000 }
     const rabi = await request('POST', A('agri/season-credits'), { contactId: lakshmi.contact_id, season: 'rabi', seasonYear: year, dueOn: daysFrom(30),
       creditLimit: '3500', interest: 'from_bill', interestRate: '1.5' }, 201);
     const c = await sale({ contactId: lakshmi.contact_id, agri: { seasonCreditId: rabi.season.id }, lines: [{ skuId: manure.id, quantity: '6' }] });
-    await pool.query('UPDATE business_documents SET created_at=$2 WHERE id=$1', [c.id, momentAt(daysFrom(-45), '09:00')]);
+    await rewriteHistory(pool, 'UPDATE business_documents SET created_at=$2 WHERE id=$1', [c.id, momentAt(daysFrom(-45), '09:00')]);
     detail = await request('GET', A(`agri/season-credits/${rabi.season.id}`));
     assert.deepEqual([detail.owed, detail.interest.worked], ['3000.00', '67.50']);
     // Its limit of 3,500: 1,000 more on credit is over; with 500 paid now, 500 on credit is within it.
@@ -800,7 +801,7 @@ test('the rest of the seeds, fertilisers & pesticides shop', { timeout: 600000 }
     await receive(coromandel, [{ skuId: dap.id, quantity: '50', freeQuantity: '10', unitPrice: '1290' }]);
     await receive(iffco, [{ skuId: dap.id, quantity: '40', unitPrice: '1295' }]);
     const before = await receive(coromandel, [{ skuId: dap.id, quantity: '30', unitPrice: '1290' }]);
-    await pool.query('UPDATE business_documents SET created_at=$2 WHERE id=$1', [before.id, momentAt(daysFrom(-40), '12:00')]);
+    await rewriteHistory(pool, 'UPDATE business_documents SET created_at=$2 WHERE id=$1', [before.id, momentAt(daysFrom(-40), '12:00')]);
     const p1Line = await one('SELECT id FROM business_document_lines WHERE document_id=$1', [p1.id]);
     await request('POST', A(`documents/${p1.id}/returns`), { requestKey: key(), reason: 'Torn bags', lines: [{ lineId: p1Line.id, quantity: '5' }] }, 201);
     let ledger = await keeper('GET', A(`agri/schemes/${made.scheme.id}`));

@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
+const { rewriteHistory } = require('./helpers/history');
 const dates = require('./helpers/dates');
 const { withTools } = require('./helpers/tools');
 const { signIn } = require('./helpers/signIn');
@@ -324,7 +325,7 @@ test('fashion and electronics: variants, exchanges, serials, warranties, repairs
     await staff.fashion_cashier('PUT', F('exchanges/policy'), { daysAllowed: 1 }, 403);
     await request('PUT', F('exchanges/policy'), { daysAllowed: 1 });
     const old = await request('POST', F('documents'), { kind: 'sale', locationId: fzLocation.id, requestKey: key(), lines: [{ skuId: cell('L', 'White').sku_id, quantity: '1' }], payment: { amount: '1048.95', method: 'cash' } }, 201);
-    await pool.query("UPDATE business_documents SET created_at=now()-interval '5 days' WHERE business_id=$1 AND id=$2", [fz.id, old.id]);
+    await rewriteHistory(pool, "UPDATE business_documents SET created_at=now()-interval '5 days' WHERE business_id=$1 AND id=$2", [fz.id, old.id]);
     const oldLine = (await request('GET', F(`documents/${old.id}`))).lines[0];
     const late = await request('POST', F('exchanges/quote'), { documentId: old.id, returnLines: [{ lineId: oldLine.id, quantity: '1' }], newLines: [{ skuId: cell('L', 'Sky blue').sku_id, quantity: '1' }] }, 409);
     assert.match(late.message, /within 1 day of the sale/);

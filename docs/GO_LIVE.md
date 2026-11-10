@@ -28,9 +28,8 @@ with these differences.
   `pg_restore` for the backups (§5).
 - **Install the locked versions.** Run `npm ci` in `backend` and at the project
   root. Each has a lockfile, so the server gets exactly the tested versions.
-- **The database:** create it with the name you put in `DB_NAME`. Its
-  `DB_USER` must be allowed to create tables in it, because
-  `npm run migrate:up` builds every table.
+- **The database** and its two logins: see
+  [The database logins](#the-database-logins) below.
 - **`backend/.env`** takes the production values in §2. It holds secrets: keep
   it on the server, never in git.
 - **Start the API with `npm start`** in `backend`. `npm run dev` is for
@@ -67,12 +66,71 @@ with these differences.
 1. Take a verified backup (§5).
 2. Get the new code, then run `npm ci` in `backend` and at the root.
 3. In `backend`, run `npm run migrate:up`. The API refuses to start while a
-   migration is pending, and names the first one.
+   migration is pending, and names the first one. It also gives the API's own
+   login the rows of any table the update adds.
 4. Build the web apps again (`npm run build` at the root) and put the new
    builds in place. The staff app's service worker fetches the new build in
    the background on each device; the app then shows *A new version is
    ready* and moves to it when someone presses Reload, never by itself.
 5. Restart the API.
+
+### The database logins
+
+A live server signs in to PostgreSQL with two logins, so the API itself can
+never build, change or drop a table, or switch off the rules the database
+keeps. An injected query or a bug in the API then reaches rows only, and
+never the records the database keeps for good
+([DATABASE › Records kept for good](DATABASE.md#records-kept-for-good)).
+
+| Login | In `backend/.env` | What it does |
+| --- | --- | --- |
+| The owner | `DB_OWNER_USER`, `DB_OWNER_PASSWORD` | Owns the database and every table. `npm run migrate:up` and `npm run db:backup` sign in with it. The API never does. |
+| The API's own | `DB_USER`, `DB_PASSWORD` | Reads and writes rows, and nothing more. Not a superuser, not the tables' owner. |
+
+Once per server:
+
+1. **Make the owner and the database**, signed in as PostgreSQL's
+   administrator (psql as `postgres`, or the hosting panel's console):
+
+   ```sql
+   CREATE ROLE platform_owner LOGIN CREATEROLE CREATEDB PASSWORD 'the owner''s own password';
+   CREATE DATABASE business_platform_db OWNER platform_owner;
+   ```
+
+   `CREATEROLE` lets it make the API's login (step 3); `CREATEDB` lets a
+   backup's `--verify` restore into a scratch database (§5). On a hosted
+   PostgreSQL, the panel's main user can be the owner.
+2. **In `backend/.env`:** `DB_NAME` that database; `DB_OWNER_USER` and
+   `DB_OWNER_PASSWORD` the owner; `DB_USER` a new name for the API's own login,
+   such as `platform_api`; `DB_PASSWORD` a fresh random password of at least
+   12 keyboard characters:
+   `node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"`.
+3. **In `backend`, run `npm run migrate:up`, then `npm run db:app-login`.**
+   The first builds every table, owned by the owner. The second makes the
+   API's login with only what it needs (its password goes to PostgreSQL
+   already hashed, never in plain text), then signs in as it and checks it can
+   do no more. Run `npm run db:app-login` again after changing `DB_PASSWORD`.
+4. **Start the API.** A live server refuses to start, and says why, when
+   `DB_USER` is a superuser, owns the tables or may create tables.
+
+The owner's password is needed only to migrate and to back up. Where the
+server's service manager allows, keep `DB_OWNER_USER` and `DB_OWNER_PASSWORD`
+out of the API's own environment and give them only to those two commands.
+
+**Correcting a kept record.** Posted bills and invoices, payments, stock
+movements, returns and the activity logs never change, and a restaurant's
+orders and bills are never deleted, whoever asks. When one truly must change
+(an auditor's or a court's instruction), the owner does it in a psql session
+that asks first, one change at a time, and the business keeps a note of why:
+
+```sql
+BEGIN;
+SET LOCAL app.edit_history = 'on';
+-- the one correction
+COMMIT;
+```
+
+The API's login is refused even if it asks.
 
 ### Live updates through the proxy
 
@@ -199,7 +257,8 @@ need a production value:
 | Setting | Production value |
 | --- | --- |
 | `NODE_ENV` | `production`. Any value other than `development`, `dev`, `test` or `local` marks a live server, and a live server refuses to start with a weak or example `JWT_SECRET`. |
-| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | The production database. The API stops at start when one is missing. |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | The production database, and the API's own login to it (§1 › [The database logins](#the-database-logins)). The API stops at start when one is missing, and a live server when `DB_USER` is a superuser or owns the tables. |
+| `DB_OWNER_USER`, `DB_OWNER_PASSWORD` | The login that owns the tables, for `npm run migrate:up` and `npm run db:backup` (§1 › [The database logins](#the-database-logins)). Both or neither. |
 | `JWT_SECRET` | A fresh random value of at least 32 characters, used nowhere else: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`. Anyone who knows it can sign in as any user. |
 | `TWO_FACTOR_KEY` | A fresh random value made the same way, set once (see below). |
 | `CORS_ORIGIN` | The staff app's address, such as `https://app.example.com`; separate several with commas. Left out, only `http://localhost:5173` may call the API. The guests' site needs no entry. |
@@ -520,10 +579,11 @@ folder `backend/.local/backups/<time>-<id>/` that holds:
 - `manifest.json`: the database, the time, what was copied, and whether the
   restore was checked.
 
-`--verify` restores the dump into a scratch `rmp_restore_…` database, counts
-the rows of a few tables and drops it; the manifest then says
-`"restoreVerified": true`. This needs a PostgreSQL user allowed to create
-databases. Set `PG_BIN` to the folder that holds `pg_dump` and `pg_restore`
+The backup signs in as the owner (`DB_OWNER_USER`; `DB_USER` when it is not
+set). `--verify` restores the dump into a scratch `rmp_restore_…` database,
+counts the rows of a few tables and drops it; the manifest then says
+`"restoreVerified": true`. This needs the owner to be allowed to create
+databases (`CREATEDB`). Set `PG_BIN` to the folder that holds `pg_dump` and `pg_restore`
 when they are not on the PATH; on Windows the script also looks under
 `Program Files\PostgreSQL`. The script stops `pg_dump` or `pg_restore` after
 five minutes and reports a failure.

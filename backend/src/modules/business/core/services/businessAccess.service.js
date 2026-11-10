@@ -318,7 +318,9 @@ async function setMember(business, user, body, options = {}) {
   if (business.member_location_id && (!locationGiven || String(workLocationId) !== String(business.member_location_id))) {
     fail(`You work at ${business.member_location_name || 'one location'}, so you can only give access there.`, 403);
   }
-  return repo.transaction(async (db) => {
+  // `options.db`: the caller's own transaction (a new login and its access are
+  // saved together, or neither is).
+  const work = async (db) => {
     await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
     const candidate = await repo.one(db, `SELECT id FROM users u WHERE id=$1 AND status='active' AND (restaurant_id=$2
       OR restaurant_id IS NULL AND EXISTS (SELECT 1 FROM business_memberships o JOIN business_roles r ON r.business_id=o.business_id AND r.id=o.role_id AND r.full_access
@@ -365,7 +367,8 @@ async function setMember(business, user, body, options = {}) {
     [business.id, targetId, role.id, active, user.id, workLocationId, locationGiven, workDepartmentId, departmentGiven]);
     await repo.audit(db, business.id, user.id, 'membership.updated', targetId, { roleId: role.id, role: role.name, active, locationId: member.location_id, departmentId: member.department_id });
     return { ...member, role_name: role.name };
-  });
+  };
+  return options.db ? work(options.db) : repo.transaction(work);
 }
 
 module.exports = { load, open, scope, requireLocation, requireEitherLocation, requireAppointmentLocation, can, require: require_, requireAny, context, permissionCatalogue, createRole, updateRole, requireManages, markManaged, memberCandidates, setMember };

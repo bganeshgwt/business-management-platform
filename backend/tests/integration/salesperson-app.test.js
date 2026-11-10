@@ -7,6 +7,7 @@ const { pathToFileURL } = require('node:url');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
+const { rewriteHistory } = require('./helpers/history');
 const dates = require('./helpers/dates');
 const { signIn } = require('./helpers/signIn');
 const { publishNotice } = require('./helpers/privacy');
@@ -191,9 +192,9 @@ test('salesperson app', { timeout: 600000 }, async (t) => {
     lines: [{ skuId: biscuits.id, quantity: String(quantity) }] }, 201);
   const omOld = await bill(omSai, 100);
   const omNew = await bill(omSai, 50);
-  await pool.query('UPDATE business_documents SET created_at=$2,due_on=$3 WHERE id=$1', [omOld.id, dates.momentAt(dates.daysFrom(-20), '10:00'), dates.daysFrom(-5)]);
+  await rewriteHistory(pool, 'UPDATE business_documents SET created_at=$2,due_on=$3 WHERE id=$1', [omOld.id, dates.momentAt(dates.daysFrom(-20), '10:00'), dates.daysFrom(-5)]);
   const balajiBill = await bill(balaji, 200);
-  await pool.query('UPDATE business_documents SET created_at=$2,due_on=$3 WHERE id=$1', [balajiBill.id, dates.momentAt(dates.daysFrom(-60), '10:00'), dates.daysFrom(-45)]);
+  await rewriteHistory(pool, 'UPDATE business_documents SET created_at=$2,due_on=$3 WHERE id=$1', [balajiBill.id, dates.momentAt(dates.daysFrom(-60), '10:00'), dates.daysFrom(-45)]);
   await owner('PUT', W('wholesale-settings'), { holdOverdueDays: 30 });
   const shopPlace = { latitude: 18.508934, longitude: 73.926041, accuracy: 9 };
 

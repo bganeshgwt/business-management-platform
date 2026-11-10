@@ -192,7 +192,10 @@ function testDatabaseQuery(run) {
     }
 
     const { Client } = backendRequire("pg");
-    const db = new Client({ ...run.postgres, database: run.database, connectionTimeoutMillis: 10_000 });
+    // This connection (never the API's) may move a kept record back in time,
+    // as a sale from last year needs: the database keeps posted bills as they
+    // were saved unless the session asks (migration 1791990000070).
+    const db = new Client({ ...run.postgres, database: run.database, connectionTimeoutMillis: 10_000, options: "-c app.edit_history=on" });
     await db.connect();
 
     try {

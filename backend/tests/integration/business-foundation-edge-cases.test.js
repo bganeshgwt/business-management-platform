@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
+const { rewriteHistory } = require('./helpers/history');
 const dates = require('./helpers/dates');
 const { withTools } = require('./helpers/tools');
 const { signIn } = require('./helpers/signIn');
@@ -189,7 +190,7 @@ test('business platform: round-off returns, whole units, overview figures, demot
     assert.equal((await request('GET', root(grocery, 'settings'))).fiscal_year_start_month, 4);
     // A number printed with a prefix before any series existed (legacy or re-created).
     const doc = await one("SELECT id FROM business_documents WHERE business_id=$1 AND kind='sale' ORDER BY id LIMIT 1", [grocery.id]);
-    await pool.query("UPDATE business_documents SET document_no='OLD/0007' WHERE id=$1", [doc.id]);
+    await rewriteHistory(pool, "UPDATE business_documents SET document_no='OLD/0007' WHERE id=$1", [doc.id]);
     const branch = await request('POST', root(grocery, 'locations'), { name: 'Second shop', code: 'S2' }, 201);
     const [year, month] = dates.today().split('-').map(Number);
     const fy = month >= 4 ? year : year - 1;

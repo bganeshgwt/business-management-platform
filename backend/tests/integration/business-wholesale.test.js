@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
+const { rewriteHistory } = require('./helpers/history');
 const dates = require('./helpers/dates');
 const { signIn } = require('./helpers/signIn');
 
@@ -324,7 +325,7 @@ test('wholesale: orders, dispatch, back-orders, collections and ageing', { timeo
 
   await t.test('collections: oldest bills first, the rest is an advance, receipts are numbered and fixed', async () => {
     // Age the first invoice 45 days and add an old opening balance.
-    await pool.query("UPDATE business_documents SET created_at=now()-interval '45 days', due_on=$2 WHERE id=$1", [firstInvoice.id, day(-30)]);
+    await rewriteHistory(pool, "UPDATE business_documents SET created_at=now()-interval '45 days', due_on=$2 WHERE id=$1", [firstInvoice.id, day(-30)]);
     await request('PATCH', W(`contacts/${kirana.id}`), { name: 'Balaji Kirana', openingBalance: '1500', openingBalanceOn: day(-100), creditLimit: '20000', creditDays: 15 });
     const account = await request('GET', W(`receivables/customers/${kirana.id}`));
     const balance = paise(account.summary.balance);

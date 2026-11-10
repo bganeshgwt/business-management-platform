@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { signIn } = require('./helpers/signIn');
+const { rewriteHistory } = require('./helpers/history');
 
 // What the server writes, and how a new business starts, in the business's
 // own words (migration 1791990000010): a gym's refusals and bell name its
@@ -162,14 +163,14 @@ test('words on the server: refusals, the bell, import guides, and a new business
     const plan = await owner('POST', B(gym, 'catalog'), { kind: 'service', name: 'Monthly membership', code: 'MONTHLY', unit: 'month', price: '1500', taxRate: '5' }, 201);
     const meena = await owner('POST', B(gym, 'contacts'), { kind: 'customer', name: 'Meena Iyer', phone: '9845011111' }, 201);
     const fees = await sale(gym, { contactId: meena.id, lines: [{ skuId: plan.id, quantity: '1' }] });
-    await pool.query('UPDATE business_documents SET due_on = due_on - 10 WHERE id=$1', [fees.id]);
+    await rewriteHistory(pool, 'UPDATE business_documents SET due_on = due_on - 10 WHERE id=$1', [fees.id]);
     const due = (await owner('GET', B(gym, 'notifications'))).items.find((item) => item.id.startsWith(`overdue:${meena.id}:`));
     assert.deepEqual([due.category, due.title, due.detail, due.link],
       ['Member dues', 'Meena Iyer: ₹1,575.00 fees overdue', '1 bill · oldest due 10 days ago', `/business-admin/${gym.id}/outstanding`]);
     const rice = await one("SELECT id FROM catalog_skus WHERE business_id=$1 AND code='RICEBULK'", [grocery.id]);
     const kiran = await owner('POST', B(grocery, 'contacts'), { kind: 'customer', name: 'Kiran', phone: '9845022222' }, 201);
     const credit = await sale(grocery, { contactId: kiran.id, lines: [{ skuId: rice.id, quantity: '1' }] });
-    await pool.query('UPDATE business_documents SET due_on = due_on - 3 WHERE id=$1', [credit.id]);
+    await rewriteHistory(pool, 'UPDATE business_documents SET due_on = due_on - 3 WHERE id=$1', [credit.id]);
     const udhaar = (await owner('GET', B(grocery, 'notifications'))).items.find((item) => item.id.startsWith(`overdue:${kiran.id}:`));
     assert.deepEqual([udhaar.category, udhaar.title, udhaar.detail, udhaar.link],
       ['Udhaar', 'Kiran: ₹500.00 udhaar overdue', '1 bill · oldest due 3 days ago', `/business-admin/${grocery.id}/udhaar`]);

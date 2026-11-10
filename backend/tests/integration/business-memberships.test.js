@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
+const { rewriteHistory } = require('./helpers/history');
 const { withTools } = require('./helpers/tools');
 const { publishNotice, giveConsent } = require('./helpers/privacy');
 const { addDays, daysFrom } = require('./helpers/dates');
@@ -513,7 +514,7 @@ test('gyms, studios and coaching', { timeout: 600000 }, async (t) => {
     const owes = await customer('Owes Fees', '9876500009');
     const credit = await sell({ planId: gym90.id, contactId: owes.id, joiningFee: false });
     assert.equal((await checkIn({ contactId: owes.id })).allowed, true);
-    await pool.query('UPDATE business_documents SET due_on=due_on-10 WHERE id=$1', [credit.document_id]);
+    await rewriteHistory(pool, 'UPDATE business_documents SET due_on=due_on-10 WHERE id=$1', [credit.document_id]);
     const dues = await checkIn({ contactId: owes.id }, desk.call);
     assert.deepEqual([dues.allowed, dues.reason, dues.fees_overdue, /10 days overdue/.test(dues.words)], [false, 'dues', '2835.00', true]);
     const trainerSees = await checkIn({ contactId: owes.id }, trainer.call);

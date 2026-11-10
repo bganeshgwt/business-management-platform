@@ -7,6 +7,7 @@ const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
 const { addDays, daysFrom, momentAt } = require('./helpers/dates');
+const { rewriteHistory } = require('./helpers/history');
 const { signIn } = require('./helpers/signIn');
 
 // The rest of a fuel station's back office: the attendant's other sales on a
@@ -375,14 +376,7 @@ const shiftOn = async (nozzles, minutes = null, who = ravi) => who.call('POST', 
       slips: [{ contactId: contractors.id, vehicleId: lorry.id, litres: '200' }], cash: '0' });
     const bill = closed.close.slips[0].document_id;
     // The bill fell due 30 days ago: ₹19,040.00 × 2% a month × 30/30 = ₹380.80.
-    const client = await pool.connect();
-    try {
-      await client.query('ALTER TABLE business_documents DISABLE TRIGGER USER');
-      await client.query('UPDATE business_documents SET due_on=$2 WHERE id=$1', [bill, addDays(today, -30)]);
-    } finally {
-      await client.query('ALTER TABLE business_documents ENABLE TRIGGER USER');
-      client.release();
-    }
+    await rewriteHistory(pool, 'UPDATE business_documents SET due_on=$2 WHERE id=$1', [bill, addDays(today, -30)]);
     let interest = await request('GET', F(`fuel/fleet/${contractors.id}/interest`));
     assert.deepEqual([interest.worked, interest.billed, interest.due, interest.bills[0].days, interest.bills[0].owedDays], ['380.80', '0.00', '380.80', 30, 1904000 * 30]);
     assert.match((await refused('POST', F(`fuel/fleet/${contractors.id}/interest`), { requestKey: key(), locationId: outlet.id, amount: '380.80' })).message, /Choose the service item interest is billed as/);

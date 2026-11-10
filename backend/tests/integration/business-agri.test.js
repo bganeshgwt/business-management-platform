@@ -5,6 +5,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
+const { rewriteHistory } = require('./helpers/history');
 const { daysFrom } = require('./helpers/dates');
 const { signIn } = require('./helpers/signIn');
 
@@ -497,7 +498,7 @@ test('licences and the seeds, fertilisers & pesticides shop', { timeout: 300000 
     await assert.rejects(pool.query("UPDATE agri_bills SET season='rabi' WHERE document_id=$1", [credit.id]), /kept as they were billed/);
     // Lakshmi's udhaar from earlier, now overdue; Shankar owes nothing.
     const udhaar = await sale({ contactId: lakshmi.contact_id, lines: [{ skuId: dap.id, quantity: '1' }] });
-    await pool.query('UPDATE business_documents SET due_on=$2 WHERE id=$1', [udhaar.id, daysFrom(-20)]);
+    await rewriteHistory(pool, 'UPDATE business_documents SET due_on=$2 WHERE id=$1', [udhaar.id, daysFrom(-20)]);
     await request('POST', A(`documents/${udhaar.id}/payments`), { amount: '350.25', method: 'upi', requestKey: key() }, 201);
 
     const dues = await viewer('GET', A('agri/village-dues'));
@@ -540,7 +541,7 @@ test('licences and the seeds, fertilisers & pesticides shop', { timeout: 300000 
   // --- Registers and the board ---------------------------------------------------------------
   await t.test('the board, the seed return and the insecticide register come from the transactions', async () => {
     // The opening stock came in two days ago; today's sales and returns follow.
-    await pool.query(`UPDATE business_stock_movements SET created_at=now() - interval '2 days' WHERE business_id=$1 AND adjustment_id IS NOT NULL`, [agri.id]);
+    await rewriteHistory(pool, `UPDATE business_stock_movements SET created_at=now() - interval '2 days' WHERE business_id=$1 AND adjustment_id IS NOT NULL`, [agri.id]);
     const branchPrice = await request('PUT', A(`catalog/${dap.id}/branch-prices`), { prices: [{ locationId: shop.id, price: '1340' }] });
     assert.equal(branchPrice.changed, 1);
     const board = await viewer('GET', A(`agri/board?locationId=${shop.id}`));

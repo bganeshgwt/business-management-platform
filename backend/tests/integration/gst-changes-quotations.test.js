@@ -6,6 +6,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
+const { rewriteHistory } = require('./helpers/history');
 const { withTools } = require('./helpers/tools');
 const { ZONES, addDays, hourNow, today } = require('./helpers/dates');
 const { signIn } = require('./helpers/signIn');
@@ -525,7 +526,7 @@ test('GST changes and quotations', { timeout: 900000 }, async (t) => {
     await request('PUT', H('wholesale-settings'), { holdOverdueDays: 15 });
     const late = await customer(hardware, 'Om Sai Builders', { creditDays: 30 });
     const old = await request('POST', H('documents'), { kind: 'sale', locationId: yard.id, contactId: late.id, requestKey: key(), lines: [{ skuId: sand.id, quantity: '10' }] }, 201);
-    await pool.query("UPDATE business_documents SET created_at=now()-interval '60 days', due_on=$2 WHERE id=$1", [old.id, addDays(T, -30)]);
+    await rewriteHistory(pool, "UPDATE business_documents SET created_at=now()-interval '60 days', due_on=$2 WHERE id=$1", [old.id, addDays(T, -30)]);
     const q = await quote([{ skuId: cement.id, quantity: '2' }], { contactId: late.id });
     const route = H(`quotations/${q.id}/order`);
     const held = await refused('POST', route, { requestKey: key() }, hCashier.token);

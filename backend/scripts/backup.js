@@ -1,5 +1,7 @@
 // Local backup plus optional restore rehearsal in a newly created database.
 // Usage: npm run db:backup -- --verify
+// Signed in as the login that owns the tables (DB_OWNER_USER; DB_USER when it
+// is not set): the API's own login cannot make the database a rehearsal needs.
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
@@ -24,7 +26,7 @@ function executable(name) {
 
 function run(name, args) {
   const result = spawnSync(executable(name), args, { encoding: "utf8", windowsHide: true,
-    env: { ...process.env, PGPASSWORD: config.db.password }, timeout: 300000 });
+    env: { ...process.env, PGPASSWORD: config.dbOwner.password }, timeout: 300000 });
   if (result.error || result.status !== 0) throw new Error(`${name} failed: ${result.error?.message || result.stderr}`);
 }
 
@@ -32,8 +34,8 @@ async function main() {
   const folder = path.resolve(__dirname,"../.local/backups",new Date().toISOString().replace(/[:.]/g,"-")+"-"+crypto.randomBytes(3).toString("hex"));
   fs.mkdirSync(folder,{recursive:true});
   const archive = path.join(folder,"database.dump");
-  const connection = ["--host",config.db.host,"--port",String(config.db.port),"--username",config.db.user,"--no-password"];
-  run("pg_dump",[...connection,"--format=custom","--file",archive,"--dbname",config.db.database]);
+  const connection = ["--host",config.dbOwner.host,"--port",String(config.dbOwner.port),"--username",config.dbOwner.user,"--no-password"];
+  run("pg_dump",[...connection,"--format=custom","--file",archive,"--dbname",config.dbOwner.database]);
   // Public uploads (menu photos) and private ones (bills attached to
   // expenses and purchase bills, prescription scans, task photos, served only
   // through the API) both belong to the data: a restore without them would
@@ -43,18 +45,18 @@ async function main() {
   if (fs.existsSync(uploads)) fs.cpSync(uploads,path.join(folder,"uploads"),{recursive:true});
   const privateUploads = config.privateUploadsDir;
   if (fs.existsSync(privateUploads)) fs.cpSync(privateUploads,path.join(folder,"private_uploads"),{recursive:true});
-  const manifest = { database:config.db.database,createdAt:new Date().toISOString(),uploadsIncluded:fs.existsSync(uploads),privateUploadsIncluded:fs.existsSync(privateUploads),restoreVerified:false };
+  const manifest = { database:config.dbOwner.database,createdAt:new Date().toISOString(),uploadsIncluded:fs.existsSync(uploads),privateUploadsIncluded:fs.existsSync(privateUploads),restoreVerified:false };
   fs.writeFileSync(path.join(folder,"manifest.json"),JSON.stringify(manifest,null,2)+"\n");
   if (process.argv.includes("--verify")) {
     const database = `rmp_restore_${crypto.randomBytes(10).toString("hex")}`;
-    const admin = new Client({...config.db,database:"postgres"});
+    const admin = new Client({...config.dbOwner,database:"postgres"});
     let created=false, restored;
     await admin.connect();
     try {
       await admin.query(`CREATE DATABASE "${database}"`);
       created=true;
       run("pg_restore",[...connection,"--no-owner","--no-privileges","--exit-on-error","--dbname",database,archive]);
-      restored = new Client({...config.db,database});
+      restored = new Client({...config.dbOwner,database});
       await restored.connect();
       const {rows}=await restored.query("SELECT (SELECT count(*) FROM pgmigrations) AS migrations,(SELECT count(*) FROM users) AS users,(SELECT count(*) FROM orders) AS orders,(SELECT count(*) FROM bills) AS bills");
       manifest.restoreVerified=true;

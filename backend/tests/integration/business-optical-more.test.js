@@ -6,6 +6,7 @@ const path = require('node:path');
 const { Client } = require('pg');
 const bcrypt = require('bcrypt');
 const { createBusinesses } = require('./helpers/businesses');
+const { rewriteHistory } = require('./helpers/history');
 const { withTools } = require('./helpers/tools');
 const { publishNotice, giveConsent } = require('./helpers/privacy');
 const { addDays, daysFrom, momentAt } = require('./helpers/dates');
@@ -328,11 +329,11 @@ test('the rest of the optical shop', { timeout: 600000 }, async (t) => {
     // Two boxes of 6 monthly lenses: 12 lenses ÷ 2 × 30 days = 180 days from the bill, sold at 00:30 on the business's clock 170 days ago.
     const bill = await cashier.as('POST', O('documents'), { kind: 'sale', requestKey: key(), locationId: shop.id, contactId: nisha.id, lines: [{ skuId: aos175.id, quantity: '2', lotCode: 'AO-4' }],
       payment: { amount: 'full', method: 'cash' } }, 201);
-    await pool.query('UPDATE business_documents SET created_at=$2 WHERE id=$1', [bill.id, momentAt(daysFrom(-170), '00:30')]);
+    await rewriteHistory(pool, 'UPDATE business_documents SET created_at=$2 WHERE id=$1', [bill.id, momentAt(daysFrom(-170), '00:30')]);
     // One box of 30 daily lenses: 30 ÷ 2 × 1 = 15 days, sold 20 days ago: run out.
     const daily = await cashier.as('POST', O('documents'), { kind: 'sale', requestKey: key(), locationId: shop.id, contactId: diya.id, lines: [{ skuId: dailies.items[0].id, quantity: '1' }],
       payment: { amount: 'full', method: 'cash' } }, 201);
-    await pool.query('UPDATE business_documents SET created_at=$2 WHERE id=$1', [daily.id, momentAt(daysFrom(-20), '18:00')]);
+    await rewriteHistory(pool, 'UPDATE business_documents SET created_at=$2 WHERE id=$1', [daily.id, momentAt(daysFrom(-20), '18:00')]);
     const due = await viewer.as('GET', O('optical/contact-lenses/due?due=true'));
     const of = (name) => due.items.find((r) => r.name === name);
     assert.deepEqual([of('Nisha Verma').sold_on, Number(of('Nisha Verma').lenses), of('Nisha Verma').days, of('Nisha Verma').due_on, of('Nisha Verma').days_left, of('Nisha Verma').run_out],

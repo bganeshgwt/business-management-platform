@@ -83,11 +83,13 @@ CREATE DATABASE business_platform_db;
 One database holds every business. The name matches `DB_NAME` in
 `backend/.env.example`; another name works when `DB_NAME` says so.
 
-The migrations build every table as `DB_USER`, the user the API signs in as.
-On PostgreSQL 15 and newer only the database's owner or a superuser (such as
-the `postgres` that `.env.example` names) may create tables in a new
-database, so create it as that user, or name the user as its owner:
-`CREATE DATABASE business_platform_db OWNER <db_user>;`.
+On a developer's machine the migrations build every table as `DB_USER`, the
+user the API signs in as. On PostgreSQL 15 and newer only the database's owner
+or a superuser (such as the `postgres` that `.env.example` names) may create
+tables in a new database, so create it as that user, or name the user as its
+owner: `CREATE DATABASE business_platform_db OWNER <db_user>;`. A live server
+uses two logins instead, the tables' owner and the API's own
+([GO_LIVE › The database logins](docs/GO_LIVE.md#the-database-logins)).
 
 ### 2. Settings, installs and tables
 
@@ -236,11 +238,12 @@ In `backend`. From the root, put `--prefix backend` after `npm`, as in
 | --- | --- |
 | `npm run dev` | The API under nodemon, restarting when a file in `src/` changes |
 | `npm start` | The API without restarts, as a server runs it ([GO_LIVE › Install on a server](docs/GO_LIVE.md#1-install-on-a-server)) |
-| `npm run migrate:up` | Applies every migration not yet applied, oldest first |
+| `npm run migrate:up` | Applies every migration not yet applied, oldest first, signed in as the tables' owner (`DB_OWNER_USER`, or `DB_USER` when it is not set) |
 | `npm run migrate:down` | Rolls back the newest applied migration. For development and test databases: a live database goes back by restoring a backup. |
 | `npm run migrate:create -- <name>` | A new, empty SQL migration in `migrations/` ([ARCHITECTURE › Add a migration](docs/ARCHITECTURE.md#85-add-a-migration)) |
 | `npm run user:create` | A login made in the terminal: the platform Super Admin (restaurant code left empty) or a restaurant's user with a built-in role ([The first login](#3-the-first-login)) |
 | `npm run db:backup` | Backs up the database and both upload folders (`UPLOADS_DIR` and `PRIVATE_UPLOADS_DIR`) into `backend/.local/backups/`. Add `-- --verify` to restore the copy into a scratch database and check it. `PG_BIN` in `backend/.env` names the folder of `pg_dump` and `pg_restore` when they are not on the PATH. ([GO_LIVE › Backups and restore](docs/GO_LIVE.md#5-backups-and-restore)) |
+| `npm run db:app-login` | Makes the API's own database login (`DB_USER`), which reads and writes rows and nothing more, or brings it up to date; signed in as the owner (`DB_OWNER_USER`). For a live server ([GO_LIVE › The database logins](docs/GO_LIVE.md#the-database-logins)) |
 | `npm run push:keys` | A new key pair for alerts on a closed phone (the captain app's Web Push), printed as the three `VAPID_*` lines to paste into `backend/.env` once ([GO_LIVE › Production settings](docs/GO_LIVE.md#2-production-settings)) |
 | `npm test` | The backend's unit tests (the root's `npm test` runs them after the web apps' and packages' tests) |
 | `npm run test:integration` | The backend's integration tests, the same as the root's command |

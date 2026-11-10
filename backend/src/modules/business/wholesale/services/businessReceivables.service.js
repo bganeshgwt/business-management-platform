@@ -498,10 +498,12 @@ async function chequeAction(business, user, collectionId, body) {
       for (const payment of payments) {
         await db.query('SELECT id FROM business_documents WHERE business_id=$1 AND id=$2 FOR UPDATE', [business.id, payment.document_id]);
       }
-      if (payments.length) await db.query('DELETE FROM business_payments WHERE business_id=$1 AND id=ANY($2::bigint[])', [business.id, payments.map((p) => p.id)]);
       const reversed = payments.map((p) => ({ paymentId: p.id, documentId: p.document_id, documentNo: p.document_no, amount: p.amount, at: p.created_at }));
       saved = await repo.one(db, `UPDATE business_collection_cheques SET status='bounced',bounced_at=now(),bounced_by=$3,bounce_reason=$4,bounce_charge=$5,reversed_allocations=$6
         WHERE business_id=$1 AND collection_id=$2 RETURNING *`, [business.id, cheque.collection_id, user.id, reason, rupees(charge), JSON.stringify(reversed)]);
+      // Only a bounced cheque's settlements may go (the database keeps every
+      // other payment), so the cheque is marked bounced first.
+      if (payments.length) await db.query('DELETE FROM business_payments WHERE business_id=$1 AND id=ANY($2::bigint[])', [business.id, payments.map((p) => p.id)]);
       await repo.audit(db, business.id, user.id, 'cheque.bounced', cheque.collection_id, {
         collectionNo: cheque.collection_no, chequeNo: cheque.cheque_no, amount: cheque.amount, reason, charge: rupees(charge), reversed,
       });

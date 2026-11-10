@@ -49,6 +49,47 @@ database's refusal is the backstop (a menu rule that still reaches it answers
 constraint) answers 409 with its sentence on every route, as the restaurant's
 cash limit and buyer's PAN do (`middlewares/errorHandler.js`).
 
+## Records kept for good
+
+The records the tax law and the books depend on are kept by the database
+itself, so a wrong query, a bug or a delete typed into a database tool cannot
+remove or rewrite them (migration 1791990000070 records-kept-for-good).
+
+| Kept | Tables | Rule |
+| --- | --- | --- |
+| As saved: never changed, never deleted | `business_documents`, `business_document_lines`, `business_payments`, `business_stock_movements`, `business_returns`, `business_return_lines`, `business_audit`, `audit_logs`, `platform_audit` | A document line may still take its `stock_unit_cost` and `lot_code` (posting fills them, and a tinting job's delivery later). A payment is deleted only when the cheque it came from has bounced (`business_collection_cheques.status = 'bounced'`, set first; the cheque keeps what it took back in `reversed_allocations`). |
+| Never deleted (they change as an order is served and a bill is paid) | `orders`, `order_items`, `bills`, `bill_items`, `payments`, `refunds`, `credit_notes`, `credit_note_items`, `cash_movements`, `goods_receipts`, `supplier_payments`, `purchase_returns` | Deleting a restaurant would cascade into these, so `restaurants` refuses a delete once the restaurant has an order or a bill (`restaurants_kept`): its `status` says it is closed. |
+
+Each table has a `BEFORE UPDATE OR DELETE` (or `BEFORE DELETE`) row trigger
+`<table>_kept` and a `BEFORE TRUNCATE` statement trigger
+`<table>_kept_truncate`, since TRUNCATE passes row triggers by. Functions:
+`kept_record_guard()` (its first argument names the record in words, its second
+lists the columns that may still change), `business_payments_kept()`,
+`restaurants_kept()`. A refusal is a sentence (23514), such as *A posted bill,
+invoice or purchase is kept for good and is never deleted*.
+
+**Rewriting history.** `kept_record_rewrite_allowed(table)` lets a change
+through only when the session has asked (`SET LOCAL app.edit_history = 'on'`)
+**and** its login is (a member of) the table's owner. The API's own login does
+not own the tables (below), so it is refused even when it asks; the owner
+without asking is refused too. Tests move a record back in time this way
+(`tests/integration/helpers/history.js`), and an auditor's correction on a
+live server is made the same way ([GO_LIVE › The database logins](GO_LIVE.md#the-database-logins)).
+
+## Database logins
+
+A live server uses two logins. **The owner** (`DB_OWNER_USER`) owns the
+database and every table; the migrations and the backups sign in with it.
+**The API's own login** (`DB_USER`) has `SELECT`, `INSERT`, `UPDATE` and
+`DELETE` on every table (only `SELECT` on `pgmigrations`), the sequences and
+the functions, and nothing else: it cannot create, alter, empty or drop a
+table, switch a trigger off or set `session_replication_role`. Default
+privileges give it each table a later migration adds, and `npm run
+migrate:up` grants them again after every run. `npm run db:app-login` makes the
+login (`src/utils/databaseLogin.js`), and a live server refuses to start on a
+login that is a superuser, owns the tables or may create tables. On a
+developer's machine `DB_OWNER_USER` is left out and one login does both.
+
 ## Platform and access
 
 ### Tenants
@@ -57,8 +98,8 @@ cash limit and buyer's PAN do (`middlewares/errorHandler.js`).
 Purpose: the tenant. Every restaurant-module row hangs off one restaurant.
 Key columns: `name` (varchar 150), `code` (varchar 30, globally unique short code; also asked for when signing in by mobile across restaurants), `contact`, `email`, `address`, `status` (`active` / `inactive` / `suspended`), `format` (`restaurant` / `cafe` / `bakery` / `cloud_kitchen`, default `restaurant`: full service, counter first, production and pre-orders, or delivery only). Choosing a format also sets the POS order types and tokens in `service_settings` and switches features once; that is code (`restaurantFormat.service.js`), and the owner can change each afterwards.
 Relations: `created_by`, `updated_by` -> `users` (FKs fk_restaurants_created_by / fk_restaurants_updated_by, added once `users` existed).
-Rules: `code` UNIQUE; status and format CHECKs. AFTER UPDATE OF `name` trigger `restaurants_business_name` (function `restaurant_business_name()`): the restaurant's business (`businesses.legacy_restaurant_id`) takes the new name in the same statement, with a `business_audit` row `business.renamed` (`from`, `to`) by `updated_by` when it is set. AFTER UPDATE OF `status` trigger `restaurants_business_status`: switched off or on, the restaurant takes its business row's `status` with it (`suspended` counts as off), so a restaurant and its business are never off on one side only ([Paid plans](#paid-plans)).
-Added by: 1789636492039_create-restaurants-and-outlets; FKs in 1789636494559_create-users-roles-permissions; 1791950410000_food-formats (format); 1791974000000_live-updates (live updates: `trg_restaurants_live_session`); 1791979112000_small-items (`restaurants_business_name`); paid-plans (`restaurants_business_status`).
+Rules: `code` UNIQUE; status and format CHECKs. AFTER UPDATE OF `name` trigger `restaurants_business_name` (function `restaurant_business_name()`): the restaurant's business (`businesses.legacy_restaurant_id`) takes the new name in the same statement, with a `business_audit` row `business.renamed` (`from`, `to`) by `updated_by` when it is set. AFTER UPDATE OF `status` trigger `restaurants_business_status`: switched off or on, the restaurant takes its business row's `status` with it (`suspended` counts as off), so a restaurant and its business are never off on one side only ([Paid plans](#paid-plans)). Never deleted once it has taken an order or made a bill: trigger `restaurants_kept` (its status says it is closed); TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
+Added by: 1789636492039_create-restaurants-and-outlets; FKs in 1789636494559_create-users-roles-permissions; 1791950410000_food-formats (format); 1791974000000_live-updates (live updates: `trg_restaurants_live_session`); 1791979112000_small-items (`restaurants_business_name`); paid-plans (`restaurants_business_status`); 1791990000070 records-kept-for-good.
 
 #### `outlets`
 Purpose: a branch of a restaurant. Business days, orders, KOTs, counters and stock can be per outlet.
@@ -161,8 +202,8 @@ Added by: 1790935000000_access-sign-in-tickets-and-pt-gender.
 Purpose: restaurant activity log ("who did what"), including the manager who approved an action.
 Key columns: `user_id`, `user_name` (snapshot), `action` (varchar 50), `entity_type` (varchar 50), `entity_id`, `entity_label`, `details` (jsonb), `approved_by`, `approver_name`, `created_at`.
 Relations: `restaurant_id` -> `restaurants` (CASCADE); `user_id`, `approved_by` -> `users`.
-Rules: insert-only (no updated_at). Indexes by restaurant/time, entity, user and action.
-Added by: 1789791748850_create-audit-log-and-gst-settings; 1789910000000_access-approvals-and-sessions (approver columns, user and action indexes).
+Rules: insert-only (no updated_at). Indexes by restaurant/time, entity, user and action. Kept as saved: trigger `audit_logs_kept` refuses every change and delete; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
+Added by: 1789791748850_create-audit-log-and-gst-settings; 1789910000000_access-approvals-and-sessions (approver columns, user and action indexes); 1791990000070 records-kept-for-good.
 
 #### `notification_reads`
 Purpose: remembers which in-app alerts (computed live by providers) each person has already seen. When the underlying situation changes, the provider issues a new alert id, so it becomes unread again.
@@ -369,15 +410,15 @@ Added by: 1791330000003_captain-sections.
 Purpose: a guest order (dine-in, takeaway, delivery, QR or online) from opening to billing.
 Key columns: `outlet_id`, `business_day_id`, `order_number`, `order_type` (`dine_in` / `takeaway` / `delivery` / `qr` / `online`), `source` (`pos` / `captain` / `qr` / `website` / `phone` / `partner`), `table_id`, `customer_id`, `customer_name`, `customer_mobile`, `guest_count`, `order_status` (`open` / `billed` / `completed` / `cancelled`), `kitchen_status` (`pending` / `preparing` / `ready` / `served`), `subtotal`, `tax_amount`, `total_amount`, `notes`, `cancel_reason`, `placed_at`, `completed_at`, `merged_into_order_id`; delivery `channel_id`, `channel_commission_percent` (0 to 50, snapshot), `delivery_status` (`pending` / `preparing` / `ready` / `out_for_delivery` / `delivered` / `cancelled`), `delivery_address`, `delivery_landmark`, `rider_employee_id`, `partner_rider_name`, `external_order_ref`, `delivery_eta_minutes` (5 to 240), `delivery_preparing_at`, `delivery_ready_at`, `dispatched_at`, `delivered_at`, `delivery_cancelled_at`, `delivery_cancel_reason`, `delivery_charge`, `delivery_charge_tax_percent`, `delivery_charge_waived_at`, `delivery_charge_waived_by`, `delivery_charge_waived_reason`; tokens `token_no`, `token_collected_at`, `token_collected_by`; brand `brand_id` (the brand the order was taken under, printed on its KOTs and bill; NULL = the kitchen's own name).
 Relations: `restaurant_id` -> `restaurants` (CASCADE); `outlet_id` -> `outlets`; `business_day_id` -> `business_days`; `table_id` -> `dining_tables`; `customer_id` -> `customers`; `merged_into_order_id` -> `orders` (SET NULL); `channel_id` -> `sales_channels` (SET NULL); `rider_employee_id` -> `employees` (SET NULL); `delivery_charge_waived_by`, `token_collected_by` -> `users`; `brand_id` -> `restaurant_brands` (RESTRICT).
-Rules: UNIQUE (restaurant_id, order_number); chk_orders_table (dine-in needs a table); uq_orders_open_table (one open order per table); uq_orders_day_token (a token number is never reused within a business day); chk_orders_delivery_out (out for delivery needs `dispatched_at` and a rider or partner rider name); chk_orders_delivery_cancel_reason; chk_orders_delivery_waiver (a waived charge needs a reason); amounts >= 0. Triggers: trg_orders_free_joined_tables (function free_joined_tables) frees joined tables when the order leaves open/billed; trg_orders_erased_guest (keep_erased_guests_unlinked) refuses to link an erased guest by nulling `customer_id`. Partial indexes for tables in use, settled tables, deliveries, riders, channels, customers and waiting tokens support the POS screens; idx_orders_brand (restaurant_id, brand_id) where a brand is set serves the brand report.
-Added by: 1789790365080_create-orders; 1789905000000_create-deliveries-and-channels; 1789908000000_add-guest-insights (index); 1789911000000_orders-core-edits-and-cancellations; 1789912000000_pos-floor-moves-and-sold-out; 1789916000000_crm-guest-book-privacy; 1789921000000_floor-plan-turns (index); 1790820000002 (the open-table index); 1790960000001_order-tokens-and-collection-screen; 1791330000000_delivery-charge-on-orders; 1791950411000_kitchen-brands (brand_id); 1791974000000_live-updates (live updates: `trg_orders_live`).
+Rules: UNIQUE (restaurant_id, order_number); chk_orders_table (dine-in needs a table); uq_orders_open_table (one open order per table); uq_orders_day_token (a token number is never reused within a business day); chk_orders_delivery_out (out for delivery needs `dispatched_at` and a rider or partner rider name); chk_orders_delivery_cancel_reason; chk_orders_delivery_waiver (a waived charge needs a reason); amounts >= 0. Triggers: trg_orders_free_joined_tables (function free_joined_tables) frees joined tables when the order leaves open/billed; trg_orders_erased_guest (keep_erased_guests_unlinked) refuses to link an erased guest by nulling `customer_id`. Partial indexes for tables in use, settled tables, deliveries, riders, channels, customers and waiting tokens support the POS screens; idx_orders_brand (restaurant_id, brand_id) where a brand is set serves the brand report. Never deleted: trigger `orders_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
+Added by: 1789790365080_create-orders; 1789905000000_create-deliveries-and-channels; 1789908000000_add-guest-insights (index); 1789911000000_orders-core-edits-and-cancellations; 1789912000000_pos-floor-moves-and-sold-out; 1789916000000_crm-guest-book-privacy; 1789921000000_floor-plan-turns (index); 1790820000002 (the open-table index); 1790960000001_order-tokens-and-collection-screen; 1791330000000_delivery-charge-on-orders; 1791950411000_kitchen-brands (brand_id); 1791974000000_live-updates (live updates: `trg_orders_live`); 1791990000070 records-kept-for-good.
 
 #### `order_items`
 Purpose: dish lines on an order, with name, price and tax snapshots.
 Key columns: `order_id`, `product_id`, `product_variant_id`, `item_name`, `variant_name`, `quantity`, `unit_price`, `modifier_total`, `tax_percentage`, `cess_percentage`, `hsn_code`, `price_includes_tax`, `mrp`, `line_subtotal`, `line_tax`, `line_total`, `item_status` (`pending` / `preparing` / `ready` / `served` / `cancelled`), `notes`, `price_window_id`, `course_no` (1 to 20), `course_name`, `fire_status` (`held` / `fired`), `fired_at`, `fired_by`, `combo_parts` (jsonb), `created_by`.
 Relations: `order_id` -> `orders` (CASCADE); `product_id` -> `products`; `product_variant_id` -> `product_variants`; `price_window_id` -> `price_windows`; `fired_by`, `created_by` -> `users`.
-Rules: quantity > 0, amounts >= 0. Triggers on insert: trg_order_items_cess (stamp_order_item_cess) copies the cess % from the dish's tax rate; zz_order_item_composition (clear_composition_order_cess) zeroes cess when the restaurant issues bills of supply (composition scheme).
-Added by: 1789790365080_create-orders; 1789830000000_create-tax-rates (hsn_code); 1789842000000_create-price-windows; 1789913000000_billing-tax-invoice-and-till-controls (cess); 1789915000000_menu-data-safety (indexes); 1790726900000_complete-operations-backlog (tax mode, mrp, courses); 1790727000000_service-readiness (combo_parts, composition trigger); 1790820000000_kitchen-round-sender (fired_by); 1791974000000_live-updates (live updates: `trg_order_items_live`).
+Rules: quantity > 0, amounts >= 0. Triggers on insert: trg_order_items_cess (stamp_order_item_cess) copies the cess % from the dish's tax rate; zz_order_item_composition (clear_composition_order_cess) zeroes cess when the restaurant issues bills of supply (composition scheme). Never deleted: trigger `order_items_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
+Added by: 1789790365080_create-orders; 1789830000000_create-tax-rates (hsn_code); 1789842000000_create-price-windows; 1789913000000_billing-tax-invoice-and-till-controls (cess); 1789915000000_menu-data-safety (indexes); 1790726900000_complete-operations-backlog (tax mode, mrp, courses); 1790727000000_service-readiness (combo_parts, composition trigger); 1790820000000_kitchen-round-sender (fired_by); 1791974000000_live-updates (live updates: `trg_order_items_live`); 1791990000070 records-kept-for-good.
 
 #### `order_item_modifiers`
 Purpose: add-ons chosen on an order line, with name and price snapshots.
@@ -596,8 +637,8 @@ Added by: 1790810000000_cash-drawers-and-loyalty-rules.
 Purpose: Cash taken into or out of a drawer outside sales: `paid_in` (float top-up from the safe), `petty_cash` (paid out for the restaurant, also recorded as an expense), `drop` (surplus moved to the safe mid-shift).
 Key columns: `business_day_id`, `outlet_id`, `drawer_id` (the open shift drawer, when there is one), `movement_type`, `amount` (> 0, <= 99,999,999), `reason` (required), `expense_id`, `movement_status` (`recorded` | `cancelled`), `cancelled_at` / `cancelled_by` / `cancel_reason`, `approved_by` (manager whose PIN allowed it).
 Relations: `business_day_id` -> `business_days` (ON DELETE CASCADE); `outlet_id` -> `outlets` (ON DELETE SET NULL); `drawer_id` -> `cash_drawers` (ON DELETE SET NULL); `expense_id` -> `expenses`; user columns -> `users`.
-Rules: petty cash must point at its expense (`movement_type <> 'petty_cash' OR expense_id IS NOT NULL`), so expense reports and the drawer agree; a movement is never deleted, only cancelled, and a cancelled one must have `cancelled_at` (CHECK). Requires permission `cash.movements`; a cashier without it records one with a manager's PIN (`approved_by`).
-Added by: 1790810000000_cash-drawers-and-loyalty-rules.
+Rules: petty cash must point at its expense (`movement_type <> 'petty_cash' OR expense_id IS NOT NULL`), so expense reports and the drawer agree; a movement is never deleted, only cancelled, and a cancelled one must have `cancelled_at` (CHECK). Requires permission `cash.movements`; a cashier without it records one with a manager's PIN (`approved_by`). Never deleted: trigger `cash_movements_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
+Added by: 1790810000000_cash-drawers-and-loyalty-rules; 1791990000070 records-kept-for-good.
 
 ### Billing and payments
 
@@ -629,15 +670,15 @@ total_amount              = taxable_amount + tax_amount + round_off
 Purpose: The money document (GST tax invoice or bill of supply) for all or part of an order.
 Key columns: `bill_number` (from `document_counters`, series per invoice prefix; may restart each financial year), `order_id`, `business_day_id`, `outlet_id`, the money columns above (`subtotal`, `discount_amount`, `coupon_discount`, `manual_discount_*`, `item_discount_amount`, `loyalty_points_used`, `loyalty_discount`, `service_charge_percentage`, `service_charge`, `service_charge_tax`, `service_charge_waived` / `_waive_reason`, `delivery_charge`, `delivery_charge_tax`, `delivery_charge_waived` / `_waive_reason` / `_waived_by` / `_approved_by`, `taxable_amount`, `tax_amount`, `cess_amount`, `tax_mode`, `round_off`, `total_amount`, `paid_amount`, `refunded_amount`, `credited_amount`), `bill_status` (`unpaid`, `partial`, `paid`, `void`), `void_reason`, `billed_at`, `settled_at`, `is_split` (one of several bills for one order), `is_complimentary` / `complimentary_reason` / `complimentary_note` / `complimentary_by` / `complimentary_approved_by`, `seller_gstin` and `seller_fssai` (as printed when raised, so reprints never change), `consume_stock` (whether this bill took its ingredients out of stock), `receipt_settings` (JSONB snapshot of print settings), `print_count`, `first_printed_at`, `last_printed_at`, `last_adjusted_at`, `account_customer_id` / `account_at` / `account_by` / `account_approved_by` / `account_note` (bill put on a guest's credit account), `buyer_pan` (CHAR(10), the buyer's PAN; on a walk-in bill it also adds the bill's cash up with the rest under that PAN, partial index `idx_bills_buyer_pan`) and `pan_declaration` (the buyer has no PAN and signed Form 97): a bill over ₹2,00,000 takes no payment without one of them (trigger `trg_payments_buyer_pan`, under `payments`).
 Relations: `restaurant_id` -> `restaurants` (ON DELETE CASCADE); `outlet_id` -> `outlets`; `business_day_id` -> `business_days`; `order_id` -> `orders`; `discount_id` -> `discounts`; `account_customer_id` -> `customers`; approver / giver columns -> `users`.
-Rules: `bill_number` unique per restaurant; all amount columns `>= 0` except `round_off`; a complimentary bill needs a reason (`chk_bills_complimentary_reason`); a waived service charge needs a reason (`chk_bills_waive_reason`); a waived delivery charge needs a reason (`chk_bills_delivery_waiver`); `service_charge_percentage` 0-100; `buyer_pan` has a PAN's shape (five letters, four digits and a letter, CHECK) and never comes with `pan_declaration` (`chk_bills_pan_or_declaration`). That the bills of one order never bill more than was ordered is checked in code (split billing). Bill-stock reversal: `consume_stock` remembers whether the bill consumed stock at the time (the `auto_consume_stock` setting can change later), so voiding or returning an old bill puts back exactly the stock it took and never stock it did not. Partial indexes keep the bell cheap (`idx_bills_unsettled` on unpaid/partial bills), plus `idx_bills_account` (account bills), `idx_bills_discount_id`, `idx_bills_order_id` / `idx_bills_order`, `idx_bills_restaurant_number`.
-Added by: 1789790367434_create-billing-and-payments; 1789802692848_split-bills-and-returns; 1789817853331_create-loyalty; 1789824100000_bill-stock-reversal; 1789904000000_create-notification-reads; 1789908000000_add-guest-insights; 1789913000000_billing-tax-invoice-and-till-controls; 1790727000000_service-readiness; 1790800000000_billing-series-and-guest-accounts; 1791340000002_bill-delivery-charge-fssai-upi-and-yearly-numbers; 1791340000003_coupon-rules; 1791972000000_restaurant-cash-limit-and-pan (`buyer_pan`, `pan_declaration`); 1791974000000_live-updates (live updates: `trg_bills_live`); restaurant-rest (`idx_bills_buyer_pan`).
+Rules: `bill_number` unique per restaurant; all amount columns `>= 0` except `round_off`; a complimentary bill needs a reason (`chk_bills_complimentary_reason`); a waived service charge needs a reason (`chk_bills_waive_reason`); a waived delivery charge needs a reason (`chk_bills_delivery_waiver`); `service_charge_percentage` 0-100; `buyer_pan` has a PAN's shape (five letters, four digits and a letter, CHECK) and never comes with `pan_declaration` (`chk_bills_pan_or_declaration`). That the bills of one order never bill more than was ordered is checked in code (split billing). Bill-stock reversal: `consume_stock` remembers whether the bill consumed stock at the time (the `auto_consume_stock` setting can change later), so voiding or returning an old bill puts back exactly the stock it took and never stock it did not. Partial indexes keep the bell cheap (`idx_bills_unsettled` on unpaid/partial bills), plus `idx_bills_account` (account bills), `idx_bills_discount_id`, `idx_bills_order` (the bill number is found by its unique key). Never deleted: trigger `bills_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
+Added by: 1789790367434_create-billing-and-payments; 1789802692848_split-bills-and-returns; 1789817853331_create-loyalty; 1789824100000_bill-stock-reversal; 1789904000000_create-notification-reads; 1789908000000_add-guest-insights; 1789913000000_billing-tax-invoice-and-till-controls; 1790727000000_service-readiness; 1790800000000_billing-series-and-guest-accounts; 1791340000002_bill-delivery-charge-fssai-upi-and-yearly-numbers; 1791340000003_coupon-rules; 1791972000000_restaurant-cash-limit-and-pan (`buyer_pan`, `pan_declaration`); 1791974000000_live-updates (live updates: `trg_bills_live`); restaurant-rest (`idx_bills_buyer_pan`); 1791990000070 records-kept-for-good; 1791990000060 drop-duplicate-indexes (dropped idx_bills_restaurant_number, idx_bills_order_id, a copy of another index).
 
 #### `bill_items`
 Purpose: Which order lines, and how much of each, a bill covers (supports split bills), with the GST breakdown per line so HSN-wise GST adds up to the invoice.
 Key columns: `order_item_id`, `quantity` (> 0), `line_subtotal` / `line_tax` / `line_total` (the dish before any bill discount), `item_discount_type` / `item_discount_value` / `item_discount_amount` (till discount on this dish), `discount_amount` (all discount falling on the line: its own plus its share of the bill's), `service_charge_share`, `delivery_charge_share`, `taxable_value`, `tax_percentage`, `cess_percentage`, `tax_amount`, `cess_amount`, `hsn_code`, `returned_quantity` (returned by credit note).
 Relations: `bill_id` -> `bills` (ON DELETE CASCADE); `order_item_id` -> `order_items`.
-Rules: one row per `(bill_id, order_item_id)`; `returned_quantity <= quantity` (`chk_bill_items_returned`); money columns non-negative.
-Added by: 1789802692848_split-bills-and-returns; 1789913000000_billing-tax-invoice-and-till-controls; 1791340000002_bill-delivery-charge-fssai-upi-and-yearly-numbers.
+Rules: one row per `(bill_id, order_item_id)`; `returned_quantity <= quantity` (`chk_bill_items_returned`); money columns non-negative. Never deleted: trigger `bill_items_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
+Added by: 1789802692848_split-bills-and-returns; 1789913000000_billing-tax-invoice-and-till-controls; 1791340000002_bill-delivery-charge-fssai-upi-and-yearly-numbers; 1791990000070 records-kept-for-good.
 
 #### `bill_taxes`
 Purpose: The invoice's tax rate by rate: one row per GST rate and cess rate on a bill, read by the printed bill and the GST return.
@@ -650,10 +691,10 @@ Added by: 1789913000000_billing-tax-invoice-and-till-controls; 1791340000002_bil
 Purpose: Money taken against a bill.
 Key columns: `bill_id`, `order_id`, `business_day_id`, `payment_method` (`cash`, `card`, `upi`, `online`, `wallet`, `other`, `advance`), `payment_type_id` (owner-named type under the method), `amount` (> 0, what goes toward the bill), `tip_amount` (>= 0, on top of `amount`; never sales, GST, discount base or loyalty), `tendered_amount`, `change_amount`, `transaction_ref`, `payment_status` (`success`, `failed`, `refunded`), `advance_id`, `paid_at`.
 Relations: `bill_id` -> `bills` (ON DELETE CASCADE); `order_id` -> `orders`; `business_day_id` -> `business_days`; `payment_type_id` -> `payment_types` (ON DELETE RESTRICT); `advance_id` -> `customer_advances` (ON DELETE RESTRICT).
-Rules: an `advance` payment must name its advance and only it may (`chk_payments_advance`: `(payment_method = 'advance') = (advance_id IS NOT NULL)`); an advance payment brings no new cash, so cash figures exclude it by method. Partial indexes `idx_payments_tips` (tip-bearing payments), `idx_payments_type`, `idx_payments_advance`.
+Rules: an `advance` payment must name its advance and only it may (`chk_payments_advance`: `(payment_method = 'advance') = (advance_id IS NOT NULL)`); an advance payment brings no new cash, so cash figures exclude it by method. Partial indexes `idx_payments_tips` (tip-bearing payments), `idx_payments_type`, `idx_payments_advance`. Never deleted: trigger `payments_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
 - The cash limit (Income-tax Act 2025, section 186): trigger `trg_payments_cash_limit` (function `restaurant_cash_limit_payment()`, BEFORE INSERT, and BEFORE UPDATE OF `payment_method`, `amount`, `tip_amount`, `advance_id`, `payment_status`, so a correction to cash counts the cash it adds). A payment is refused (23514, a sentence citing section 186) when the bill's cash would reach ₹2,00,000 (function `restaurant_bill_cash(bill)`: its cash payments with their tips, and its payments from advances paid in cash; failed payments left out), or, for cash on a bill that names a guest (`COALESCE(bills.account_customer_id, orders.customer_id)`; a walk-in bill names none), when that guest's cash on the payment's day of the restaurant's calendar would (function `restaurant_guest_cash_check(restaurant, guest, received, adds)`, which adds up with `restaurant_cash_from_guest(restaurant, guest, zone, day)`: the guest and the PAN their guest book holds, through `restaurant_cash_from_person`), or, for cash on a walk-in bill carrying `buyer_pan`, when the cash under that PAN would (function `restaurant_pan_cash_check(restaurant, pan, received, adds)`, its sentence naming the PAN's last four characters). `restaurant_cash_from_person(restaurant, guest, pan, zone, day)` adds up one person's cash on a day, by `restaurant_settings.timezone`: the guest and every guest whose `customers.pan` is the PAN, with the cash on the bills that name them (tips included) and their advances in cash, and the cash on walk-in bills whose `buyer_pan` is the PAN. A payment from an advance counts on its bill only: its cash counted the day the advance was taken.
 - The buyer's PAN: trigger `trg_payments_buyer_pan` (function `restaurant_pan_payment()`, BEFORE INSERT). A payment on a bill whose total is over ₹2,00,000 is refused (23514) unless the bill has `buyer_pan` or `pan_declaration`; the PAN inside the bill's buyer GSTIN (`bill_gst_recipients`), else the PAN the guest book holds for the guest the bill names (`customers.pan`), is written into `buyer_pan` instead. A guest's `pan_declaration` is not copied: a declaration is taken for each bill.
-Added by: 1789790367434_create-billing-and-payments; 1790850000001_tips-leave-and-statutory-pay; 1791340000000_payment-corrections-and-payment-types; 1791340000001_customer-advances; 1791972000000_restaurant-cash-limit-and-pan (the cash limit and the buyer's PAN); 1791974000000_live-updates (live updates: `trg_payments_live`); restaurant-rest (`restaurant_cash_from_person` and `restaurant_pan_cash_check` added; `restaurant_cash_from_guest`, `restaurant_cash_limit_payment` and `restaurant_pan_payment` replaced, their earlier bodies restored by its Down).
+Added by: 1789790367434_create-billing-and-payments; 1790850000001_tips-leave-and-statutory-pay; 1791340000000_payment-corrections-and-payment-types; 1791340000001_customer-advances; 1791972000000_restaurant-cash-limit-and-pan (the cash limit and the buyer's PAN); 1791974000000_live-updates (live updates: `trg_payments_live`); restaurant-rest (`restaurant_cash_from_person` and `restaurant_pan_cash_check` added; `restaurant_cash_from_guest`, `restaurant_cash_limit_payment` and `restaurant_pan_payment` replaced, their earlier bodies restored by its Down); 1791990000070 records-kept-for-good.
 
 #### `payment_types`
 Purpose: Owner-named payment types under a method (Pluxee/Sodexo meal cards or cheque under Other, PhonePe under UPI, an Amex machine under Card) so settlements can be totalled per type; the method decides drawer vs bank.
@@ -673,22 +714,22 @@ Added by: 1791340000000_payment-corrections-and-payment-types.
 Purpose: Money handed back on a bill, either against the sale (credit note) or reversing a part payment on an unsettled bill.
 Key columns: `bill_id`, `payment_id`, `business_day_id`, `amount` (> 0), `refund_method` (`cash`, `card`, `upi`, `online`, `wallet`, `other`, `advance`), `payment_type_id`, `advance_id`, `refund_kind` (`credit_note`: sale and GST go down; `payment_reversal`: sale unchanged, guest still owes), `reason` (required), `refunded_at`.
 Relations: `bill_id` -> `bills` (CASCADE); `payment_id` -> `payments`; `business_day_id` -> `business_days`; `payment_type_id` -> `payment_types` (RESTRICT); `advance_id` -> `customer_advances` (RESTRICT).
-Rules: a refund back onto an advance must name it and only it may (`chk_refunds_advance`). Permission `bills.refund`.
-Added by: 1789790367434_create-billing-and-payments; 1789913000000_billing-tax-invoice-and-till-controls; 1791340000000_payment-corrections-and-payment-types; 1791340000001_customer-advances; 1791974000000_live-updates (live updates: `trg_refunds_live`).
+Rules: a refund back onto an advance must name it and only it may (`chk_refunds_advance`). Permission `bills.refund`. Never deleted: trigger `refunds_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
+Added by: 1789790367434_create-billing-and-payments; 1789913000000_billing-tax-invoice-and-till-controls; 1791340000000_payment-corrections-and-payment-types; 1791340000001_customer-advances; 1791974000000_live-updates (live updates: `trg_refunds_live`); 1791990000070 records-kept-for-good.
 
 #### `credit_notes`
 Purpose: The tax document (CN-0001…) for money given back against a sale; reverses the bill's value in the proportions it was charged (or returned dishes' own value) so the GST return can deduct it in the period issued.
 Key columns: `credit_note_number`, `bill_id`, `refund_id`, `business_day_id`, `outlet_id`, `kind` (`refund` | `return`), `reason`, `taxable_value`, `service_charge_value`, `tax_amount`, `cess_amount`, `round_off`, `total_amount` (> 0), `points_reversed`, `issued_at`.
 Relations: `bill_id` -> `bills` (CASCADE); `refund_id` -> `refunds` (UNIQUE, ON DELETE CASCADE); `business_day_id` -> `business_days`; `outlet_id` -> `outlets`.
-Rules: number unique per restaurant; at most one credit note per refund; `total_amount = taxable_value + tax_amount + round_off` (CHECK).
-Added by: 1789913000000_billing-tax-invoice-and-till-controls.
+Rules: number unique per restaurant; at most one credit note per refund; `total_amount = taxable_value + tax_amount + round_off` (CHECK). Never deleted: trigger `credit_notes_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
+Added by: 1789913000000_billing-tax-invoice-and-till-controls; 1791990000070 records-kept-for-good.
 
 #### `credit_note_items`
 Purpose: Dishes returned on a credit note of kind `return`.
 Key columns: `bill_item_id`, `quantity` (> 0), `taxable_value`, `tax_amount`, `amount`.
 Relations: `credit_note_id` -> `credit_notes` (CASCADE); `bill_item_id` -> `bill_items`.
-Rules: one row per `(credit_note_id, bill_item_id)`; the returned quantity is accumulated on `bill_items.returned_quantity`, which may not exceed the billed quantity.
-Added by: 1789913000000_billing-tax-invoice-and-till-controls.
+Rules: one row per `(credit_note_id, bill_item_id)`; the returned quantity is accumulated on `bill_items.returned_quantity`, which may not exceed the billed quantity. Never deleted: trigger `credit_note_items_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
+Added by: 1789913000000_billing-tax-invoice-and-till-controls; 1791990000070 records-kept-for-good.
 
 #### `credit_note_taxes`
 Purpose: A credit note's tax rate by rate, mirroring `bill_taxes`.
@@ -927,8 +968,8 @@ Added by: 1789733005630_create-purchasing; 1789907000000_add-wastage-reasons (in
 #### `goods_receipts`
 Purpose: A supplier bill / delivery (GRN-…), with or without a PO; what a supplier is owed is the sum of these.
 Key columns: `receipt_number`, `supplier_id`, `purchase_order_id`, `outlet_id` (store received into), `bill_number`, `bill_date`, `received_date`, `due_date`, `payment_mode` (`credit` | `paid`), `prices_include_tax`, `taxable_amount`, `tax_amount`, `round_off` (-5 to 5), `total_amount`, `receipt_status` (`posted` | `void`), `void_reason` / `voided_at` / `voided_by`.
-Rules: receipt number unique; a live supplier bill number exists once per supplier (partial unique `uq_goods_receipts_bill` on `(restaurant_id, supplier_id, LOWER(bill_number)) WHERE posted`), preventing double payment; void iff `void_reason` (`chk_goods_receipts_void`). Permission `purchasing.receive`.
-Added by: 1789914000000_stock-counts-purchase-bills; 1790880000000_backoffice-limits-expiry-and-guests (`idx_goods_receipts_due`).
+Rules: receipt number unique; a live supplier bill number exists once per supplier (partial unique `uq_goods_receipts_bill` on `(restaurant_id, supplier_id, LOWER(bill_number)) WHERE posted`), preventing double payment; void iff `void_reason` (`chk_goods_receipts_void`). Permission `purchasing.receive`. Never deleted: trigger `goods_receipts_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
+Added by: 1789914000000_stock-counts-purchase-bills; 1790880000000_backoffice-limits-expiry-and-guests (`idx_goods_receipts_due`); 1791990000070 records-kept-for-good.
 
 #### `goods_receipt_items`
 Purpose: Lines of a receipt.
@@ -941,8 +982,8 @@ Added by: 1789914000000_stock-counts-purchase-bills.
 Purpose: Goods sent back to a supplier (PR-…): stock goes down and the supplier owes a credit.
 Key columns: `return_number`, `supplier_id`, `purchase_order_id`, `goods_receipt_id`, `return_date`, `taxable_amount`, `tax_amount`, `total_amount`, `reason`, `notes`, `return_status` (`posted` | `void`), void columns (`void_reason`, `voided_at`, `voided_by`).
 Relations: `restaurant_id` -> `restaurants` (CASCADE); `supplier_id` -> `suppliers`; `purchase_order_id` -> `purchase_orders`; `goods_receipt_id` -> `goods_receipts`.
-Rules: number unique per restaurant; void iff reason (`chk_purchase_returns_void`); amounts >= 0. A return's ledger row (`transaction_type = 'return'`) never sets item cost.
-Added by: 1789802692848_split-bills-and-returns; 1789914000000_stock-counts-purchase-bills.
+Rules: number unique per restaurant; void iff reason (`chk_purchase_returns_void`); amounts >= 0. A return's ledger row (`transaction_type = 'return'`) never sets item cost. Never deleted: trigger `purchase_returns_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
+Added by: 1789802692848_split-bills-and-returns; 1789914000000_stock-counts-purchase-bills; 1791990000070 records-kept-for-good.
 
 #### `purchase_return_items`
 Purpose: One item on a purchase return.
@@ -954,8 +995,8 @@ Added by: 1789802692848_split-bills-and-returns; 1789914000000_stock-counts-purc
 #### `supplier_payments`
 Purpose: Money paid to suppliers, so outstanding balances can be shown.
 Key columns: `supplier_id`, `purchase_order_id`, `goods_receipt_id`, `payment_date`, `amount` (> 0), `payment_method` (`cash`, `card`, `upi`, `bank`, `cheque`, `other`), `reference_no`, `payment_status` (`posted` | `void`), void columns, `paid_from_till`, `business_date`, `outlet_id` (whose drawer; NULL = main counter/office).
-Rules: void iff reason (`chk_supplier_payments_void`); cash only when paid from the till (`chk_supplier_payments_till`), and till payments come off that day's and that outlet's expected cash. Permission `purchasing.pay`.
-Added by: 1789802692848_split-bills-and-returns; 1789914000000_stock-counts-purchase-bills; 1790880000000_backoffice-limits-expiry-and-guests.
+Rules: void iff reason (`chk_supplier_payments_void`); cash only when paid from the till (`chk_supplier_payments_till`), and till payments come off that day's and that outlet's expected cash. Permission `purchasing.pay`. Never deleted: trigger `supplier_payments_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
+Added by: 1789802692848_split-bills-and-returns; 1789914000000_stock-counts-purchase-bills; 1790880000000_backoffice-limits-expiry-and-guests; 1791990000070 records-kept-for-good.
 
 #### `document_attachments`
 Purpose: Receipt photos / PDFs on an expense or a supplier bill (up to five, kept in `attachments/` under the private upload folder, `PRIVATE_UPLOADS_DIR`, and served only through the API).
@@ -1259,11 +1300,11 @@ Added by: 1791950404000 retail-completion.
 #### `business_audit`
 Purpose: the activity log, recording who did what. It is written in the same transaction as the change it records ([five layers](BUSINESS_PLATFORM_DATA_MODEL.md#the-five-layers)).
 Key columns: `actor_id` -> `users` (the person; null only on a guest's row), `action`, `entity_id` (no FK), `details` (JSONB), `channel` (`guests_site` on a guest's own action on the guests' site, such as a booking, an order, the customer record made for it or a consent ticked; null on every other row), `created_at`.
-Rules:
+Rules: Kept as saved: trigger `business_audit_kept` refuses every change and delete; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
 - `channel`: who acted when no member of staff did. `guests_site` is a guest's own action on the guests' site, shown as *Guest (online)* (`repo.guestAudit` writes it). `automatic` is the business's own rule acting on its own time, such as a request not answered in time expiring or an online order not accepted in time being declined, shown as *Automatic* (`repo.automaticAudit` writes it).
 - CHECK `business_audit_actor_or_channel`: a row has no actor exactly when it has a channel, so a person's row always names them and a guest's or an automatic row never names anyone.
 - No other guard; rows are written by services only. Index on (business_id, created_at DESC).
-Added by: 1791280000000; guest-foundation (`channel`, and `actor_id` left empty on a guest's row).
+Added by: 1791280000000; guest-foundation (`channel`, and `actor_id` left empty on a guest's row); 1791990000070 records-kept-for-good.
 
 #### `business_events`
 Purpose: the event outbox. It gets one row for each committed change to money, stock or appointments, in the same transaction as the change ([event outbox](BUSINESS_PLATFORM_DATA_MODEL.md#cross-cutting-the-event-outbox)).
@@ -1374,24 +1415,24 @@ Added by: 1791979114000 agri-more.
 #### `business_documents`
 Purpose: a sale or purchase invoice.
 Key columns: `kind` (sale or purchase), `document_no`, `series_id`, `location_id`, `contact_id`, `contact_name` (snapshot), `subtotal`, `tax`, `round_off`, `total`, `tax_mode`, `due_on` (from the customer's credit days, or the harvest date of a farm-input shop's season credit bill), `place_of_supply` (two-digit state code), `buyer_gstin`, `buyer_address`, `buyer_pan` and `pan_declaration` (the buyer has no PAN and signed Form 97; a sale over ₹2,00,000 needs one or the other, checked by the API), a purchase's `supplier_bill_no` and `supplier_bill_date`, `request_key`, `request_hash`, `notes`.
-Rules:
+Rules: Kept as saved: trigger `business_documents_kept` refuses every change and delete; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
 - CHECK `business_documents_total_adds_up`: `total = subtotal + tax + round_off`.
 - CHECK: `round_off` lies strictly between -1 and 1.
 - `document_no` and `request_key` are each unique per business.
 - CHECK `business_documents_pan_or_declaration`: a PAN or the declaration, never both.
 - CHECK `business_documents_supplier_bill_on_purchases`: only a purchase carries a supplier bill number and date. Unique index `business_documents_supplier_bill` (business, supplier, bill number ignoring case) refuses the same supplier bill twice.
-Added by: 1791280000000; 1791300000002 (the series, tax mode, round-off, due date and total CHECK); 1791540000000 (place of supply, buyer, supplier bill); 1791960001000 (`buyer_pan`, `pan_declaration`).
+Added by: 1791280000000; 1791300000002 (the series, tax mode, round-off, due date and total CHECK); 1791540000000 (place of supply, buyer, supplier bill); 1791960001000 (`buyer_pan`, `pan_declaration`); 1791990000070 records-kept-for-good.
 
 #### `business_document_lines`
 Purpose: a snapshot of each invoice line.
 Key columns: `document_id`, `sku_id`, `label`, `unit`, `quantity`, `unit_price`, `tax_rate`, `net`, `tax`, `lot_code`, `stock_unit_cost`, `price_rule_id` -> `business_price_rules`, plus `entered_unit`, `entered_quantity`, `entered_unit_price` and `unit_factor`; `hsn_code`, `mrp`; the kit columns `kit_sku_id`, `kit_label`, `kit_group`; and, for a supplier's bill line as printed, `free_quantity` (>= 0, default 0: free goods on a scheme, "10 + 1 free", counted inside `quantity`) and `discount_percent` (0 to below 100, default 0: a trade discount on the rate). The line's net is what was charged, so the stock cost of every unit received is net / quantity.
-Rules:
+Rules: Kept as saved: trigger `business_document_lines_kept` refuses every change but the stock cost and batch, and every delete; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
 - The four entered-unit columns are all set or all NULL (`business_document_lines_entered_unit_all_or_none`).
 - `unit_price` is unscaled NUMERIC with at most 4 places and below 10^12 (`business_document_lines_unit_price_places`).
 - `free_quantity < quantity` (`business_document_lines_free_below_quantity`).
 - The three kit columns are all set or all NULL (`business_document_lines_kit_shape`).
 - Index `business_document_lines_document` (business, document) lets the bills lists read a bill's lines without scanning the table.
-Added by: 1791280000000.
+Added by: 1791280000000; 1791990000070 records-kept-for-good.
 - 1791280000001 added `stock_unit_cost` and UNIQUE (business_id, id).
 - 1791280000002 added `price_rule_id`.
 - 1791300000003 added the entered-unit columns.
@@ -1413,7 +1454,7 @@ Added by: 1791640000000 business-payment-methods. The same migration gives `busi
 #### `business_payments`
 Purpose: money received on a sale, or paid on a purchase. The share of a collection that settles a bill, and the share of a supplier payment that settles a purchase, are stored here too. Several rows on one document, posted together, are one bill paid in several ways.
 Key columns: `document_id`, `amount` (> 0), `method` (cash, card, upi, bank, cheque, credit_note, finance: the financed part of an EMI bill), `method_name` (the owner's name for the method, as it was), `reference`, `tendered` (cash handed over; the change is `tendered − amount`), `collection_id` -> `business_collections`, `supplier_payment_id` -> `business_supplier_payments`, `request_key` (unique per business).
-Rules:
+Rules: Kept as saved: trigger `business_payments_kept` refuses every change, and every delete but a bounced cheque's settlements; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
 - CHECK `business_payments_tendered_cash`: `tendered` only on a cash payment, and never below the amount.
 - CHECK `business_payments_one_source`: a collection or a supplier payment, not both.
 - Constraint trigger `business_payments_collection_rules`: a collection pays only sales of the customer who paid it, and the payments drawn from one collection, with its refunds, never add up to more than its amount.
@@ -1422,17 +1463,18 @@ Rules:
 - Trigger `business_payments_jewellery_order` (function `jewellery_order_payment_check`, for a payment drawn from a collection): an open custom order's advance receipt pays only the order's own jewellery bill.
 - Trigger `business_payments_cash_limit` (function `business_cash_limit_payment()`): a cash payment on a sale is refused (23514, a sentence citing section 186 of the Income-tax Act 2025) when the bill's cash would reach ₹2,00,000, or, for a payment not drawn from a collection, when the customer's cash that business day would (function `business_cash_from_customer()`: cash on their sales outside collections plus their cash collection receipts, by the business's time zone). A fuel station's walk-in fuel bill (no customer, and its request key a close's `walk_in_key` in `fuel_shift_closes`) is left alone: it sums the fills of a shift's many walk-in buyers. An offline till's bill (numbered in a series with a `device_id`) is checked for its own cash only: its customer's day is checked by the server when it arrives, and flagged ([Offline till](#offline-till)).
 - UNIQUE (`business_id`, `id`) for composite keys.
-Added by: 1791280000000; 1791410000000 (`collection_id`, the collection trigger, `cheque`); 1791420000000 (`credit_note`); 1791540000000 (`supplier_payment_id`, the supplier rules); 1791620002000 (`finance`, `tendered`); 1791640000000 (`method_name`); 1791960001000 (the cash limit); 1791969000000 (the walk-in fuel bill left out of the cash limit); jewellery-work (the custom order trigger); offline-till (an offline till's bill left out of the customer's day: `business_cash_limit_payment()` replaced, its Down half putting 1791969000000's body back).
+Added by: 1791280000000; 1791410000000 (`collection_id`, the collection trigger, `cheque`); 1791420000000 (`credit_note`); 1791540000000 (`supplier_payment_id`, the supplier rules); 1791620002000 (`finance`, `tendered`); 1791640000000 (`method_name`); 1791960001000 (the cash limit); 1791969000000 (the walk-in fuel bill left out of the cash limit); jewellery-work (the custom order trigger); offline-till (an offline till's bill left out of the customer's day: `business_cash_limit_payment()` replaced, its Down half putting 1791969000000's body back); 1791990000070 records-kept-for-good.
 
 #### `business_returns`
 Purpose: a credit note (on a sale) or a debit note (on a purchase).
 Key columns: `document_id`, `return_no` (unique per business), `series_id`, `reason`, `total` (its lines' credit, less the free goods kept on it: `wholesale_free_goods_kept`, plus its share of the round-off), `round_off` (between -1 and 1), `request_key`, `request_hash`.
-Added by: 1791280000001 business-returns-and-stock-control; 1791300000002 (the number, series and round-off).
+Rules: Kept as saved: trigger `business_returns_kept` refuses every change and delete; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
+Added by: 1791280000001 business-returns-and-stock-control; 1791300000002 (the number, series and round-off); 1791990000070 records-kept-for-good.
 
 #### `business_return_lines`
 Purpose: the quantity returned against each document line.
 Key columns: `return_id`, `line_id` -> `business_document_lines`, `quantity`, `net`, `tax`, `restock`.
-Rules:
+Rules: Kept as saved: trigger `business_return_lines_kept` refuses every change and delete; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
 - UNIQUE (`return_id`, `line_id`).
 - Trigger `business_return_lines_salon_plan` (function `salon_plan_line_return`) refuses to return a line that sold a salon package or membership while that plan is still active.
 - Trigger `business_return_lines_member_plan` (function `member_plan_line_return`) refuses to return a line that sold a gym's membership (its plan or its joining fee) unless the return is the credit note the membership made (its `credit_key`): a cancellation or an upgrade.
@@ -1441,7 +1483,7 @@ Rules:
 - Trigger `business_return_lines_fuel` (function `fuel_line_return`, replaced by 1791979600000) refuses to return a line of a fuel bill a shift's close posted (the walk-in bill, a fleet customer's, a big fill's), unless its shift is being reopened at that moment, a line of a tanker load's purchase, unless the load is being cancelled at that moment, and a fleet fill billed on a month's invoice.
 - Index `business_return_lines_line` (business, line) lets the bills lists read a line's returns without scanning the table.
 - Trigger `business_return_lines_jewellery` (function `jewellery_line_return`) refuses to return a line that sells a jeweller's tagged piece unless it goes back to stock; trigger `business_return_lines_jewellery_returned` (function `jewellery_line_returned`, after the row) brings the piece back into stock with its history.
-Added by: 1791280000001; 1791430000000 (the trigger); 1791950412000 (the index); 1791966000000 (the laundry trigger); 1791967000000 (the jewellery triggers); 1791969000000 (the fuel trigger).
+Added by: 1791280000001; 1791430000000 (the trigger); 1791950412000 (the index); 1791966000000 (the laundry trigger); 1791967000000 (the jewellery triggers); 1791969000000 (the fuel trigger); 1791990000070 records-kept-for-good.
 
 #### `business_refunds`
 Purpose: money paid back on a document.
@@ -1505,8 +1547,8 @@ Added by: 1791280000000; 1791420000001 (the trigger, index `business_stock_lots_
 #### `business_stock_movements`
 Purpose: the stock ledger. For every lot, the sum of its movements equals its quantity.
 Key columns: `lot_id`, `quantity` (non-zero), `balance_after` (>= 0), and the source: `document_id`, `adjustment_id` or `transfer_id`, plus `return_id`.
-Rules: CHECK `business_stock_movements_one_source`: exactly one of document, adjustment or transfer is set, and `return_id` may be set only together with a document.
-Added by: 1791280000000; 1791280000001 (adjustment, return); 1791300000004 (transfer, the one-source CHECK).
+Rules: CHECK `business_stock_movements_one_source`: exactly one of document, adjustment or transfer is set, and `return_id` may be set only together with a document. Kept as saved: trigger `business_stock_movements_kept` refuses every change and delete; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
+Added by: 1791280000000; 1791280000001 (adjustment, return); 1791300000004 (transfer, the one-source CHECK); 1791990000070 records-kept-for-good.
 
 #### `business_stock_adjustments`
 Purpose: a reasoned stock correction, entered by hand or posted by a count, a weight cutting batch or a wastage entry.
@@ -3638,10 +3680,10 @@ Key columns: `order_id`, `seq` (1-200), `tag_no` (`^[A-Z0-9][A-Z0-9/-]{0,19}$`),
 Relations: (`business_id`, ...) -> `laundry_orders`, `laundry_garment_types`, `laundry_services`, `catalog_skus`, `business_documents` and `business_document_lines`.
 Rules:
 - CHECK `amount` = `base` + `surcharge`; `net` = `amount` (prices before GST) or `net` + `tax` = `amount` (including GST); acknowledged only with defects, a note on them or a risk note; a rack only when ready or delivered; ready and delivered times, who and when, and the cancellation's reason, who and when exactly with their status; a cancel key only when cancelled; a bill and a line together; a credit key only with a line.
-- UNIQUE (business, order, seq) and (business, line); unique index `laundry_order_items_open_tag` (a tag on one garment received, in process or ready at a time); indexes `laundry_order_items_order`, `laundry_order_items_tag`, the partial `laundry_order_items_open` and `laundry_order_items_document`.
+- UNIQUE (business, order, seq) and (business, line); unique index `laundry_order_items_open_tag` (a tag on one garment received, in process or ready at a time); indexes `laundry_order_items_tag`, the partial `laundry_order_items_open` and `laundry_order_items_document`.
 - Trigger `laundry_order_items_insert_check`: written only in the transaction that takes its order in; starts received with nothing delivered, cancelled or credited; its item is its service's and its counting its garment's; on an order billed at intake, on a line of the order's own bill, of its item.
 - Trigger `laundry_order_items_guard`: never deleted; keeps what was noted and priced; a cancelled one never changes; moves only received → in_process, ready or cancelled; in_process → ready or cancelled; ready → in_process, delivered or cancelled; delivered → received only with a damage claim decided `reprocess` in the same transaction; delivered only with its bill line and in a handover made in the same transaction; a billed one cancelled only once its line has a return; its line (of its own item, on a sale to the order's customer) and its credit key given once; re-tagged only while in the shop or when taken back in.
-Added by: 1791966000000; laundry-more:
+Added by: 1791966000000; laundry-more:; 1791990000060 drop-duplicate-indexes (dropped laundry_order_items_order, a copy of another index).
 - columns `length_ft`, `width_ft` (exactly by the square foot), `price_source` (list, location, group, customer, manual) with `price_override_id` (exactly a party's price), `package_id`, `package_quantity`, `package_amount`, `offer_id` (-> `retail_offers`), `offer_name`, `offer_percent`, `offer_amount`, `discount_amount`, `qc_at`/`qc_by`, `packed_at`/`packed_by`, `rewashes`, `pieces_delivered` (all of them exactly when delivered), `addition_id` (-> `laundry_order_additions`), `added_by`/`added_at`;
 - statuses `qc` and `packed`; `per` sqft; CHECK `amount` = `base` + `surcharge` - `package_amount` - `offer_amount` - `discount_amount` (at least nil); back in the work with no quality check or packing kept; packed with who and when;
 - the open tag and open indexes cover qc and packed; index `laundry_order_items_package`;
@@ -4166,8 +4208,8 @@ Added by: 1791968000000.
 Purpose: each time things come back.
 Key columns: `booking_id`, `final`, `document_id` (the bill), `note`, `request_key`, `request_hash`, `created_by`, `created_at` (when it came back).
 Relations: (`business_id`, `booking_id`) -> `rental_bookings`; (`business_id`, `document_id`) -> `business_documents`.
-Rules: CHECK a bill exactly when final; UNIQUE (business, request key); index `rental_returns_booking`. Trigger `rental_returns_check`: of a booking out, when written, its bill a sale to the hirer. Trigger `rental_returns_append_only` (function `rental_append_only`).
-Added by: 1791968000000.
+Rules: CHECK a bill exactly when final; UNIQUE (business, request key) and (business, booking, id), which also finds a booking's returns. Trigger `rental_returns_check`: of a booking out, when written, its bill a sale to the hirer. Trigger `rental_returns_append_only` (function `rental_append_only`).
+Added by: 1791968000000; 1791990000060 drop-duplicate-indexes (dropped rental_returns_booking, a copy of another index).
 
 #### `rental_return_lines`
 Purpose: what came back of each line.
@@ -4305,8 +4347,8 @@ Added by: 1791969000000.
 #### `fuel_prices`
 Purpose: each fuel's price at an outlet from the time it takes effect.
 Key columns: `location_id`, `product_id`, `price` (> 0, VAT included), `effective_from`, `note`, `request_key`, `request_hash`, `created_by`, `created_at`.
-Rules: UNIQUE (business, outlet, fuel, effective from) and (business, request key, outlet, fuel); index `fuel_prices_lookup`. Trigger `fuel_prices_check`: a fuel in use, written when set, taking effect within a week back and a month ahead, never before the latest close that sold the fuel at the outlet. Trigger `fuel_prices_append_only` (function `fuel_append_only`).
-Added by: 1791969000000.
+Rules: UNIQUE (business, outlet, fuel, effective from) and (business, request key, outlet, fuel); the first also finds the newest price, read backwards. Trigger `fuel_prices_check`: a fuel in use, written when set, taking effect within a week back and a month ahead, never before the latest close that sold the fuel at the outlet. Trigger `fuel_prices_append_only` (function `fuel_append_only`).
+Added by: 1791969000000; 1791990000060 drop-duplicate-indexes (dropped fuel_prices_lookup, a copy of another index).
 
 #### `fuel_vehicles`
 Purpose: a fleet customer's vehicles filled on credit.
@@ -4523,8 +4565,8 @@ Added by: 1791970000000; 1791977000000 (`lodging_stays_guard` lets an erasure's 
 Purpose: every occupant of a stay, with their photo ID and Form-III reports.
 Key columns: `stay_id`, `seq` (1-60), `full_name`, `child`, `gender` (female, male, other), `age` (0-120), `phone`, `address`, `nationality`, `foreigner`, `id_kind` (aadhaar, voter_id, driving_licence, passport, pan_card, other), `id_ref` (capital letters, digits, `/` and `-`), `visa_type`, `visa_no`, `arrived_india_on`, `next_destination`, `arrived_at`, `departed_at`, `frro_arrival_ack`, `frro_arrival_at`, `frro_arrival_by`, `frro_departure_ack`, `frro_departure_at`, `frro_departure_by`, `created_by`/`created_at`, `updated_by`/`updated_at`, `request_key` (an occupant joining partway).
 Relations: (`business_id`, `stay_id`) -> `lodging_stays`.
-Rules: CHECK the ID's kind and number together; an Aadhaar's number exactly four digits; an adult has a photo ID; a foreigner has their passport as it, a visa (or OCI card) type and number, the date they arrived in India and the next destination, and only a foreigner has them or Form-III marks; each mark with who and when; the departure's only after they left. UNIQUE (business, stay, seq), (business, request key); indexes `lodging_stay_guests_stay` and `lodging_stay_guests_foreign`. Trigger `lodging_stay_guests_guard`: recorded with a stay in the house, when they arrive (with the check-in, or joining partway); keeps its stay, place, arrival and request key; details change only while the stay is in the house and they have not left; leaves once, partway or with the check-out; each Form-III mark written once; never deleted.
-Added by: 1791970000000; lodging-stays (`request_key`; the guard made again).
+Rules: CHECK the ID's kind and number together; an Aadhaar's number exactly four digits; an adult has a photo ID; a foreigner has their passport as it, a visa (or OCI card) type and number, the date they arrived in India and the next destination, and only a foreigner has them or Form-III marks; each mark with who and when; the departure's only after they left. UNIQUE (business, stay, seq), (business, request key); index `lodging_stay_guests_foreign`. Trigger `lodging_stay_guests_guard`: recorded with a stay in the house, when they arrive (with the check-in, or joining partway); keeps its stay, place, arrival and request key; details change only while the stay is in the house and they have not left; leaves once, partway or with the check-out; each Form-III mark written once; never deleted.
+Added by: 1791970000000; lodging-stays (`request_key`; the guard made again); 1791990000060 drop-duplicate-indexes (dropped lodging_stay_guests_stay, a copy of another index).
 
 #### `lodging_receipts`
 Purpose: the advances and deposits taken for a stay.
@@ -5086,7 +5128,8 @@ Added by: paid-plans.
 #### `platform_audit`
 Purpose: the super admin's changes to settings, prices and leads (a business's own changes stay in `business_audit`: `plan.selection_changed`, `plan.order_created`, `plan.order_granted`, `plan.payment_submitted`, `plan.payment_confirmed`, `plan.payment_rejected`, `plan.time_given`, `plan.addons_given`, `plan.tax_invoice_issued`, `settings.state_set`, and a sign-up's `business.signed_up`).
 Key columns: `actor_id` -> `users`, `action` (`<area>.<what>`: `platform.settings_updated`, `platform.prices_updated`, `platform.lead_status_changed`, `platform.lead_note_added`), `entity_type`, `entity_id`, `details` (JSONB object), `created_at`.
-Added by: paid-plans.
+Rules: Kept as saved: trigger `platform_audit_kept` refuses every change and delete; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
+Added by: paid-plans; 1791990000070 records-kept-for-good.
 
 ## Online booking
 

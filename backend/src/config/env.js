@@ -14,6 +14,12 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
+// The login that owns the tables comes with its password, or not at all.
+if (process.env.DB_OWNER_USER && !process.env.DB_OWNER_PASSWORD) {
+  console.error("DB_OWNER_USER is set without DB_OWNER_PASSWORD: set both, or neither");
+  process.exit(1);
+}
+
 // Which kind of server this is. Unset means a developer's machine. Only
 // "development" and "test" (in any letter case, spaces trimmed) are treated
 // as safe to run with sample settings: "production", "Production", "prod",
@@ -307,6 +313,21 @@ module.exports = {
     // quiet afternoon does not hold the server's connections.
     idleTimeoutMillis: intFrom("DB_IDLE_TIMEOUT_MS", 10000, { min: 1000, max: 3600000 }),
   },
+  // The login that owns the tables (DB_OWNER_USER, DB_OWNER_PASSWORD): it runs
+  // the migrations and the backups, never the API, so the API's own login
+  // (DB_USER) reads and writes rows but can never build, change or drop a
+  // table (npm run db:app-login; GO_LIVE.md › The database logins). Left out,
+  // as on a developer's machine, DB_USER does both (`separate` is false).
+  dbOwner: {
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT),
+    database: process.env.DB_NAME,
+    user: process.env.DB_OWNER_USER || process.env.DB_USER,
+    password: process.env.DB_OWNER_USER ? process.env.DB_OWNER_PASSWORD : process.env.DB_PASSWORD,
+    separate: Boolean(process.env.DB_OWNER_USER) && process.env.DB_OWNER_USER !== process.env.DB_USER,
+  },
+  // A live server (NODE_ENV other than development, dev, test or local).
+  isLive,
   // The hold-and-wait guard (config/database.js): "warn" logs every place
   // that asks the pool for a second connection while its transaction holds
   // one, "throw" refuses it (the tests run with it). Anything else, the
