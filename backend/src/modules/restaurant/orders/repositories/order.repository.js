@@ -450,7 +450,6 @@ const findById = async (restaurantId, id, db = pool) => {
 // A new series carries on from the highest number already printed with that
 // prefix (by any outlet). A number that somehow exists already (typed in by a
 // data import, say) is stepped over rather than failing the order.
-// (outlet_order_counters, the old per-outlet counts, is no longer read.)
 const bumpCounter = async (client, restaurantId, prefix) => {
   const seriesKey = `ORDER:${prefix}`.slice(0, 40);
   const lead = `${prefix}-`;

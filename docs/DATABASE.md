@@ -401,8 +401,8 @@ Added by: 1789731793649_create-table-management; 1789921000000_floor-plan-turns 
 Purpose: which captain has which floor, section or table on a business date ("My tables", call routing). The most specific assignment wins.
 Key columns: `shift_date`, `user_id`, `floor_id`, `area_id`, `table_id`.
 Relations: `restaurant_id`, `user_id`, `floor_id`, `area_id` -> `dining_areas`, `table_id` -> `dining_tables`, all ON DELETE CASCADE.
-Rules: CHECK exactly one of floor_id, area_id, table_id is set; uq_captain_floor / uq_captain_area / uq_captain_table (one captain per floor, area or table per restaurant and date). The rows are read only while the restaurant's `captain_sections` part is switched on: while it is off no table has a captain, and the day's rows stay as they were.
-Added by: 1791330000003_captain-sections.
+Rules: CHECK exactly one of floor_id, area_id, table_id is set; uq_captain_floor / uq_captain_area / uq_captain_table (one captain per floor, area or table per restaurant and date). The rows are read only while the restaurant's `captain_sections` part is switched on: while it is off no table has a captain, and the day's rows stay as they were. Indexed for a delete or merge that looks it up: `idx_captain_assignments_table_id` (table_id, where set), `idx_captain_assignments_area_id` (area_id, where set), `idx_captain_assignments_floor_id` (floor_id, where set).
+Added by: 1791330000003_captain-sections; 1791990000080 indexes-for-deletes-and-lookups.
 
 ### Orders and kitchen
 
@@ -410,15 +410,15 @@ Added by: 1791330000003_captain-sections.
 Purpose: a guest order (dine-in, takeaway, delivery, QR or online) from opening to billing.
 Key columns: `outlet_id`, `business_day_id`, `order_number`, `order_type` (`dine_in` / `takeaway` / `delivery` / `qr` / `online`), `source` (`pos` / `captain` / `qr` / `website` / `phone` / `partner`), `table_id`, `customer_id`, `customer_name`, `customer_mobile`, `guest_count`, `order_status` (`open` / `billed` / `completed` / `cancelled`), `kitchen_status` (`pending` / `preparing` / `ready` / `served`), `subtotal`, `tax_amount`, `total_amount`, `notes`, `cancel_reason`, `placed_at`, `completed_at`, `merged_into_order_id`; delivery `channel_id`, `channel_commission_percent` (0 to 50, snapshot), `delivery_status` (`pending` / `preparing` / `ready` / `out_for_delivery` / `delivered` / `cancelled`), `delivery_address`, `delivery_landmark`, `rider_employee_id`, `partner_rider_name`, `external_order_ref`, `delivery_eta_minutes` (5 to 240), `delivery_preparing_at`, `delivery_ready_at`, `dispatched_at`, `delivered_at`, `delivery_cancelled_at`, `delivery_cancel_reason`, `delivery_charge`, `delivery_charge_tax_percent`, `delivery_charge_waived_at`, `delivery_charge_waived_by`, `delivery_charge_waived_reason`; tokens `token_no`, `token_collected_at`, `token_collected_by`; brand `brand_id` (the brand the order was taken under, printed on its KOTs and bill; NULL = the kitchen's own name).
 Relations: `restaurant_id` -> `restaurants` (CASCADE); `outlet_id` -> `outlets`; `business_day_id` -> `business_days`; `table_id` -> `dining_tables`; `customer_id` -> `customers`; `merged_into_order_id` -> `orders` (SET NULL); `channel_id` -> `sales_channels` (SET NULL); `rider_employee_id` -> `employees` (SET NULL); `delivery_charge_waived_by`, `token_collected_by` -> `users`; `brand_id` -> `restaurant_brands` (RESTRICT).
-Rules: UNIQUE (restaurant_id, order_number); chk_orders_table (dine-in needs a table); uq_orders_open_table (one open order per table); uq_orders_day_token (a token number is never reused within a business day); chk_orders_delivery_out (out for delivery needs `dispatched_at` and a rider or partner rider name); chk_orders_delivery_cancel_reason; chk_orders_delivery_waiver (a waived charge needs a reason); amounts >= 0. Triggers: trg_orders_free_joined_tables (function free_joined_tables) frees joined tables when the order leaves open/billed; trg_orders_erased_guest (keep_erased_guests_unlinked) refuses to link an erased guest by nulling `customer_id`. Partial indexes for tables in use, settled tables, deliveries, riders, channels, customers and waiting tokens support the POS screens; idx_orders_brand (restaurant_id, brand_id) where a brand is set serves the brand report. Never deleted: trigger `orders_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
-Added by: 1789790365080_create-orders; 1789905000000_create-deliveries-and-channels; 1789908000000_add-guest-insights (index); 1789911000000_orders-core-edits-and-cancellations; 1789912000000_pos-floor-moves-and-sold-out; 1789916000000_crm-guest-book-privacy; 1789921000000_floor-plan-turns (index); 1790820000002 (the open-table index); 1790960000001_order-tokens-and-collection-screen; 1791330000000_delivery-charge-on-orders; 1791950411000_kitchen-brands (brand_id); 1791974000000_live-updates (live updates: `trg_orders_live`); 1791990000070 records-kept-for-good.
+Rules: UNIQUE (restaurant_id, order_number); chk_orders_table (dine-in needs a table); uq_orders_open_table (one open order per table); uq_orders_day_token (a token number is never reused within a business day); chk_orders_delivery_out (out for delivery needs `dispatched_at` and a rider or partner rider name); chk_orders_delivery_cancel_reason; chk_orders_delivery_waiver (a waived charge needs a reason); amounts >= 0. Triggers: trg_orders_free_joined_tables (function free_joined_tables) frees joined tables when the order leaves open/billed; trg_orders_erased_guest (keep_erased_guests_unlinked) refuses to link an erased guest by nulling `customer_id`. Partial indexes for tables in use, settled tables, deliveries, riders, channels, customers and waiting tokens support the POS screens; idx_orders_brand (restaurant_id, brand_id) where a brand is set serves the brand report. Never deleted: trigger `orders_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)). Indexed for a delete or merge that looks it up: `idx_orders_customer_id_fk` (customer_id, where set), `idx_orders_outlet_id` (outlet_id, where set).
+Added by: 1789790365080_create-orders; 1789905000000_create-deliveries-and-channels; 1789908000000_add-guest-insights (index); 1789911000000_orders-core-edits-and-cancellations; 1789912000000_pos-floor-moves-and-sold-out; 1789916000000_crm-guest-book-privacy; 1789921000000_floor-plan-turns (index); 1790820000002 (the open-table index); 1790960000001_order-tokens-and-collection-screen; 1791330000000_delivery-charge-on-orders; 1791950411000_kitchen-brands (brand_id); 1791974000000_live-updates (live updates: `trg_orders_live`); 1791990000070 records-kept-for-good; 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `order_items`
 Purpose: dish lines on an order, with name, price and tax snapshots.
 Key columns: `order_id`, `product_id`, `product_variant_id`, `item_name`, `variant_name`, `quantity`, `unit_price`, `modifier_total`, `tax_percentage`, `cess_percentage`, `hsn_code`, `price_includes_tax`, `mrp`, `line_subtotal`, `line_tax`, `line_total`, `item_status` (`pending` / `preparing` / `ready` / `served` / `cancelled`), `notes`, `price_window_id`, `course_no` (1 to 20), `course_name`, `fire_status` (`held` / `fired`), `fired_at`, `fired_by`, `combo_parts` (jsonb), `created_by`.
 Relations: `order_id` -> `orders` (CASCADE); `product_id` -> `products`; `product_variant_id` -> `product_variants`; `price_window_id` -> `price_windows`; `fired_by`, `created_by` -> `users`.
-Rules: quantity > 0, amounts >= 0. Triggers on insert: trg_order_items_cess (stamp_order_item_cess) copies the cess % from the dish's tax rate; zz_order_item_composition (clear_composition_order_cess) zeroes cess when the restaurant issues bills of supply (composition scheme). Never deleted: trigger `order_items_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
-Added by: 1789790365080_create-orders; 1789830000000_create-tax-rates (hsn_code); 1789842000000_create-price-windows; 1789913000000_billing-tax-invoice-and-till-controls (cess); 1789915000000_menu-data-safety (indexes); 1790726900000_complete-operations-backlog (tax mode, mrp, courses); 1790727000000_service-readiness (combo_parts, composition trigger); 1790820000000_kitchen-round-sender (fired_by); 1791974000000_live-updates (live updates: `trg_order_items_live`); 1791990000070 records-kept-for-good.
+Rules: quantity > 0, amounts >= 0. Triggers on insert: trg_order_items_cess (stamp_order_item_cess) copies the cess % from the dish's tax rate; zz_order_item_composition (clear_composition_order_cess) zeroes cess when the restaurant issues bills of supply (composition scheme). Never deleted: trigger `order_items_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)). Indexed for a delete or merge that looks it up: `idx_order_items_price_window_id` (price_window_id, where set).
+Added by: 1789790365080_create-orders; 1789830000000_create-tax-rates (hsn_code); 1789842000000_create-price-windows; 1789913000000_billing-tax-invoice-and-till-controls (cess); 1789915000000_menu-data-safety (indexes); 1790726900000_complete-operations-backlog (tax mode, mrp, courses); 1790727000000_service-readiness (combo_parts, composition trigger); 1790820000000_kitchen-round-sender (fired_by); 1791974000000_live-updates (live updates: `trg_order_items_live`); 1791990000070 records-kept-for-good; 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `order_item_modifiers`
 Purpose: add-ons chosen on an order line, with name and price snapshots.
@@ -432,13 +432,6 @@ Key columns: `restaurant_id` (PK), `last_number`.
 Relations: `restaurant_id` -> `restaurants` (CASCADE).
 Added by: 1789911000000_orders-core-edits-and-cancellations.
 
-#### `outlet_order_counters`
-Purpose: last order number per outlet (or restaurant-wide when `outlet_id` is NULL), for outlet-prefixed order numbers.
-Key columns: `restaurant_id`, `outlet_id`, `last_number`.
-Relations: `restaurant_id`, `outlet_id` ON DELETE CASCADE.
-Rules: uq_outlet_order_counters UNIQUE (restaurant_id, COALESCE(outlet_id, 0)).
-Added by: 1790726900000_complete-operations-backlog.
-
 #### `order_token_counters`
 Purpose: last pickup token number handed out per business day (tokens restart at 1 each day).
 Key columns: `business_day_id` (PK), `restaurant_id`, `last_number`.
@@ -449,8 +442,8 @@ Added by: 1790960000001_order-tokens-and-collection-screen.
 Purpose: log of every reduced or removed dish, before and after the KOT, for the void report.
 Key columns: `outlet_id`, `business_day_id`, `order_id`, `order_item_id`, `product_id`, `item_name`, `variant_name`, `modifiers_label`, `quantity`, `unit_price`, `amount`, `after_kot`, `kitchen_stage` (`new` / `cooking` / `ready` / `served`), `reason_code` (`guest_changed_mind` / `wrong_order` / `delay` / `quality` / `other`), `reason_note`, `source` (`edit` / `item` / `order`), `cancelled_by`, `approved_by`.
 Relations: `restaurant_id` (CASCADE); `order_id` -> `orders` (CASCADE); `outlet_id`, `business_day_id`, `order_item_id`, `product_id`, `cancelled_by`, `approved_by` ON DELETE SET NULL.
-Rules: chk_cancellation_reason (after the KOT a reason is required); chk_cancellation_other_note ("other" needs a note). Insert-only.
-Added by: 1789911000000_orders-core-edits-and-cancellations.
+Rules: chk_cancellation_reason (after the KOT a reason is required); chk_cancellation_other_note ("other" needs a note). Insert-only. Indexed for a delete or merge that looks it up: `idx_order_item_cancellations_product_id` (product_id, where set).
+Added by: 1789911000000_orders-core-edits-and-cancellations; 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `order_joined_tables`
 Purpose: extra tables joined to an order (a party spread over several tables).
@@ -463,21 +456,22 @@ Added by: 1789912000000_pos-floor-moves-and-sold-out; 1791974000000_live-updates
 Purpose: history of table moves, joins, unjoins and dish transfers between orders.
 Key columns: `business_day_id`, `move_type` (`table` / `join` / `dishes` / `unjoin`), `from_order_id`, `to_order_id`, `from_table_id`, `to_table_id`, `from_table_no`, `to_table_no`, `items` (jsonb), `amount`.
 Relations: `restaurant_id`, `from_order_id`, `to_order_id` ON DELETE CASCADE; `business_day_id`, table ids ON DELETE SET NULL.
-Added by: 1789912000000_pos-floor-moves-and-sold-out.
+Rules: Indexed for a delete or merge that looks it up: `idx_order_moves_from_table_id` (from_table_id, where set), `idx_order_moves_to_table_id` (to_table_id, where set).
+Added by: 1789912000000_pos-floor-moves-and-sold-out; 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `restaurant_preorders`
 Purpose: an order for a later day (a cake, a party tray) with the message, an advance and the time it is due. It moves booked → in_production → ready → collected (or cancelled); on collection it becomes a takeaway order on the open business day, and the advance is put on that order, so its bill takes the advance first.
 Key columns: `outlet_id` (where it was booked; NULL = the main counter), `preorder_number` (varchar 20, PRE-0001…), `customer_id`, `due_at`, `fulfilment` (`pickup` / `delivery`), `delivery_address`, `notes` (varchar 500), `status` (`booked` / `in_production` / `ready` / `collected` / `cancelled`), `estimated_total` (>= 0), `advance_id` (an ordinary guest advance), `order_id` (the order it became), `cancel_reason`, `collected_at`, `created_by`, `updated_by`.
 Relations: `restaurant_id` -> `restaurants` (CASCADE); `outlet_id` -> `outlets` (SET NULL); `customer_id` -> `customers` (RESTRICT); `advance_id` -> `customer_advances` (SET NULL); `order_id` -> `orders` (SET NULL).
-Rules: UNIQUE (restaurant_id, preorder_number); cancelled exactly when there is a `cancel_reason`; a collected pre-order has its order; delivery needs an address (CHECKs). Partial index restaurant_preorders_due (restaurant_id, due_at) on booked, in-production and ready rows. The endpoints need the `preorders` feature (off by default; the café and bakery formats switch it on), and taking an advance also needs `advances`. Moving one to in_production and ready needs the permission `preorders.produce`.
-Added by: 1791950410000_food-formats; 1791974000000_live-updates (live updates: `trg_restaurant_preorders_live`).
+Rules: UNIQUE (restaurant_id, preorder_number); cancelled exactly when there is a `cancel_reason`; a collected pre-order has its order; delivery needs an address (CHECKs). Partial index restaurant_preorders_due (restaurant_id, due_at) on booked, in-production and ready rows. The endpoints need the `preorders` feature (off by default; the café and bakery formats switch it on), and taking an advance also needs `advances`. Moving one to in_production and ready needs the permission `preorders.produce`. Indexed for a delete or merge that looks it up: `idx_restaurant_preorders_customer_id` (customer_id).
+Added by: 1791950410000_food-formats; 1791974000000_live-updates (live updates: `trg_restaurant_preorders_live`); 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `restaurant_preorder_items`
 Purpose: the dishes on a pre-order, with what the baker reads.
 Key columns: `preorder_id`, `product_id`, `product_variant_id`, `quantity` (numeric 10,2, > 0), `unit_price` (>= 0), `notes` (varchar 300: the message on the cake, the flavour, the shape).
 Relations: `restaurant_id` -> `restaurants` (CASCADE); `preorder_id` -> `restaurant_preorders` (CASCADE); `product_id` -> `products` (RESTRICT); `product_variant_id` -> `product_variants` (RESTRICT).
-Rules: index restaurant_preorder_items_order (restaurant_id, preorder_id).
-Added by: 1791950410000_food-formats.
+Rules: index restaurant_preorder_items_order (restaurant_id, preorder_id). Indexed for a delete or merge that looks it up: `idx_restaurant_preorder_items_product_id` (product_id), `idx_restaurant_preorder_items_product_variant_id` (product_variant_id, where set).
+Added by: 1791950410000_food-formats; 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `kitchen_stations`
 Purpose: kitchen sections (tandoor, bar) that receive KOTs. A new restaurant starts with one, Main kitchen, as its default.
@@ -509,8 +503,8 @@ Added by: 1789901000000_create-kitchen-display; 1791330002000_kitchen-names; 179
 Purpose: kitchen order tickets, one per order round per station.
 Key columns: `outlet_id`, `business_day_id`, `order_id`, `station_id`, `kot_number`, `kot_status` (`new` / `cooking` / `ready` / `served` / `cancelled`), `created_at`, `started_at`, `ready_at`, `served_at`, `cancelled_at`, `recalled_at`, `recall_count`, `cleared_reason` (`day_closed` / `order_closed` / `manager`), `print_count`, `last_printed_at`, `started_by`, `ready_by`, `served_by`, `sent_by` (who fired the round), `moved_from_table_no`, `moved_at`, `split_from_kot_id`.
 Relations: `restaurant_id` (CASCADE); `outlet_id` -> `outlets`; `business_day_id` -> `business_days`; `order_id` -> `orders` (CASCADE); `station_id` -> `kitchen_stations`; `split_from_kot_id` -> `kots` (SET NULL); user columns -> `users`.
-Rules: UNIQUE (business_day_id, kot_number); chk_kots_cleared_served (a cleared ticket must be served). Partial indexes for open and served tickets.
-Added by: 1789901000000_create-kitchen-display; 1789912000000_pos-floor-moves-and-sold-out; 1790820000000_kitchen-round-sender; 1791974000000_live-updates (live updates: `trg_kots_live`).
+Rules: UNIQUE (business_day_id, kot_number); chk_kots_cleared_served (a cleared ticket must be served). Partial indexes for open and served tickets. Indexed for a delete or merge that looks it up: `idx_kots_outlet_id` (outlet_id, where set).
+Added by: 1789901000000_create-kitchen-display; 1789912000000_pos-floor-moves-and-sold-out; 1790820000000_kitchen-round-sender; 1791974000000_live-updates (live updates: `trg_kots_live`); 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `kot_counters`
 Purpose: last KOT number per business day.
@@ -522,15 +516,15 @@ Added by: 1789901000000_create-kitchen-display.
 Purpose: lines on a KOT, with name snapshots as cut.
 Key columns: `kot_id`, `order_id`, `order_item_id`, `product_id`, `line_key`, `item_name`, `variant_name`, `modifiers` (jsonb), `components` (jsonb, combo parts), `notes`, `food_type`, `quantity`, `cancelled_quantity`, `is_done`, `done_at`, `done_by`, `kitchen_name`, `variant_kitchen_name`, `modifier_kitchen_names` (jsonb, parallel to modifiers), `served_at` / `served_by` (a dish the kitchen ticked done, served from the floor on its own while the rest of its ticket cooked; serving the last one serves the ticket, and a recall of the ticket clears them), `course_name` (the course the dish was sent under, copied from `order_items.course_name` when the ticket is cut; the KOT prints it).
 Relations: `kot_id` -> `kots` (CASCADE); `restaurant_id`, `order_id` (CASCADE); `order_item_id`, `product_id` ON DELETE SET NULL; `done_by`, `served_by` -> `users`.
-Rules: quantity > 0; 0 <= cancelled_quantity <= quantity; a dish served is done (`chk_kot_items_served_done`: `served_at` only with `is_done`).
-Added by: 1789901000000_create-kitchen-display; 1791330002000_kitchen-names; 1791974000000_live-updates (live updates: `trg_kot_items_live`); restaurant-rest (`served_at`, `served_by`, `course_name`).
+Rules: quantity > 0; 0 <= cancelled_quantity <= quantity; a dish served is done (`chk_kot_items_served_done`: `served_at` only with `is_done`). Indexed for a delete or merge that looks it up: `idx_kot_items_product_id` (product_id, where set). CHECK `food_type` veg, non_veg or egg (`chk_kot_items_food_type`).
+Added by: 1789901000000_create-kitchen-display; 1791330002000_kitchen-names; 1791974000000_live-updates (live updates: `trg_kot_items_live`); restaurant-rest (`served_at`, `served_by`, `course_name`); 1791990000080 indexes-for-deletes-and-lookups; 1791990000090 keys-and-checks.
 
 #### `kot_change_slips`
 Purpose: printed slips telling a station about a cancellation, a cancelled order or a table change after its KOT went out.
 Key columns: `outlet_id`, `business_day_id`, `order_id`, `station_id`, `kind` (`cancel` / `order_cancelled` / `table_changed`), `order_number`, `order_type`, `table_no`, `from_table_no`, `to_table_no`, `kot_ids` (bigint[]), `kot_numbers` (int[]), `lines` (jsonb), `reason`, `changed_by`, `approved_by`, `print_count`, `first_printed_at`, `last_printed_at`, `last_printed_by`.
 Relations: `restaurant_id`, `order_id`, `station_id` ON DELETE CASCADE; `outlet_id`, `business_day_id` ON DELETE SET NULL.
-Rules: partial index idx_kot_change_slips_unprinted on `print_count = 0`.
-Added by: 1790960000000_kitchen-change-slips; 1791974000000_live-updates (live updates: `trg_kot_change_slips_live`).
+Rules: partial index idx_kot_change_slips_unprinted on `print_count = 0`. CHECK `order_type` as an order's (`chk_kot_change_slips_order_type`).
+Added by: 1790960000000_kitchen-change-slips; 1791974000000_live-updates (live updates: `trg_kot_change_slips_live`); 1791990000090 keys-and-checks.
 
 #### `kot_time_repairs`
 Purpose: a backup kept by migration 1790820000001: the earlier `created_at` of each KOT it corrected (a ticket whose start, ready or served time came before its creation).
@@ -549,7 +543,8 @@ Added by: 1789903000000_create-table-requests; 1791330003000_online-ordering; 17
 Purpose: dishes in a guest order request, priced as the guest saw them.
 Key columns: `request_id`, `product_id`, `product_variant_id`, `modifier_ids` (bigint[]), `item_name`, `variant_name`, `modifiers` (jsonb), `food_type`, `quantity` (1 to 20), `notes`, `unit_price`, `line_total`, `sort_order`, `order_item_id` (the order line it became), `combo_selections` (jsonb).
 Relations: `request_id` -> `table_requests` (CASCADE); `restaurant_id` (CASCADE); `product_id`, `product_variant_id`, `order_item_id` ON DELETE SET NULL.
-Added by: 1789903000000_create-table-requests; 1790727000000_service-readiness (combo_selections).
+Rules: CHECK `food_type` veg, non_veg or egg (`chk_table_request_items_food_type`).
+Added by: 1789903000000_create-table-requests; 1790727000000_service-readiness (combo_selections); 1791990000090 keys-and-checks.
 
 #### `table_request_settings`
 Purpose: per-restaurant switches for QR table ordering and calls.
@@ -563,8 +558,8 @@ Added by: 1789903000000_create-table-requests.
 Purpose: table bookings, taken by staff or requested online.
 Key columns: `outlet_id`, `reference_no`, `customer_id`, `guest_name`, `guest_mobile`, `party_size` (1 to 100), `reservation_date`, `start_time`, `duration_minutes` (15 to 480), `starts_at` / `ends_at` (generated, stored), `table_id`, `capacity_override`, `capacity_override_reason`, `occasion` (`birthday` / `anniversary` / `business` / `date_night` / `other`), `special_requests`, `source` (`phone` / `walk_in` / `online` / `app` / `other`), `internal_notes`, `status` (`requested` / `booked` / `confirmed` / `seated` / `completed` / `cancelled` / `no_show` / `declined`), `order_id`, `cancel_reason`, `guest_token` (guest's link to view or cancel an online request), `confirmed_at`, `seated_at`, `completed_at`, `cancelled_at`, `no_show_at`, `declined_at`.
 Relations: `restaurant_id` (CASCADE); `outlet_id` -> `outlets`; `customer_id` -> `customers`, `table_id` -> `dining_tables`, `order_id` -> `orders`, all ON DELETE SET NULL. Extra tables in `reservation_tables`.
-Rules: UNIQUE (restaurant_id, reference_no); chk_reservations_cancel_reason; chk_reservations_decline_reason (declined needs `cancel_reason`); chk_reservations_seated_table (seated needs a table); chk_reservations_request_no_table (an online request has no table yet); uq_reservations_guest_token; trigger trg_reservations_erased_guest (keep_erased_guests_unlinked) unlinks erased guests.
-Added by: 1789902000000_create-reservations; 1789916000000_crm-guest-book-privacy (trigger); 1790960000003_bookings-across-tables (capacity_override_reason); 1791330001000_online-table-booking (requested/declined, guest_token); 1791974000000_live-updates (live updates: `trg_reservations_live`).
+Rules: UNIQUE (restaurant_id, reference_no); chk_reservations_cancel_reason; chk_reservations_decline_reason (declined needs `cancel_reason`); chk_reservations_seated_table (seated needs a table); chk_reservations_request_no_table (an online request has no table yet); uq_reservations_guest_token; trigger trg_reservations_erased_guest (keep_erased_guests_unlinked) unlinks erased guests. Indexed for a delete or merge that looks it up: `idx_reservations_customer_id` (customer_id, where set).
+Added by: 1789902000000_create-reservations; 1789916000000_crm-guest-book-privacy (trigger); 1790960000003_bookings-across-tables (capacity_override_reason); 1791330001000_online-table-booking (requested/declined, guest_token); 1791974000000_live-updates (live updates: `trg_reservations_live`); 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `reservation_tables`
 Purpose: all tables held by a booking that spans several tables.
@@ -577,8 +572,8 @@ Added by: 1790960000003_bookings-across-tables; 1791974000000_live-updates (live
 Purpose: walk-in waitlist.
 Key columns: `outlet_id`, `customer_id`, `guest_name`, `guest_mobile`, `party_size`, `quoted_minutes` (0 to 240), `notes`, `status` (`waiting` / `seated` / `left` / `removed`), `joined_at`, `notified_at`, `resolved_at`, `table_id`, `order_id`.
 Relations: `restaurant_id` (CASCADE); `outlet_id` -> `outlets`; `customer_id`, `table_id`, `order_id` ON DELETE SET NULL.
-Rules: chk_waitlist_resolved (anything but waiting needs `resolved_at`); trigger trg_waitlist_entries_erased_guest unlinks erased guests.
-Added by: 1789902000000_create-reservations; 1789916000000_crm-guest-book-privacy; 1791974000000_live-updates (live updates: `trg_waitlist_entries_live`).
+Rules: chk_waitlist_resolved (anything but waiting needs `resolved_at`); trigger trg_waitlist_entries_erased_guest unlinks erased guests. Indexed for a delete or merge that looks it up: `idx_waitlist_entries_table_id` (table_id, where set), `idx_waitlist_entries_customer_id` (customer_id, where set).
+Added by: 1789902000000_create-reservations; 1789916000000_crm-guest-book-privacy; 1791974000000_live-updates (live updates: `trg_waitlist_entries_live`); 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `online_booking_settings`
 Purpose: the public online table-booking page per restaurant or outlet and its limits.
@@ -637,8 +632,8 @@ Added by: 1790810000000_cash-drawers-and-loyalty-rules.
 Purpose: Cash taken into or out of a drawer outside sales: `paid_in` (float top-up from the safe), `petty_cash` (paid out for the restaurant, also recorded as an expense), `drop` (surplus moved to the safe mid-shift).
 Key columns: `business_day_id`, `outlet_id`, `drawer_id` (the open shift drawer, when there is one), `movement_type`, `amount` (> 0, <= 99,999,999), `reason` (required), `expense_id`, `movement_status` (`recorded` | `cancelled`), `cancelled_at` / `cancelled_by` / `cancel_reason`, `approved_by` (manager whose PIN allowed it).
 Relations: `business_day_id` -> `business_days` (ON DELETE CASCADE); `outlet_id` -> `outlets` (ON DELETE SET NULL); `drawer_id` -> `cash_drawers` (ON DELETE SET NULL); `expense_id` -> `expenses`; user columns -> `users`.
-Rules: petty cash must point at its expense (`movement_type <> 'petty_cash' OR expense_id IS NOT NULL`), so expense reports and the drawer agree; a movement is never deleted, only cancelled, and a cancelled one must have `cancelled_at` (CHECK). Requires permission `cash.movements`; a cashier without it records one with a manager's PIN (`approved_by`). Never deleted: trigger `cash_movements_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
-Added by: 1790810000000_cash-drawers-and-loyalty-rules; 1791990000070 records-kept-for-good.
+Rules: petty cash must point at its expense (`movement_type <> 'petty_cash' OR expense_id IS NOT NULL`), so expense reports and the drawer agree; a movement is never deleted, only cancelled, and a cancelled one must have `cancelled_at` (CHECK). Requires permission `cash.movements`; a cashier without it records one with a manager's PIN (`approved_by`). Never deleted: trigger `cash_movements_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)). Indexed for a delete or merge that looks it up: `idx_cash_movements_expense_id` (expense_id, where set), `idx_cash_movements_outlet_id` (outlet_id, where set).
+Added by: 1790810000000_cash-drawers-and-loyalty-rules; 1791990000070 records-kept-for-good; 1791990000080 indexes-for-deletes-and-lookups.
 
 ### Billing and payments
 
@@ -670,8 +665,8 @@ total_amount              = taxable_amount + tax_amount + round_off
 Purpose: The money document (GST tax invoice or bill of supply) for all or part of an order.
 Key columns: `bill_number` (from `document_counters`, series per invoice prefix; may restart each financial year), `order_id`, `business_day_id`, `outlet_id`, the money columns above (`subtotal`, `discount_amount`, `coupon_discount`, `manual_discount_*`, `item_discount_amount`, `loyalty_points_used`, `loyalty_discount`, `service_charge_percentage`, `service_charge`, `service_charge_tax`, `service_charge_waived` / `_waive_reason`, `delivery_charge`, `delivery_charge_tax`, `delivery_charge_waived` / `_waive_reason` / `_waived_by` / `_approved_by`, `taxable_amount`, `tax_amount`, `cess_amount`, `tax_mode`, `round_off`, `total_amount`, `paid_amount`, `refunded_amount`, `credited_amount`), `bill_status` (`unpaid`, `partial`, `paid`, `void`), `void_reason`, `billed_at`, `settled_at`, `is_split` (one of several bills for one order), `is_complimentary` / `complimentary_reason` / `complimentary_note` / `complimentary_by` / `complimentary_approved_by`, `seller_gstin` and `seller_fssai` (as printed when raised, so reprints never change), `consume_stock` (whether this bill took its ingredients out of stock), `receipt_settings` (JSONB snapshot of print settings), `print_count`, `first_printed_at`, `last_printed_at`, `last_adjusted_at`, `account_customer_id` / `account_at` / `account_by` / `account_approved_by` / `account_note` (bill put on a guest's credit account), `buyer_pan` (CHAR(10), the buyer's PAN; on a walk-in bill it also adds the bill's cash up with the rest under that PAN, partial index `idx_bills_buyer_pan`) and `pan_declaration` (the buyer has no PAN and signed Form 97): a bill over ₹2,00,000 takes no payment without one of them (trigger `trg_payments_buyer_pan`, under `payments`).
 Relations: `restaurant_id` -> `restaurants` (ON DELETE CASCADE); `outlet_id` -> `outlets`; `business_day_id` -> `business_days`; `order_id` -> `orders`; `discount_id` -> `discounts`; `account_customer_id` -> `customers`; approver / giver columns -> `users`.
-Rules: `bill_number` unique per restaurant; all amount columns `>= 0` except `round_off`; a complimentary bill needs a reason (`chk_bills_complimentary_reason`); a waived service charge needs a reason (`chk_bills_waive_reason`); a waived delivery charge needs a reason (`chk_bills_delivery_waiver`); `service_charge_percentage` 0-100; `buyer_pan` has a PAN's shape (five letters, four digits and a letter, CHECK) and never comes with `pan_declaration` (`chk_bills_pan_or_declaration`). That the bills of one order never bill more than was ordered is checked in code (split billing). Bill-stock reversal: `consume_stock` remembers whether the bill consumed stock at the time (the `auto_consume_stock` setting can change later), so voiding or returning an old bill puts back exactly the stock it took and never stock it did not. Partial indexes keep the bell cheap (`idx_bills_unsettled` on unpaid/partial bills), plus `idx_bills_account` (account bills), `idx_bills_discount_id`, `idx_bills_order` (the bill number is found by its unique key). Never deleted: trigger `bills_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
-Added by: 1789790367434_create-billing-and-payments; 1789802692848_split-bills-and-returns; 1789817853331_create-loyalty; 1789824100000_bill-stock-reversal; 1789904000000_create-notification-reads; 1789908000000_add-guest-insights; 1789913000000_billing-tax-invoice-and-till-controls; 1790727000000_service-readiness; 1790800000000_billing-series-and-guest-accounts; 1791340000002_bill-delivery-charge-fssai-upi-and-yearly-numbers; 1791340000003_coupon-rules; 1791972000000_restaurant-cash-limit-and-pan (`buyer_pan`, `pan_declaration`); 1791974000000_live-updates (live updates: `trg_bills_live`); restaurant-rest (`idx_bills_buyer_pan`); 1791990000070 records-kept-for-good; 1791990000060 drop-duplicate-indexes (dropped idx_bills_restaurant_number, idx_bills_order_id, a copy of another index).
+Rules: `bill_number` unique per restaurant; all amount columns `>= 0` except `round_off`; a complimentary bill needs a reason (`chk_bills_complimentary_reason`); a waived service charge needs a reason (`chk_bills_waive_reason`); a waived delivery charge needs a reason (`chk_bills_delivery_waiver`); `service_charge_percentage` 0-100; `buyer_pan` has a PAN's shape (five letters, four digits and a letter, CHECK) and never comes with `pan_declaration` (`chk_bills_pan_or_declaration`). That the bills of one order never bill more than was ordered is checked in code (split billing). Bill-stock reversal: `consume_stock` remembers whether the bill consumed stock at the time (the `auto_consume_stock` setting can change later), so voiding or returning an old bill puts back exactly the stock it took and never stock it did not. Partial indexes keep the bell cheap (`idx_bills_unsettled` on unpaid/partial bills), plus `idx_bills_account` (account bills), `idx_bills_discount_id`, `idx_bills_order` (the bill number is found by its unique key). Never deleted: trigger `bills_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)). Indexed for a delete or merge that looks it up: `idx_bills_account_customer_id` (account_customer_id, where set), `idx_bills_discount_id_fk` (discount_id, where set), `idx_bills_outlet_id` (outlet_id, where set).
+Added by: 1789790367434_create-billing-and-payments; 1789802692848_split-bills-and-returns; 1789817853331_create-loyalty; 1789824100000_bill-stock-reversal; 1789904000000_create-notification-reads; 1789908000000_add-guest-insights; 1789913000000_billing-tax-invoice-and-till-controls; 1790727000000_service-readiness; 1790800000000_billing-series-and-guest-accounts; 1791340000002_bill-delivery-charge-fssai-upi-and-yearly-numbers; 1791340000003_coupon-rules; 1791972000000_restaurant-cash-limit-and-pan (`buyer_pan`, `pan_declaration`); 1791974000000_live-updates (live updates: `trg_bills_live`); restaurant-rest (`idx_bills_buyer_pan`); 1791990000070 records-kept-for-good; 1791990000060 drop-duplicate-indexes (dropped idx_bills_restaurant_number, idx_bills_order_id, a copy of another index); 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `bill_items`
 Purpose: Which order lines, and how much of each, a bill covers (supports split bills), with the GST breakdown per line so HSN-wise GST adds up to the invoice.
@@ -759,8 +754,8 @@ Added by: 1790800000000_billing-series-and-guest-accounts.
 Purpose: Deposits/advances received from a guest (ADV-0001…), held and later used on bills. Not a sale when received; it becomes one on the bill it is used on.
 Key columns: `receipt_number`, `customer_id`, `business_day_id`, `outlet_id`, `amount` (> 0), `used_amount`, `refunded_amount`, `payment_method`, `payment_type_id`, `transaction_ref`, `purpose`, `reservation_id`, `order_id` (the pickup order an advance was taken on), `received_at`.
 Relations: `customer_id` -> `customers` (ON DELETE RESTRICT); `business_day_id` -> `business_days` (SET NULL); `outlet_id` -> `outlets` (SET NULL); `payment_type_id` -> `payment_types` (RESTRICT); `reservation_id` -> `reservations` (SET NULL); `order_id` -> `orders` (SET NULL).
-Rules: `used_amount + refunded_amount <= amount` (CHECK); receipt number unique per restaurant (`uq_customer_advances_number`); partial index `idx_customer_advances_open` lists advances still holding money. Used on a bill via a `payments` row with method `advance`. Trigger `trg_customer_advances_order` (function `customer_advances_order_same_restaurant`) keeps the order within the same restaurant; partial index `idx_customer_advances_order`. Trigger `trg_customer_advances_cash_limit` (function `restaurant_cash_limit_advance()`, BEFORE INSERT and BEFORE UPDATE OF `payment_method`, `amount`) refuses an advance in cash that would take its guest's cash on the day it is received to ₹2,00,000 (`restaurant_guest_cash_check`, under `payments`); moving an advance to another guest record, as a merge does, is not counted again.
-Added by: 1791340000001_customer-advances; 1791620003000_wholesale-purchase-orders-challan-schemes-bounces (`order_id`); 1791972000000_restaurant-cash-limit-and-pan (the cash limit).
+Rules: `used_amount + refunded_amount <= amount` (CHECK); receipt number unique per restaurant (`uq_customer_advances_number`); partial index `idx_customer_advances_open` lists advances still holding money. Used on a bill via a `payments` row with method `advance`. Trigger `trg_customer_advances_order` (function `customer_advances_order_same_restaurant`) keeps the order within the same restaurant; partial index `idx_customer_advances_order`. Trigger `trg_customer_advances_cash_limit` (function `restaurant_cash_limit_advance()`, BEFORE INSERT and BEFORE UPDATE OF `payment_method`, `amount`) refuses an advance in cash that would take its guest's cash on the day it is received to ₹2,00,000 (`restaurant_guest_cash_check`, under `payments`); moving an advance to another guest record, as a merge does, is not counted again. Indexed for a delete or merge that looks it up: `idx_customer_advances_customer_id` (customer_id).
+Added by: 1791340000001_customer-advances; 1791620003000_wholesale-purchase-orders-challan-schemes-bounces (`order_id`); 1791972000000_restaurant-cash-limit-and-pan (the cash limit); 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `customer_advance_refunds`
 Purpose: An unused advance handed back to the guest.
@@ -773,8 +768,8 @@ Added by: 1791340000001_customer-advances.
 Purpose: Settling an own-delivery rider's run in one step: the cash bills and door-UPI bills are paid together, and any shortfall is kept as owed by the rider or written off.
 Key columns: `rider_employee_id`, `outlet_id`, `business_day_id`, `bill_count` (> 0), `cash_expected`, `cash_handed`, `upi_amount`, `shortfall`, `shortfall_action` (`none`, `owed`, `written_off`), `shortfall_reason`, `approved_by`, `repaid_at` / `repaid_by`, `repaid_business_day_id`, `settled_at` / `settled_by`.
 Relations: `rider_employee_id` -> `employees` (ON DELETE RESTRICT); `outlet_id`, `business_day_id`, `repaid_business_day_id` SET NULL.
-Rules: `cash_handed <= cash_expected`; `shortfall = cash_expected - cash_handed`; no shortfall means action `none`, a shortfall needs `owed` or `written_off` plus a reason; only an `owed` shortfall can be repaid (CHECKs). Trigger `trg_rider_settlements_repaid_day` (function `rider_settlement_repaid_day`) stamps `repaid_business_day_id` with the day open at that till (outlet's, else main counter's) when `repaid_at` is set, and clears it when unset, so that day's drawer expects the cash. Write-off needs `deliveries.write_off_shortfall`.
-Added by: 1791330000002_rider-cash-settlement; 1791360000001_rider-shortfall-repaid-day.
+Rules: `cash_handed <= cash_expected`; `shortfall = cash_expected - cash_handed`; no shortfall means action `none`, a shortfall needs `owed` or `written_off` plus a reason; only an `owed` shortfall can be repaid (CHECKs). Trigger `trg_rider_settlements_repaid_day` (function `rider_settlement_repaid_day`) stamps `repaid_business_day_id` with the day open at that till (outlet's, else main counter's) when `repaid_at` is set, and clears it when unset, so that day's drawer expects the cash. Write-off needs `deliveries.write_off_shortfall`. Indexed for a delete or merge that looks it up: `idx_rider_settlements_rider_employee_id` (rider_employee_id).
+Added by: 1791330000002_rider-cash-settlement; 1791360000001_rider-shortfall-repaid-day; 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `rider_settlement_bills`
 Purpose: The bills a settlement paid and how.
@@ -812,15 +807,15 @@ Added by: 1789817853331_create-loyalty; 1790810000000_cash-drawers-and-loyalty-r
 Purpose: Guest ratings and comments.
 Key columns: `outlet_id`, `customer_id`, `customer_name`, `customer_mobile`, `rating` (1-5), `comments`, `source` (`in_store`, `qr`, `website`, `phone`, `other`), `feedback_status` (`new`, `reviewed`, `archived`).
 Relations: `customer_id` -> `customers`; `outlet_id` -> `outlets`.
-Rules: trigger `trg_feedback_erased_guest` (`keep_erased_guests_unlinked`) refuses to link new feedback to an erased guest.
-Added by: 1789733008391_create-crm-and-expenses; 1789916000000_crm-guest-book-privacy.
+Rules: trigger `trg_feedback_erased_guest` (`keep_erased_guests_unlinked`) refuses to link new feedback to an erased guest. Indexed for a delete or merge that looks it up: `idx_feedback_customer_id` (customer_id, where set).
+Added by: 1789733008391_create-crm-and-expenses; 1789916000000_crm-guest-book-privacy; 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `complaints`
 Purpose: Guest complaints with assignment, resolution and the compensation given.
 Key columns: `outlet_id`, `customer_id`, `customer_name`, `customer_mobile`, `subject`, `description`, `category` (`food`, `service`, `delivery`, `billing`, `hygiene`, `other`), `priority` (`low`, `medium`, `high`), `complaint_status` (`open`, `in_progress`, `resolved`, `closed`), `assigned_to`, `resolution`, `resolved_at`, `bill_id`, `order_id`, `compensation_type` (`apology`, `replaced`, `removed`, `discount`, `complimentary`, `refund`, `voucher`, `points`), `compensation_value` (>= 0), `compensation_notes`.
 Relations: `customer_id` -> `customers`; `bill_id` -> `bills` (SET NULL); `order_id` -> `orders` (SET NULL); `assigned_to` -> `users`.
-Rules: compensation is a record only (the refund or points are given elsewhere); trigger `trg_complaints_erased_guest` keeps new complaints off erased guests.
-Added by: 1789733008391_create-crm-and-expenses; 1789916000000_crm-guest-book-privacy.
+Rules: compensation is a record only (the refund or points are given elsewhere); trigger `trg_complaints_erased_guest` keeps new complaints off erased guests. Indexed for a delete or merge that looks it up: `idx_complaints_customer_id` (customer_id, where set).
+Added by: 1789733008391_create-crm-and-expenses; 1789916000000_crm-guest-book-privacy; 1791990000080 indexes-for-deletes-and-lookups.
 
 ### Stock and purchasing
 
@@ -859,8 +854,8 @@ Added by: 1790726900000_complete-operations-backlog.
 Purpose: The stock ledger: every movement in or out, append-only.
 Key columns: `inventory_item_id`, `outlet_id` (store; NULL = main store), `transaction_type` (`purchase`, `adjustment`, `wastage`, `consumption`, `transfer`, `opening`, `return`), `quantity` (non-zero; positive in, negative out), `unit_cost` (NUMERIC(18,8)), `balance_after` (whole-restaurant balance after the row), `average_cost_after` (running average to 6 places), `sets_cost` (whether this row re-prices the item), `effective_at` (when goods really moved, vs `created_at` when typed), `reason`, `reference_type` / `reference_id` (source document, e.g. bill, count, `waste_reversal`), `waste_reason` (`spoiled`, `expired`, `overcooked`, `dropped`, `returned`, `over_prepped`, `remade`, `quality`, `unsold`, `other`; `unsold` is a bakery's leftovers counted at day end), `waste_date` (business day of the waste), `expired_quantity` (part taken from expired batches).
 Relations: `inventory_item_id` -> `inventory_items`; `outlet_id` -> `outlets`.
-Rules: `quantity <> 0`; the reason list is `chk_stock_transactions_waste_reason`; waste columns only on wastage rows (`chk_stock_transactions_waste_only`) and every wastage row dated (`chk_stock_transactions_waste_dated`); `expired_quantity > 0` when set. Trigger `trg_stock_transactions_waste_date` (function `set_waste_date`, BEFORE INSERT) fills `waste_date` from the open business day, else the restaurant's local date. Running balance: `balance_after` is the restaurant-wide figure; per-store running balances are summed from the store's own rows in id order using covering index `idx_stock_transactions_item_store` `(inventory_item_id, outlet_id, id) INCLUDE (quantity)`; the latest average cost is read via `idx_stock_transactions_item_latest`. A mistaken wastage is reversed by an opposite adjustment pointing back at it (`idx_stock_transactions_waste_reversal`). Closing stock and count expectations go by `effective_at`. A sale never fails for stock: it may draw on expired batches, flagged by `expired_quantity` (`idx_stock_transactions_expired_use`). Write-offs over `stock_settings.writeoff_approval_limit` need a manager (permission `inventory.approve_writeoff`).
-Added by: 1789733002908_create-suppliers-and-inventory; 1789802692848_split-bills-and-returns; 1789907000000_add-wastage-reasons; 1789914000000_stock-counts-purchase-bills; 1790727000000_service-readiness; 1790830000001_stock-latest-average-index; 1790830000002_stock-store-running-balance-index; 1790880000000_backoffice-limits-expiry-and-guests; 1791950410000_food-formats (`unsold`).
+Rules: `quantity <> 0`; the reason list is `chk_stock_transactions_waste_reason`; waste columns only on wastage rows (`chk_stock_transactions_waste_only`) and every wastage row dated (`chk_stock_transactions_waste_dated`); `expired_quantity > 0` when set. Trigger `trg_stock_transactions_waste_date` (function `set_waste_date`, BEFORE INSERT) fills `waste_date` from the open business day, else the restaurant's local date. Running balance: `balance_after` is the restaurant-wide figure; per-store running balances are summed from the store's own rows in id order using covering index `idx_stock_transactions_item_store` `(inventory_item_id, outlet_id, id) INCLUDE (quantity)`; the latest average cost is read via `idx_stock_transactions_item_latest`. A mistaken wastage is reversed by an opposite adjustment pointing back at it (`idx_stock_transactions_waste_reversal`). Closing stock and count expectations go by `effective_at`. A sale never fails for stock: it may draw on expired batches, flagged by `expired_quantity` (`idx_stock_transactions_expired_use`). Write-offs over `stock_settings.writeoff_approval_limit` need a manager (permission `inventory.approve_writeoff`). Indexed for a delete or merge that looks it up: `idx_stock_transactions_outlet_id` (outlet_id, where set).
+Added by: 1789733002908_create-suppliers-and-inventory; 1789802692848_split-bills-and-returns; 1789907000000_add-wastage-reasons; 1789914000000_stock-counts-purchase-bills; 1790727000000_service-readiness; 1790830000001_stock-latest-average-index; 1790830000002_stock-store-running-balance-index; 1790880000000_backoffice-limits-expiry-and-guests; 1791950410000_food-formats (`unsold`); 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `stock_balances`
 Purpose: Quantity of each item per store (NULL outlet = main store), so transfers balance on both sides.
@@ -879,15 +874,15 @@ Added by: 1790880000000_backoffice-limits-expiry-and-guests.
 Purpose: Batch/expiry tracking under the item ledger: one batch of an item as received.
 Key columns: `inventory_item_id`, `batch_number` (varchar 100), `expiry_date`, `received_at`.
 Relations: `restaurant_id` -> `restaurants`, `inventory_item_id` -> `inventory_items` (no cascade); its stock per store is in `inventory_batch_balances`, its share of each ledger row in `inventory_batch_movements`.
-Rules: index `inventory_batches_item` (restaurant_id, inventory_item_id); partial index `idx_inventory_batches_expiry` (dated batches) serves the expiry bell.
-Added by: 1790726500000_inventory-batches; 1790880000000_backoffice-limits-expiry-and-guests (expiry index).
+Rules: index `inventory_batches_item` (restaurant_id, inventory_item_id); partial index `idx_inventory_batches_expiry` (dated batches) serves the expiry bell. Indexed for a delete or merge that looks it up: `idx_inventory_batches_inventory_item_id` (inventory_item_id).
+Added by: 1790726500000_inventory-batches; 1790880000000_backoffice-limits-expiry-and-guests (expiry index); 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `inventory_batch_balances`
 Purpose: How much of a batch each store holds (NULL outlet = main store).
 Key columns: `batch_id`, `outlet_id`, `quantity` (NUMERIC(18,6)).
 Relations: `batch_id` -> `inventory_batches`; `outlet_id` -> `outlets`.
-Rules: one row per batch per store, NULL outlet as one key (`UNIQUE NULLS NOT DISTINCT (batch_id, outlet_id)`); no primary key of its own.
-Added by: 1790726500000_inventory-batches.
+Rules: one row per batch per store, NULL outlet as one key (`UNIQUE NULLS NOT DISTINCT (batch_id, outlet_id)`); no primary key of its own. Primary key `id` (generated).
+Added by: 1790726500000_inventory-batches; 1791990000090 keys-and-checks (`id`).
 
 #### `inventory_batch_movements`
 Purpose: Allocates each ledger row to batches (first to expire first).
@@ -900,8 +895,8 @@ Added by: 1790726500000_inventory-batches; 1790880000000_backoffice-limits-expir
 Purpose: Producing a prepared item from its sub-recipe, recording output and actual cost.
 Key columns: `output_item_id`, `outlet_id`, `batch_number`, `produced_quantity` (> 0), `total_cost`, `unit_cost`, `produced_at`, `expiry_date`, `request_key` (UUID idempotency key), `batch_status` (default `posted`; no CHECK), `void_reason`, `voided_at`, `voided_by`.
 Relations: `output_item_id` -> `inventory_items`; `outlet_id` -> `outlets`.
-Rules: unique `(restaurant_id, batch_number)` and `(restaurant_id, output_item_id, batch_number)`; one batch per request key (partial unique `production_request_key`), so a retried request cannot produce twice.
-Added by: 1790726900000_complete-operations-backlog; 1790727000000_service-readiness.
+Rules: unique `(restaurant_id, batch_number)` and `(restaurant_id, output_item_id, batch_number)`; one batch per request key (partial unique `production_request_key`), so a retried request cannot produce twice. Indexed for a delete or merge that looks it up: `idx_production_batches_output_item_id` (output_item_id). CHECK `batch_status` posted or void (`chk_production_batches_status`).
+Added by: 1790726900000_complete-operations-backlog; 1790727000000_service-readiness; 1791990000080 indexes-for-deletes-and-lookups; 1791990000090 keys-and-checks.
 
 #### `stock_counts`
 Purpose: A count sheet (SC-…) for one store; posting moves stock to what was counted.
@@ -927,8 +922,8 @@ Added by: 1790880000001_stock-transfer-notes-and-indents.
 Purpose: One item asked for on an indent, and how much of it has been sent and received.
 Key columns: `indent_id`, `inventory_item_id`, `quantity` (> 0), `sent_quantity`, `received_quantity` (both >= 0), `note`.
 Relations: `indent_id` -> `stock_indents` (CASCADE); `inventory_item_id` -> `inventory_items`; referenced by `stock_transfer_lines.indent_line_id`.
-Rules: one line per item per indent (UNIQUE `(indent_id, inventory_item_id)`).
-Added by: 1790880000001_stock-transfer-notes-and-indents.
+Rules: one line per item per indent (UNIQUE `(indent_id, inventory_item_id)`). Indexed for a delete or merge that looks it up: `idx_stock_indent_lines_inventory_item_id` (inventory_item_id).
+Added by: 1790880000001_stock-transfer-notes-and-indents; 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `stock_transfers`
 Purpose: A delivery challan (TRF-…) moving stock between stores, valued at cost when it left.
@@ -948,8 +943,8 @@ Added by: 1790880000001_stock-transfer-notes-and-indents.
 Purpose: A finished dish written off by its recipe (dropped, remade, spoiled, quality); its ingredients come off the outlet's store as wastage rows pointing back at the entry.
 Key columns: `product_id`, `product_variant_id`, `item_name` (as named that day), `quantity` (1-500), `reason` (`dropped`, `remade`, `spoiled`, `quality`), `note`, `addons` (JSONB), `value`, `ingredient_lines`, `waste_date`, `reversed_at` / `reversed_by` / `reversal_note`.
 Relations: `product_id` -> `products`; `product_variant_id` -> `product_variants`; `outlet_id` -> `outlets`.
-Rules: reversal is recorded on the row (undo within the week, enforced in code).
-Added by: 1790880000002_dish-waste.
+Rules: reversal is recorded on the row (undo within the week, enforced in code). Indexed for a delete or merge that looks it up: `idx_dish_waste_entries_product_id` (product_id), `idx_dish_waste_entries_product_variant_id` (product_variant_id, where set).
+Added by: 1790880000002_dish-waste; 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `purchase_orders`
 Purpose: An order to a supplier (PO-…).
@@ -962,8 +957,8 @@ Added by: 1789733005630_create-purchasing; 1789904000000_create-notification-rea
 Purpose: Lines of a PO.
 Key columns: `inventory_item_id`, `quantity` (> 0, item unit), `received_quantity`, `unit_price` (NUMERIC(18,8)), `amount`, `pack_id` / `pack_name` / `pack_size` / `pack_quantity` / `pack_price` (pack copied onto the line).
 Relations: `purchase_order_id` -> `purchase_orders` (CASCADE); `inventory_item_id` -> `inventory_items`; `pack_id` -> `inventory_item_packs` (SET NULL).
-Rules: one line per item per PO; `received_quantity <= quantity` (`chk_po_item_received`).
-Added by: 1789733005630_create-purchasing; 1789907000000_add-wastage-reasons (index); 1789914000000_stock-counts-purchase-bills.
+Rules: one line per item per PO; `received_quantity <= quantity` (`chk_po_item_received`). Indexed for a delete or merge that looks it up: `idx_purchase_order_items_pack_id` (pack_id, where set).
+Added by: 1789733005630_create-purchasing; 1789907000000_add-wastage-reasons (index); 1789914000000_stock-counts-purchase-bills; 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `goods_receipts`
 Purpose: A supplier bill / delivery (GRN-…), with or without a PO; what a supplier is owed is the sum of these.
@@ -975,8 +970,8 @@ Added by: 1789914000000_stock-counts-purchase-bills; 1790880000000_backoffice-li
 Purpose: Lines of a receipt.
 Key columns: `inventory_item_id`, `purchase_order_item_id`, pack copy, `bill_quantity`, `rejected_quantity` / `rejection_reason`, `quantity` (accepted, item unit), `unit_price` (NUMERIC(18,8)), `tax_rate` (0-40), `taxable_amount`, `tax_amount`, `amount`, `unit_cost` (cost per shelf unit including GST, because restaurants on 5% GST cannot claim input credit).
 Relations: `goods_receipt_id` -> `goods_receipts` (CASCADE); `purchase_order_item_id` -> `purchase_order_items`; `pack_id` -> `inventory_item_packs` (SET NULL).
-Rules: something billed or rejected (`chk_goods_receipt_items_something`).
-Added by: 1789914000000_stock-counts-purchase-bills.
+Rules: something billed or rejected (`chk_goods_receipt_items_something`). Indexed for a delete or merge that looks it up: `idx_goods_receipt_items_pack_id` (pack_id, where set), `idx_goods_receipt_items_purchase_order_item_id` (purchase_order_item_id, where set).
+Added by: 1789914000000_stock-counts-purchase-bills; 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `purchase_returns`
 Purpose: Goods sent back to a supplier (PR-…): stock goes down and the supplier owes a credit.
@@ -989,14 +984,14 @@ Added by: 1789802692848_split-bills-and-returns; 1789914000000_stock-counts-purc
 Purpose: One item on a purchase return.
 Key columns: `purchase_return_id`, `inventory_item_id`, `goods_receipt_item_id` (the bill line it goes back against), `quantity` (> 0), `unit_price` (NUMERIC(18,8)), `tax_rate` (0-40), `tax_amount`, `amount`.
 Relations: `purchase_return_id` -> `purchase_returns` (CASCADE); `inventory_item_id` -> `inventory_items`; `goods_receipt_item_id` -> `goods_receipt_items`.
-Rules: one row per item per return (UNIQUE `(purchase_return_id, inventory_item_id)`); money columns non-negative.
-Added by: 1789802692848_split-bills-and-returns; 1789914000000_stock-counts-purchase-bills (receipt line, tax, 8-place price).
+Rules: one row per item per return (UNIQUE `(purchase_return_id, inventory_item_id)`); money columns non-negative. Indexed for a delete or merge that looks it up: `idx_purchase_return_items_inventory_item_id` (inventory_item_id).
+Added by: 1789802692848_split-bills-and-returns; 1789914000000_stock-counts-purchase-bills (receipt line, tax, 8-place price); 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `supplier_payments`
 Purpose: Money paid to suppliers, so outstanding balances can be shown.
 Key columns: `supplier_id`, `purchase_order_id`, `goods_receipt_id`, `payment_date`, `amount` (> 0), `payment_method` (`cash`, `card`, `upi`, `bank`, `cheque`, `other`), `reference_no`, `payment_status` (`posted` | `void`), void columns, `paid_from_till`, `business_date`, `outlet_id` (whose drawer; NULL = main counter/office).
-Rules: void iff reason (`chk_supplier_payments_void`); cash only when paid from the till (`chk_supplier_payments_till`), and till payments come off that day's and that outlet's expected cash. Permission `purchasing.pay`. Never deleted: trigger `supplier_payments_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
-Added by: 1789802692848_split-bills-and-returns; 1789914000000_stock-counts-purchase-bills; 1790880000000_backoffice-limits-expiry-and-guests; 1791990000070 records-kept-for-good.
+Rules: void iff reason (`chk_supplier_payments_void`); cash only when paid from the till (`chk_supplier_payments_till`), and till payments come off that day's and that outlet's expected cash. Permission `purchasing.pay`. Never deleted: trigger `supplier_payments_kept`; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)). Indexed for a delete or merge that looks it up: `idx_supplier_payments_purchase_order_id` (purchase_order_id, where set).
+Added by: 1789802692848_split-bills-and-returns; 1789914000000_stock-counts-purchase-bills; 1790880000000_backoffice-limits-expiry-and-guests; 1791990000070 records-kept-for-good; 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `document_attachments`
 Purpose: Receipt photos / PDFs on an expense or a supplier bill (up to five, kept in `attachments/` under the private upload folder, `PRIVATE_UPLOADS_DIR`, and served only through the API).
@@ -1013,8 +1008,8 @@ Purpose: Expense heads. Key columns: `name` (unique per restaurant, case-insensi
 Purpose: Money spent outside purchasing (rent, repairs, petty cash).
 Key columns: `expense_category_id`, `supplier_id`, `outlet_id`, `expense_date`, `amount` (> 0), `payment_mode` (`cash`, `card`, `upi`, `bank`, `other`), `reference_no`, `expense_status` (`pending`, `approved`, `rejected`), `approved_by` / `approved_at`.
 Relations: `expense_category_id` -> `expense_categories`; `supplier_id` -> `suppliers`; `outlet_id` -> `outlets`.
-Rules: expenses start `pending` and are approved or rejected (`approved_by`, `approved_at`); petty cash from a drawer creates an approved expense linked from `cash_movements.expense_id`. Partial index `idx_expenses_pending` feeds the bell.
-Added by: 1789733008391_create-crm-and-expenses; 1789904000000_create-notification-reads; 1790810000000_cash-drawers-and-loyalty-rules (linked from cash movements); 1791360000002_expense-and-purchase-bill-attachments (attachments).
+Rules: expenses start `pending` and are approved or rejected (`approved_by`, `approved_at`); petty cash from a drawer creates an approved expense linked from `cash_movements.expense_id`. Partial index `idx_expenses_pending` feeds the bell. Indexed for a delete or merge that looks it up: `idx_expenses_supplier_id` (supplier_id, where set).
+Added by: 1789733008391_create-crm-and-expenses; 1789904000000_create-notification-reads; 1790810000000_cash-drawers-and-loyalty-rules (linked from cash movements); 1791360000002_expense-and-purchase-bill-attachments (attachments); 1791990000080 indexes-for-deletes-and-lookups.
 
 ### Staff and pay
 
@@ -1032,14 +1027,14 @@ Purpose: "From this date, this salary", so past pay periods use the salary then 
 Purpose: Shift patterns. Key columns: `outlet_id`, `name` (unique per restaurant, case-insensitive), `start_time`, `end_time`, `break_minutes` (0-599), `grace_minutes` (0-119, lateness allowance), `status`. Added by: 1789801110144_create-staff-and-attendance.
 
 #### `shift_assignments`
-Purpose: The roster. Key columns: `employee_id`, `shift_id`, `work_date`, `assignment_status` (`scheduled`, `week_off`, `leave`), `leave_type_id`. Relations: `employee_id` -> `employees` (CASCADE); `shift_id` -> `shifts`; `leave_type_id` -> `leave_types`. Rules: one row per person per day. Added by: 1789801110144_create-staff-and-attendance; 1790850000001_tips-leave-and-statutory-pay.
+Purpose: The roster. Key columns: `employee_id`, `shift_id`, `work_date`, `assignment_status` (`scheduled`, `week_off`, `leave`), `leave_type_id`. Relations: `employee_id` -> `employees` (CASCADE); `shift_id` -> `shifts`; `leave_type_id` -> `leave_types`. Rules: one row per person per day. Added by: 1789801110144_create-staff-and-attendance; 1790850000001_tips-leave-and-statutory-pay. Indexed for a delete or merge that looks it up: `idx_shift_assignments_shift_id` (shift_id, where set), `idx_shift_assignments_leave_type_id` (leave_type_id, where set) (1791990000080 indexes-for-deletes-and-lookups).
 
 #### `attendance`
 Purpose: One row per person per day, derived from punches or entered by hand.
 Key columns: `employee_id`, `shift_id`, `attendance_date`, `check_in` / `check_out`, `attendance_status` (`present`, `absent`, `half_day`, `leave`, `week_off`), `worked_minutes` (= check-out - check-in - break), `break_minutes`, `late_minutes`, `overtime_minutes`, `leave_type_id`.
 Relations: `employee_id` -> `employees` (CASCADE); `leave_type_id` -> `leave_types`.
-Rules: unique `(employee_id, attendance_date)`; `check_out >= check_in`; minutes non-negative and computed by the server. Partial index `idx_attendance_open` (clocked in, not out).
-Added by: 1789801110144_create-staff-and-attendance; 1789906000000_create-time-clock; 1790850000001_tips-leave-and-statutory-pay; 1791974000000_live-updates (live updates: `trg_attendance_live`).
+Rules: unique `(employee_id, attendance_date)`; `check_out >= check_in`; minutes non-negative and computed by the server. Partial index `idx_attendance_open` (clocked in, not out). Indexed for a delete or merge that looks it up: `idx_attendance_shift_id` (shift_id, where set), `idx_attendance_leave_type_id` (leave_type_id, where set).
+Added by: 1789801110144_create-staff-and-attendance; 1789906000000_create-time-clock; 1790850000001_tips-leave-and-statutory-pay; 1791974000000_live-updates (live updates: `trg_attendance_live`); 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `attendance_punches`
 Purpose: Every time-clock tap as it happened; the day's attendance is rebuilt from these.
@@ -1048,7 +1043,7 @@ Rules: a manager's punch must carry a note (`chk_punch_note`); corrections are n
 Added by: 1789906000000_create-time-clock; 1790850000002_logbook-and-punch-photos; 1791974000000_live-updates (live updates: `trg_attendance_punches_live`).
 
 #### `attendance_punch_photos`
-The small photo taken with a punch: `punch_id` PK -> `attendance_punches` (CASCADE), `employee_id`, `mime_type` (jpeg/webp/png), `image` (BYTEA <= 200,000 bytes), `taken_at`; purged after `timeclock_settings.photo_keep_days`. Added by: 1790850000002_logbook-and-punch-photos.
+The small photo taken with a punch: `punch_id` PK -> `attendance_punches` (CASCADE), `employee_id`, `mime_type` (jpeg/webp/png), `image` (BYTEA <= 200,000 bytes), `taken_at`; purged after `timeclock_settings.photo_keep_days`. Added by: 1790850000002_logbook-and-punch-photos. Indexed for a delete or merge that looks it up: `idx_attendance_punch_photos_employee_id` (employee_id) (1791990000080 indexes-for-deletes-and-lookups).
 
 #### `timeclock_settings`
 Per-restaurant (PK `restaurant_id`): `punch_photos` (on/off), `photo_keep_days` (1-365, default 60). Added by: 1790850000002_logbook-and-punch-photos.
@@ -1078,13 +1073,13 @@ Purpose: One share-out of a period's tips (and optionally service charge). Key c
 Each person's part: `shareout_id` -> `tip_shareouts` (CASCADE), `employee_id` -> `employees`, `kind` (`pool` | `direct`), `share_date`, `worked_minutes`, `days_worked`, `points`, `amount`; unique `(shareout_id, employee_id, kind)`. Added by: 1790850000001_tips-leave-and-statutory-pay.
 
 #### `tip_shareout_payments`
-Purpose: Which payments' tips a share-out took. Key columns: PK `(shareout_id, payment_id)`, `tip_amount` (> 0), `employee_id` (captain for a direct tip, NULL for pool). Relations: `shareout_id` -> `tip_shareouts` (CASCADE); `payment_id` UNIQUE -> `payments` (CASCADE); `employee_id` -> `employees`; `restaurant_id` (CASCADE). Rules: the UNIQUE on the payment means the same tips can never be shared twice; undoing a share-out frees them. Added by: 1790850000001_tips-leave-and-statutory-pay.
+Purpose: Which payments' tips a share-out took. Key columns: PK `(shareout_id, payment_id)`, `tip_amount` (> 0), `employee_id` (captain for a direct tip, NULL for pool). Relations: `shareout_id` -> `tip_shareouts` (CASCADE); `payment_id` UNIQUE -> `payments` (CASCADE); `employee_id` -> `employees`; `restaurant_id` (CASCADE). Rules: the UNIQUE on the payment means the same tips can never be shared twice; undoing a share-out frees them. Added by: 1790850000001_tips-leave-and-statutory-pay. Indexed for a delete or merge that looks it up: `idx_tip_shareout_payments_employee_id` (employee_id, where set) (1791990000080 indexes-for-deletes-and-lookups).
 
 #### `tip_shareout_bills`
 Purpose: Which bills' service charge a share-out took. Key columns: PK `(shareout_id, bill_id)`, `service_charge` (> 0). Relations: `shareout_id` -> `tip_shareouts` (CASCADE); `bill_id` UNIQUE -> `bills` (CASCADE); `restaurant_id` (CASCADE). Rules: the UNIQUE on the bill means the same service charge can never be shared twice; undoing a share-out frees it. Added by: 1790850000001_tips-leave-and-statutory-pay.
 
 #### `logbook_entries`
-Purpose: The shift log book: what one shift tells the next. Key columns: `outlet_id` (NULL = all outlets), `category` (`maintenance`, `guest`, `stock`, `staff`, `other`), `body` (<= 1000), `table_id` / `table_label`, `shift_label`, `business_date`, `needs_follow_up`, `closed_at` / `closed_by` / `close_note`, `created_by` (required). Relations: `table_id` -> `dining_tables` (SET NULL). Rules: only a follow-up can be closed (`chk_logbook_closed`); closed time and closer set together (`chk_logbook_closer`); open follow-ups indexed for the bell (`idx_logbook_entries_open`). Permissions `logbook.view`, `logbook.write`. Added by: 1790850000002_logbook-and-punch-photos.
+Purpose: The shift log book: what one shift tells the next. Key columns: `outlet_id` (NULL = all outlets), `category` (`maintenance`, `guest`, `stock`, `staff`, `other`), `body` (<= 1000), `table_id` / `table_label`, `shift_label`, `business_date`, `needs_follow_up`, `closed_at` / `closed_by` / `close_note`, `created_by` (required). Relations: `table_id` -> `dining_tables` (SET NULL). Rules: only a follow-up can be closed (`chk_logbook_closed`); closed time and closer set together (`chk_logbook_closer`); open follow-ups indexed for the bell (`idx_logbook_entries_open`). Permissions `logbook.view`, `logbook.write`. Added by: 1790850000002_logbook-and-punch-photos. Indexed for a delete or merge that looks it up: `idx_logbook_entries_table_id` (table_id, where set) (1791990000080 indexes-for-deletes-and-lookups).
 
 #### `logbook_reads`
 Who read each entry: PK `(entry_id, user_id)`, `entry_id` -> `logbook_entries` (CASCADE), `user_id` -> `users` (CASCADE), `read_at`. Added by: 1790850000002_logbook-and-punch-photos.
@@ -1415,13 +1410,13 @@ Added by: 1791979114000 agri-more.
 #### `business_documents`
 Purpose: a sale or purchase invoice.
 Key columns: `kind` (sale or purchase), `document_no`, `series_id`, `location_id`, `contact_id`, `contact_name` (snapshot), `subtotal`, `tax`, `round_off`, `total`, `tax_mode`, `due_on` (from the customer's credit days, or the harvest date of a farm-input shop's season credit bill), `place_of_supply` (two-digit state code), `buyer_gstin`, `buyer_address`, `buyer_pan` and `pan_declaration` (the buyer has no PAN and signed Form 97; a sale over ₹2,00,000 needs one or the other, checked by the API), a purchase's `supplier_bill_no` and `supplier_bill_date`, `request_key`, `request_hash`, `notes`.
-Rules: Kept as saved: trigger `business_documents_kept` refuses every change and delete; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)).
+Rules: Kept as saved: trigger `business_documents_kept` refuses every change and delete; TRUNCATE refused too ([Records kept for good](#records-kept-for-good)). Indexed for a customer's or supplier's bills (the contacts list's balances, statements, payables): `business_documents_contact` (business_id, contact_id, created_at, where set).
 - CHECK `business_documents_total_adds_up`: `total = subtotal + tax + round_off`.
 - CHECK: `round_off` lies strictly between -1 and 1.
 - `document_no` and `request_key` are each unique per business.
 - CHECK `business_documents_pan_or_declaration`: a PAN or the declaration, never both.
 - CHECK `business_documents_supplier_bill_on_purchases`: only a purchase carries a supplier bill number and date. Unique index `business_documents_supplier_bill` (business, supplier, bill number ignoring case) refuses the same supplier bill twice.
-Added by: 1791280000000; 1791300000002 (the series, tax mode, round-off, due date and total CHECK); 1791540000000 (place of supply, buyer, supplier bill); 1791960001000 (`buyer_pan`, `pan_declaration`); 1791990000070 records-kept-for-good.
+Added by: 1791280000000; 1791300000002 (the series, tax mode, round-off, due date and total CHECK); 1791540000000 (place of supply, buyer, supplier bill); 1791960001000 (`buyer_pan`, `pan_declaration`); 1791990000070 records-kept-for-good; 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `business_document_lines`
 Purpose: a snapshot of each invoice line.
@@ -1711,8 +1706,8 @@ Added by: 1791961000000; gst-changes-quotations (`kit_parts`).
 Purpose: what each bill made from a quotation took of each line.
 Key columns: `quotation_id`, `line_id`, `document_id` (the sale), `quantity` (> 0, the line's stock unit; a kit's line in kits), `net`, `tax` (the bill's cumulative share of the line's quoted value and GST), `created_by`, `created_at`.
 Relations: (`business_id`, `quotation_id`) -> `business_quotations`; (`business_id`, `line_id`) -> `business_quotation_lines`; (`business_id`, `document_id`) -> `business_documents`.
-Rules: UNIQUE (business, document, line); index (business, quotation, line). Trigger `business_quotation_billed_check` (function of the same name): never updated or deleted; a row goes in only for an open quotation (locked first, so two bills made at once are counted one after the other), on a sale, for a line of that quotation, and never takes a line past its `quantity`.
-Added by: gst-changes-quotations.
+Rules: UNIQUE (business, document, line); index (business, quotation, line). Trigger `business_quotation_billed_check` (function of the same name): never updated or deleted; a row goes in only for an open quotation (locked first, so two bills made at once are counted one after the other), on a sale, for a line of that quotation, and never takes a line past its `quantity`. Indexed for a delete or merge that looks it up: `business_quotation_billed_line_id` (business_id, line_id).
+Added by: gst-changes-quotations; 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `business_quotation_revisions`
 Purpose: each revision of a quotation, with the request that made it.
@@ -3341,13 +3336,13 @@ Rules: index `garage_inspection_items_job`; trigger `garage_inspection_items_ope
 Purpose: a photo of an inspection item, or of the work.
 Key columns: `job_card_id`, `inspection_item_id` (none: of the work), `caption`, `stored_name` (a generated name under the private uploads folder's `garage/<business>/`), `file_name`, `mime_type` (image/jpeg, image/png, image/webp), `size_bytes`, `created_by`, `created_at`.
 Relations: (`business_id`, `job_card_id`) -> `garage_job_cards`; (`business_id`, `inspection_item_id`) -> `garage_inspection_items`.
-Rules: UNIQUE (business, stored name); index `garage_job_card_photos_job`; triggers `garage_job_card_photos_open` (function `garage_job_card_is_open`), `garage_job_card_photos_check` (an item's photo is on that item's job card) and `garage_job_card_photos_kept` (function `garage_kept`): never changed or deleted.
+Rules: UNIQUE (business, stored name); index `garage_job_card_photos_job`; triggers `garage_job_card_photos_open` (function `garage_job_card_is_open`), `garage_job_card_photos_check` (an item's photo is on that item's job card) and `garage_job_card_photos_kept` (function `garage_kept`): never changed or deleted. Indexed for a delete or merge that looks it up: `garage_job_card_photos_inspection_item_id` (business_id, inspection_item_id, where set) (1791990000080 indexes-for-deletes-and-lookups).
 
 #### `garage_part_issues`
 Purpose: parts issued to a mechanic for a job card's part line (they left stock then, held for the job), and parts brought back unused.
 Key columns: `job_card_id`, `line_id`, `sku_id`, `lot_id`, `lot_code`, `kind` (issue, return), `quantity` (> 0), `unit_cost` (the stock's cost when it moved: the bill's stock cost), `mechanic_id` (who it was issued to; required on an issue), `adjustment_id` (the core stock adjustment that moved it), `request_key`, `request_hash`, `created_by`, `created_at`.
 Relations: (`business_id`, ...) -> `garage_job_cards`, `garage_job_card_lines`, `catalog_skus`, `business_stock_lots`, `business_stock_adjustments`.
-Rules: UNIQUE (business, adjustment); indexes `garage_part_issues_job`, `garage_part_issues_request`; triggers `garage_part_issues_open` (function `garage_job_card_is_open`), `garage_part_issues_check` (a part line of its own job card, of that line's item; never more brought back from a lot than was issued from it) and `garage_part_issues_kept` (function `garage_kept`).
+Rules: UNIQUE (business, adjustment); indexes `garage_part_issues_job`, `garage_part_issues_request`; triggers `garage_part_issues_open` (function `garage_job_card_is_open`), `garage_part_issues_check` (a part line of its own job card, of that line's item; never more brought back from a lot than was issued from it) and `garage_part_issues_kept` (function `garage_kept`). Indexed for a delete or merge that looks it up: `garage_part_issues_line_id` (business_id, line_id) (1791990000080 indexes-for-deletes-and-lookups).
 
 #### `garage_road_tests`
 Purpose: a road test of a job card's vehicle.
@@ -4737,29 +4732,29 @@ Added by: 1791620000000.
 Purpose: one task: one-off, a recurring occurrence, a project task or the fix of an issue.
 Key columns: `title`, `description`, `category_code`, `priority`, `status` (todo, in_progress, done, missed, cancelled), `location_id` / `outlet_id`, `assign_mode`, `opens_at`, `due_at`, `closes_at` (after it, not done = missed), `schedule_id` + `occurrence_date` + `occurrence_slot`, `shift_label`, `template_id` / `library_code`, `project_id`, `project_list_id`, `milestone_id`, `issue_id`, `requires_review`, `review_status` (pending, approved, changes_requested), `reviewed_by` / `reviewed_at` / `review_note`, who and when started / completed / cancelled (with `cancel_reason`), counters `item_count`, `answered_count`, `failed_count`, `score_percent`, `critical_failed`.
 Relations: composite FKs to `business_locations`, `business_task_schedules`, `business_task_templates`, `business_projects`, `business_issues`, and to `business_project_lists` and `business_project_milestones` with `ON DELETE SET NULL` on that column only; `outlet_id` -> `outlets`.
-Rules: CHECKs `business_tasks_one_place`, `_occurrence` (schedule, date and slot all or none), `_done` (done ⇔ completed_at), `_cancelled` (cancelled ⇔ cancelled_at), `_review` (a review status only when review is needed), `_window` (opens_at ≤ due_at) and `_list_needs_project` (a list or milestone only with a project). Partial unique index `business_tasks_occurrence_once` (business, schedule, day, slot): an occurrence is made once however many screens ask. Indexes `business_tasks_due`, `business_tasks_open` (todo and in progress, by `closes_at`) and `business_tasks_project`. Trigger `business_tasks_world`.
-Added by: 1791620000000; 1791974000000 (live updates: `business_tasks_live`).
+Rules: CHECKs `business_tasks_one_place`, `_occurrence` (schedule, date and slot all or none), `_done` (done ⇔ completed_at), `_cancelled` (cancelled ⇔ cancelled_at), `_review` (a review status only when review is needed), `_window` (opens_at ≤ due_at) and `_list_needs_project` (a list or milestone only with a project). Partial unique index `business_tasks_occurrence_once` (business, schedule, day, slot): an occurrence is made once however many screens ask. Indexes `business_tasks_due`, `business_tasks_open` (todo and in progress, by `closes_at`) and `business_tasks_project`. Trigger `business_tasks_world`. Indexed for a delete or merge that looks it up: `business_tasks_issue_id` (business_id, issue_id, where set), `business_tasks_project_list_id` (business_id, project_list_id, where set), `business_tasks_milestone_id` (business_id, milestone_id, where set).
+Added by: 1791620000000; 1791974000000 (live updates: `business_tasks_live`); 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `business_task_assignees`
 Purpose: who a task or a schedule is for.
 Key columns: `task_id` or `schedule_id` (exactly one), `kind` (user, employee, resource, role, business_role) with exactly the matching id column: `user_id`, `employee_id` (a restaurant employee), `resource_id`, `role_id` (a restaurant role), `business_role_id`.
 Relations: task and schedule ON DELETE CASCADE; `user_id` -> `users`; `employee_id` -> `employees`; `role_id` -> `roles`; (`business_id`, `resource_id`) -> `business_resources`; (`business_id`, `business_role_id`) -> `business_roles`.
-Rules: CHECKs `business_task_assignees_owner`, `_one` and `_kind`; unique per owner and person (`business_task_assignees_once`); trigger `business_task_assignees_world`.
-Added by: 1791620000000; 1791974000000 (live updates: `business_task_assignees_live`).
+Rules: CHECKs `business_task_assignees_owner`, `_one` and `_kind`; unique per owner and person (`business_task_assignees_once`); trigger `business_task_assignees_world`. Indexed for a delete or merge that looks it up: `idx_business_task_assignees_employee_id` (employee_id, where set), `idx_business_task_assignees_role_id` (role_id, where set).
+Added by: 1791620000000; 1791974000000 (live updates: `business_task_assignees_live`); 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `business_task_items`
 Purpose: a task's own copy of its checklist, with the answers.
 Key columns: `task_id`, the template item columns, plus `value_bool`, `value_number`, `value_text`, `value_choice`, `note`, `answered`, `failed`, `answered_by`, `answered_at`, `issue_id` (the issue it raised).
 Relations: (`business_id`, `task_id`) -> `business_tasks` (CASCADE); (`business_id`, `issue_id`) -> `business_issues` (`ON DELETE SET NULL (issue_id)`).
-Rules: CHECKs `business_task_items_answer` (answered ⇔ answered_at), `_fail` (failed only when answered) and `_range`.
-Added by: 1791620000000; 1791974000000 (live updates: `business_task_items_live`).
+Rules: CHECKs `business_task_items_answer` (answered ⇔ answered_at), `_fail` (failed only when answered) and `_range`. Indexed for a delete or merge that looks it up: `business_task_items_issue_id` (business_id, issue_id, where set).
+Added by: 1791620000000; 1791974000000 (live updates: `business_task_items_live`); 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `business_issues`
 Purpose: a problem to fix. A failed checklist answer can raise one by itself.
 Key columns: `number` (unique per business; shown `ISS-0001`), `title`, `description`, `category_code`, `severity` (low/medium/high/critical), `status` (open, in_progress, resolved, closed), `location_id` / `outlet_id`, `asset_label` (equipment, free text), `assignee_user_id`, `due_at`, `reported_by`, `reported_at`, `resolved_at` / `resolved_by`, `resolution_note`, `closed_at` / `closed_by`, sources `source_task_id`, `source_task_item_id`, `source_logbook_entry_id`.
 Relations: (`business_id`, `source_task_id`) -> `business_tasks`; (`business_id`, `source_task_item_id`) -> `business_task_items` (`ON DELETE SET NULL (source_task_item_id)`); `source_logbook_entry_id` -> `logbook_entries` (SET NULL); `outlet_id` -> `outlets`.
-Rules: CHECKs `business_issues_one_place`, `_resolved` (resolved or closed ⇔ resolved_at) and `_closed` (closed ⇔ closed_at); one issue per log-book entry (partial unique index `business_issues_one_per_logbook_entry`); indexes `business_issues_list` and `business_issues_assignee` (open and in progress); trigger `business_issues_world`.
-Added by: 1791620000000; 1791974000000 (live updates: `business_issues_live`).
+Rules: CHECKs `business_issues_one_place`, `_resolved` (resolved or closed ⇔ resolved_at) and `_closed` (closed ⇔ closed_at); one issue per log-book entry (partial unique index `business_issues_one_per_logbook_entry`); indexes `business_issues_list` and `business_issues_assignee` (open and in progress); trigger `business_issues_world`. Indexed for a delete or merge that looks it up: `business_issues_source_task_id` (business_id, source_task_id, where set), `business_issues_source_task_item_id` (business_id, source_task_item_id, where set).
+Added by: 1791620000000; 1791974000000 (live updates: `business_issues_live`); 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `business_projects`
 Purpose: a bigger job with members, milestones and task lists (a new outlet, a festival sale, the annual stock audit).
@@ -4798,8 +4793,8 @@ Added by: 1791620000000.
 Purpose: a photo, signature or file on a task (or one of its checklist items), an issue or a project. Files live in `tasks/<business>/` under the private upload folder (`PRIVATE_UPLOADS_DIR`, `backend/private_uploads` when it is not set) and are only sent through the API.
 Key columns: one owner (`task_id`, `issue_id`, `project_id`), optional `item_id` (needs a task), `kind` (photo, signature, file), `stored_name` (generated, unique, `<32 hex>.jpg|png|webp|pdf`), `file_name`, `mime_type` (JPEG, PNG, WebP, PDF), `size_bytes` (≤ 5 MB), `uploaded_by`, `uploaded_at`, `removed_at` / `removed_by` (removing keeps the file).
 Relations: each owner and the item ON DELETE CASCADE.
-Rules: CHECKs `business_task_files_owner`, `_item` and `_removed` (both removal columns or neither); partial indexes by task and by issue.
-Added by: 1791620000000.
+Rules: CHECKs `business_task_files_owner`, `_item` and `_removed` (both removal columns or neither); partial indexes by task and by issue. Indexed for a delete or merge that looks it up: `business_task_files_item_id` (business_id, item_id, where set).
+Added by: 1791620000000; 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `business_task_history`
 Purpose: the trail on a task, issue or project.
@@ -5194,8 +5189,8 @@ Added by: online-shop.
 Purpose: each item ordered, at the price the guest saw, and as it was packed.
 Key columns: `position`, `sku_id`, `name`, `unit`, `quantity` (about this much for a weighed item), `price` (one unit, GST included), `mrp`, `tax_rate` (the slab then), `weighed`, `substitution` (the line's own, or NULL for the order's), `state` (`pending`, `ok`, `short`, `unavailable`, `replaced`), `packed_quantity`, `picked`, `bill_price` + `discount_reason` (a lower price staff gave), `serials[]`, `added` (asked for on the phone, or a replacement), `replaces_line_id`, `note`.
 Relations: (`business_id`, `order_id`) -> `shop_orders`; (`business_id`, `sku_id`) -> `catalog_skus`; (`business_id`, `replaces_line_id`) -> `shop_order_lines`.
-Rules: UNIQUE (`order_id`, `position`); CHECKs: a lower price below the price seen, with its reason; only an added line replaces another.
-Added by: online-shop.
+Rules: UNIQUE (`order_id`, `position`); CHECKs: a lower price below the price seen, with its reason; only an added line replaces another. Indexed for a delete or merge that looks it up: `shop_order_lines_replaces_line_id` (business_id, replaces_line_id, where set).
+Added by: online-shop; 1791990000080 indexes-for-deletes-and-lookups.
 
 #### `shop_order_changes`
 Purpose: a change that would make the guest pay more than they agreed (a dearer replacement, an added item, a weighed item more than 10% over), waiting for their OK on the status page or on the phone.

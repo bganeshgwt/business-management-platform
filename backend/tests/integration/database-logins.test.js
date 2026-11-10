@@ -16,7 +16,8 @@ const { loginProblem, assertLoginFitForLive, createAppLogin, grantAppLogin, scra
 // business's posted bills and their lines, payments, stock movements and the
 // activity logs are never changed or deleted, a restaurant's orders and bills
 // never deleted, and only the tables' owner may rewrite history, after
-// asking in its own session. Runs on its own throwaway database, with a login
+// asking in its own session. And the schema's own rules: a primary key on
+// every table, no index twice. Runs on its own throwaway database, with a login
 // made for this run and dropped after it.
 test('database logins and the records kept for good', { timeout: 300000 }, async (t) => {
   require('dotenv').config({ quiet: true });
@@ -185,6 +186,16 @@ test('database logins and the records kept for good', { timeout: 300000 }, async
     assert.equal(before.created_at.getTime() - after.created_at.getTime(), 3 * 24 * 3600 * 1000);
     // The permission lasts for that transaction alone.
     await refused(ownerPool.query(back, [shop.id, sale.id]), /never changes/);
+  });
+
+  await t.test('the schema: every table has a primary key, and no index repeats another', async () => {
+    const keyless = await ownerPool.query(`SELECT c.relname FROM pg_class c WHERE c.relnamespace='public'::regnamespace AND c.relkind='r'
+      AND NOT EXISTS (SELECT 1 FROM pg_constraint k WHERE k.conrelid=c.oid AND k.contype='p') ORDER BY 1`);
+    assert.deepEqual(keyless.rows.map((r) => r.relname), []);
+    const repeated = await ownerPool.query(`SELECT i.indrelid::regclass::text AS tbl, array_agg(i.indexrelid::regclass::text ORDER BY 1) AS names
+      FROM pg_index i JOIN pg_class c ON c.oid=i.indrelid WHERE c.relnamespace='public'::regnamespace
+      GROUP BY i.indrelid, i.indkey::text, i.indclass::text, COALESCE(i.indexprs::text,''), COALESCE(i.indpred::text,'') HAVING count(*) > 1`);
+    assert.deepEqual(repeated.rows, []);
   });
 
   await t.test('a restaurant\'s orders and bills are never deleted, nor a restaurant that has taken one', async () => {
