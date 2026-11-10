@@ -190,6 +190,65 @@ test('words and looks: by type, by kind, an owner\'s own, and the platform\'s co
       ['Part labels', 'Hoist 2, wheel aligner', 'Service']);
   });
 
+  await t.test("the modules each type is offered: a kirana never sees Quotations until the platform offers it, and keeps it after", async () => {
+    const kiranaType = await platform('GET', P('/business-types/grocery'));
+    const quote = (view) => view.modules.find((m) => m.code === 'quotations');
+    assert.deepEqual([quote(kiranaType).offered, quote(kiranaType).recommended, quote(kiranaType).onAtStart, quote(kiranaType).inUse], [false, false, false, 0]);
+    const hardwareType = await platform('GET', P('/business-types/hardware'));
+    assert.deepEqual([quote(hardwareType).offered, quote(hardwareType).onAtStart], [true, true]);
+    assert.equal((await platform('GET', P('/business-types/restaurant'))).modules, null);
+
+    // A kirana: Quotations is not in its Business tools and is not switched on.
+    const made = (await platform('POST', P('/businesses'), { businessType: 'grocery', name: 'Sri Ganesh Kirana', code: 'GANESH-KIRANA', stateCode: '29', city: 'Mysuru',
+      owner: { email: 'owner@ganeshkirana.invalid', name: 'Ganesh R', password } }, 201)).business;
+    const shopOwner = as(await login('owner@ganeshkirana.invalid'));
+    const K = (route) => `/businesses/${made.id}/${route}`;
+    assert.equal((await shopOwner('GET', K('modules'))).find((m) => m.code === 'quotations'), undefined);
+    const refusedOn = await call('PUT', K('modules/quotations'), { enabled: true }, await login('owner@ganeshkirana.invalid'));
+    assert.equal(refusedOn.status, 409);
+    assert.equal(refusedOn.body.data.reason, 'not_offered');
+
+    // Offered: it shows, and the kirana switches it on.
+    await platform('PUT', P('/business-types/grocery/modules/quotations'), { offered: true });
+    const listed = (await shopOwner('GET', K('modules'))).find((m) => m.code === 'quotations');
+    assert.deepEqual([listed.offered, listed.enabled], [true, false]);
+    await shopOwner('PUT', K('modules/quotations'), { enabled: true });
+    // No longer offered: the kirana keeps it (listed, on), and the console counts it.
+    const after = await platform('PUT', P('/business-types/grocery/modules/quotations'), { offered: false });
+    assert.equal(quote(after).inUse, 1);
+    const kept = (await shopOwner('GET', K('modules'))).find((m) => m.code === 'quotations');
+    assert.deepEqual([kept.offered, kept.enabled], [false, true]);
+    // Switched off, it is not switched on again.
+    await shopOwner('PUT', K('modules/quotations'), { enabled: false });
+    assert.equal((await shopOwner('GET', K('modules'))).find((m) => m.code === 'quotations'), undefined);
+    assert.equal((await call('PUT', K('modules/quotations'), { enabled: true }, await login('owner@ganeshkirana.invalid'))).status, 409);
+
+    // Recommended needs its reason; recommended and on at start, a new kirana starts with it.
+    await platform('PUT', P('/business-types/grocery/modules/quotations'), { offered: true, recommended: true }, 400);
+    const advised = await platform('PUT', P('/business-types/grocery/modules/quotations'),
+      { offered: true, recommended: true, recommendedNote: 'For function and office orders', onAtStart: true });
+    assert.deepEqual([quote(advised).recommended, quote(advised).recommendedNote, quote(advised).onAtStart], [true, 'For function and office orders', true]);
+    const second = (await platform('POST', P('/businesses'), { businessType: 'grocery', name: 'New Kirana', code: 'NEW-KIRANA', stateCode: '29', city: 'Mysuru',
+      owner: { email: 'owner@newkirana.invalid', name: 'Asha K', password } }, 201)).business;
+    assert.ok(await one("SELECT 1 FROM business_capabilities WHERE business_id=$1 AND capability='quotations'", [second.id]), 'on at start');
+    // Not offered takes away recommended and on at start with it.
+    const off = await platform('PUT', P('/business-types/grocery/modules/quotations'), { offered: false });
+    assert.deepEqual([quote(off).offered, quote(off).recommended, quote(off).recommendedNote, quote(off).onAtStart], [false, false, null, false]);
+
+    // What another offered module needs is not taken away first.
+    const needing = off.modules.find((m) => m.offered && m.requires.length);
+    if (needing) {
+      const needed = off.modules.find((m) => m.code === needing.requires[0]);
+      const refused = await call('PUT', P(`/business-types/grocery/modules/${needed.code}`), { offered: false }, await login('platform@words.invalid'));
+      assert.equal(refused.status, 409);
+      assert.match(refused.body.message, new RegExp(`${needing.name} needs ${needed.name}`));
+    }
+    // A restaurant's features are its own; a module the type does not use is not there.
+    assert.equal((await call('PUT', P('/business-types/restaurant/modules/quotations'), { offered: true }, await login('platform@words.invalid'))).status, 409);
+    assert.equal((await call('PUT', P('/business-types/grocery/modules/member_plans'), { offered: true }, await login('platform@words.invalid'))).status, 404);
+    assert.ok(await one("SELECT 1 FROM platform_audit WHERE action='platform.business_type_module_updated' AND details->>'module'='quotations'"));
+  });
+
   await t.test("a database message can name a business's word", async () => {
     assert.equal((await one("SELECT business_word($1,'customer',true) AS w", [gym.id])).w, 'Members');
     assert.equal((await one("SELECT business_word($1,'example.first_location') AS w", [gym.id])).w, 'Main branch');

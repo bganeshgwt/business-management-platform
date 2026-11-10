@@ -17,7 +17,9 @@ const toPlan = (row) => ({
 // What a business of this type can buy: its active plans and its add-ons
 // (the optional modules its type can use, never the restaurant module itself),
 // with what each needs and whether it is recommended for the type.
-async function forType(businessType, db = repo.pool) {
+// `keep`: modules a business has already (in its plan or switched on): shown
+// to it even once its type no longer offers them, so nothing it has is lost.
+async function forType(businessType, db = repo.pool, { keep = [] } = {}) {
   const plans = await repo.all(db, `SELECT p.code,p.name,p.description,p.monthly_price,p.yearly_price,p.is_default,
       COALESCE((SELECT json_agg(json_build_object('code',m.code,'name',m.name) ORDER BY m.sort_order) FROM platform_plan_modules pm
         JOIN platform_modules m ON m.code=pm.module_code WHERE pm.plan_code=p.code),'[]') AS modules
@@ -27,7 +29,7 @@ async function forType(businessType, db = repo.pool) {
         WHERE d.module_code=m.code AND d.requires_module_code<>'restaurant'),'{}') AS requires
     FROM platform_module_business_types t JOIN platform_modules m ON m.code=t.module_code AND m.kind='optional'
     JOIN platform_module_prices pr ON pr.module_code=m.code
-    WHERE t.business_type=$1 AND m.code<>'restaurant' ORDER BY m.sort_order`, [businessType]);
+    WHERE t.business_type=$1 AND m.code<>'restaurant' AND (t.offered OR m.code=ANY($2::text[])) ORDER BY m.sort_order`, [businessType, keep]);
   return {
     plans: plans.map(toPlan),
     addons: addons.map((row) => ({ code: row.code, name: row.name, description: row.description, soldAs: row.sold_as, monthly: row.monthly_price,
@@ -40,7 +42,7 @@ async function all(db = repo.pool) {
   const plans = await repo.all(db, `SELECT p.*,COALESCE((SELECT array_agg(pm.module_code ORDER BY pm.module_code) FROM platform_plan_modules pm WHERE pm.plan_code=p.code),'{}') AS modules
     FROM platform_plans p ORDER BY p.business_type,p.sort_order,p.name`);
   const prices = await repo.all(db, `SELECT pr.*,m.name,m.feature_group,
-      COALESCE((SELECT array_agg(t.business_type ORDER BY t.business_type) FROM platform_module_business_types t WHERE t.module_code=m.code),'{}') AS types
+      COALESCE((SELECT array_agg(t.business_type ORDER BY t.business_type) FROM platform_module_business_types t WHERE t.module_code=m.code AND t.offered),'{}') AS types
     FROM platform_module_prices pr JOIN platform_modules m ON m.code=pr.module_code ORDER BY m.sort_order`);
   const reviewed = await repo.one(db, 'SELECT prices_reviewed_at FROM platform_settings WHERE id=1');
   return {

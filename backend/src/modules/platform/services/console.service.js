@@ -168,7 +168,8 @@ async function getBusiness(user, id) {
     plan: await subscriptions.planOf(row.id, db),
     selection: await subscriptions.selectionOf(db, row.id),
     entitled: (await repo.one(db, 'SELECT business_entitled_modules($1) AS m', [row.id])).m,
-    catalogue: await catalogue.forType(row.business_type, db),
+    catalogue: await catalogue.forType(row.business_type, db, {
+      keep: [...(await repo.one(db, 'SELECT business_entitled_modules($1) AS m', [row.id])).m, ...((await subscriptions.selectionOf(db, row.id))?.addons || []).map((a) => a.code)] }),
     usage,
     periods: periods.map(toPeriod),
     grants: grants.map(toGrant),

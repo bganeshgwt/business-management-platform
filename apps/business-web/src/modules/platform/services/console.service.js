@@ -17,6 +17,8 @@ export const consoleBusinessTypes = async () => data(await api.get(`${P}/busines
 export const consoleBusinessType = async (code) => data(await api.get(`${P}/business-types/${code}`));
 export const saveConsoleBusinessType = async (code, body) => data(await api.put(`${P}/business-types/${code}`, body));
 export const saveConsoleBusinessKind = async (code, kind, body) => data(await api.put(`${P}/business-types/${code}/kinds/${kind}`, body));
+// A type's module: { offered?, recommended?, recommendedNote?, onAtStart? } → the type as saved.
+export const saveConsoleBusinessModule = async (code, module, body) => data(await api.put(`${P}/business-types/${code}/modules/${module}`, body));
 
 export const consoleBusiness = async (id) => data(await api.get(`${P}/businesses/${id}`));
 export const setConsoleSelection = async (id, body) => data(await api.put(`${P}/businesses/${id}/selection`, body));

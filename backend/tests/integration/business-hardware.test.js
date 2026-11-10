@@ -83,13 +83,18 @@ test('quotations and the hardware shop', { timeout: 300000 }, async (t) => {
     const wholesaleTools = await request('GET', `/businesses/${wholesale.id}/modules`);
     assert.equal(wholesaleTools.find((m) => m.code === 'quotations').recommended, true, 'quotations are recommended for a wholesaler');
     assert.ok(!wholesaleTools.some((m) => m.code === 'hardware_sites'), 'a wholesaler is not offered sites');
+    // A kirana is not offered quotations (Platform › Business types › Modules).
     const groceryTools = await request('GET', `/businesses/${grocery.id}/modules`);
-    assert.equal(groceryTools.find((m) => m.code === 'quotations').recommended, false);
+    assert.ok(!groceryTools.some((m) => m.code === 'quotations'), 'a grocery is not offered quotations');
     // Every recommended row starts off and says why.
     const recommended = await rows("SELECT * FROM platform_module_business_types WHERE module_code IN ('quotations','fitter_commission') AND recommended");
     assert.ok(recommended.length === 6 && recommended.every((r) => !r.enabled_by_default && r.recommended_note));
     assert.equal((await one("SELECT count(*)::int AS n FROM platform_module_business_types WHERE module_code='quotations' AND business_type='restaurant'")).n, 0);
-    // A grocery may switch quotations on, never a hardware tool.
+    // A grocery is refused quotations until the platform offers them to its
+    // type; then it may switch them on, never a hardware tool.
+    assert.equal((await request('PUT', `/businesses/${grocery.id}/modules/quotations`, { enabled: true }, 409)).reason, 'not_offered');
+    await pool.query("UPDATE platform_module_business_types SET offered=true WHERE module_code='quotations' AND business_type='grocery'");
+    assert.equal((await request('GET', `/businesses/${grocery.id}/modules`)).find((m) => m.code === 'quotations').recommended, false);
     await request('PUT', `/businesses/${grocery.id}/modules/quotations`, { enabled: true });
     await request('PUT', `/businesses/${grocery.id}/modules/hardware_sites`, { enabled: true }, 409);
     await request('PUT', `/businesses/${grocery.id}/modules/quotations`, { enabled: false });
@@ -329,7 +334,7 @@ test('quotations and the hardware shop', { timeout: 300000 }, async (t) => {
     await request('GET', `/businesses/${grocery.id}/quotations`, undefined, 403);
     await other('GET', H('quotations'), undefined, 404);
     await other('GET', H(`quotations/${quoted.id}`), undefined, 404);
-    // Any shop may switch them on: a grocery's quotation, without sites.
+    // Any shop offered them may switch them on: a grocery's quotation, without sites.
     await request('PUT', `/businesses/${grocery.id}/modules/quotations`, { enabled: true });
     const rice = await request('POST', `/businesses/${grocery.id}/catalog`, { kind: 'goods', tracking: 'quantity', name: 'Sona masoori rice 25 kg', code: 'RICE25', unit: 'each', price: '1450' }, 201);
     const groceryShop = (await request('GET', `/businesses/${grocery.id}/locations`)).items[0];

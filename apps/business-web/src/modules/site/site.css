@@ -715,3 +715,18 @@
     flex-wrap: wrap;
   }
 }
+
+/* Sign-up: the add-ons this type's businesses mostly use first, the rest folded. */
+.site-more {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.site-more > summary {
+  cursor: pointer;
+  padding: 6px 0;
+  color: var(--primary);
+  font-weight: 600;
+}
+

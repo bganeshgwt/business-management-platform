@@ -104,7 +104,7 @@ const pricing = () => remembered('pricing', async () => {
           WHERE d.module_code=m.code AND d.requires_module_code<>'restaurant'),'{}') AS requires
       FROM platform_module_business_types t JOIN platform_modules m ON m.code=t.module_code AND m.kind='optional'
       JOIN platform_module_prices pr ON pr.module_code=m.code
-      WHERE m.code<>'restaurant' ORDER BY t.business_type,m.sort_order,m.code`),
+      WHERE m.code<>'restaurant' AND t.offered ORDER BY t.business_type,m.sort_order,m.code`),
   ]);
   const byType = (rows, shape) => {
     const groups = new Map();

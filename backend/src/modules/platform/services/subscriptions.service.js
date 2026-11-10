@@ -120,9 +120,11 @@ async function setSelection(business, user, body = {}, { by = 'owner' } = {}) {
     if (!plan) fail('That plan is not offered for this type of business');
     if (!plan.active) fail(`${plan.name} is no longer offered. Choose another plan.`);
     const included = await planModules(db, plan.code);
+    // Offered to the type, or one the business has already (kept though no longer offered).
     const offered = await repo.all(db, `SELECT m.code,m.name,pr.available FROM platform_module_business_types t
       JOIN platform_modules m ON m.code=t.module_code AND m.kind='optional' JOIN platform_module_prices pr ON pr.module_code=m.code
-      WHERE t.business_type=$1 AND m.code<>'restaurant'`, [row.business_type]);
+      WHERE t.business_type=$1 AND m.code<>'restaurant' AND (t.offered OR m.code = ANY (business_entitled_modules($2))
+        OR EXISTS (SELECT 1 FROM business_subscription_addons a WHERE a.business_id=$2 AND a.module_code=m.code))`, [row.business_type, row.id]);
     // A module the plan already includes needs no add-on.
     const addons = wanted.filter((code) => !included.includes(code));
     for (const code of addons) {
@@ -242,7 +244,7 @@ async function addOnDraft(db, business, today, body, by) {
   const daysLeft = math.daysBetweenInclusive(from, period.ends);
   for (const code of codes) {
     const module = await repo.one(db, `SELECT m.code,m.name,pr.* FROM platform_module_business_types t JOIN platform_modules m ON m.code=t.module_code AND m.kind='optional'
-      JOIN platform_module_prices pr ON pr.module_code=m.code WHERE t.business_type=$1 AND m.code=$2 AND m.code<>'restaurant'`, [business.business_type, code]);
+      JOIN platform_module_prices pr ON pr.module_code=m.code WHERE t.business_type=$1 AND m.code=$2 AND m.code<>'restaurant' AND t.offered`, [business.business_type, code]);
     if (!module) fail(`${code} cannot be added to this type of business`);
     if (by === 'owner' && !module.available) fail(`${module.name} is not offered as an add-on. Contact us to add it.`);
     if (entitled.includes(code)) fail(`${module.name} is already in your plan`, 409);
@@ -568,7 +570,8 @@ async function ownerView(business) {
   const plan = await planOf(business.id, db);
   const selection = await selectionOf(db, business.id);
   const entitled = await entitledOf(db, business.id);
-  const offer = await catalogue.forType(business.business_type, db);
+  // What the business has keeps showing, though its type no longer offers it.
+  const offer = await catalogue.forType(business.business_type, db, { keep: [...entitled, ...(selection?.addons || []).map((a) => a.code)] });
   const orders = await repo.all(db, 'SELECT * FROM platform_orders WHERE business_id=$1 ORDER BY id DESC LIMIT 100', [business.id]);
   const open = orders.find((o) => o.status === 'open');
   const openOrder = open ? await orderView(db, open) : null;

@@ -298,6 +298,19 @@ function ModulesCard() {
     ) {
       return;
     }
+    // A module no longer offered to this type cannot come back once off: said first.
+    if (
+      module.enabled &&
+      module.offered === false &&
+      !(await confirmAction({
+        title: `Switch off ${module.name} for good?`,
+        message: `${module.name} is no longer offered for this type of business. Switched off, it cannot be switched on again. What was made with it is kept.`,
+        confirmLabel: "Switch off for good",
+        tone: "danger",
+      }))
+    ) {
+      return;
+    }
     setBusy(module.code);
     setError("");
     setNotice("");
@@ -336,6 +349,8 @@ function ModulesCard() {
           <PlanBadge badge={badge} addTo={planScope?.isOwner && planScope.planPath ? `${planScope.planPath}?add=${m.code}` : null} />
           <p className="muted small">{m.description}</p>
           {m.recommended && !m.enabled && m.recommended_note && <p className="small bz-module-why">{m.recommended_note}</p>}
+          {/* No longer offered to this type: kept while on; once off, it goes from the list. */}
+          {m.offered === false && m.enabled && <p className="small text-warning">No longer offered for this type of business. You keep it while it is on; switched off, it cannot be switched on again.</p>}
           {m.requires.filter((code) => code !== "restaurant").length > 0 && (
             <p className={`small ${missing.length ? "text-warning" : "muted"}`}>Needs {m.requires.filter((code) => code !== "restaurant").map(name).join(", ")}.</p>
           )}

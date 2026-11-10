@@ -58,6 +58,8 @@ async function get(user, code) {
   return {
     accents: ACCENTS,
     type,
+    // A restaurant's features are its own (Settings › Features in the restaurant).
+    modules: code === 'restaurant' ? null : await modulesOf(repo.pool, code),
     words: rows.map((row) => ({
       key: row.key, area: row.area, label: row.label, hint: row.hint, plural: row.many !== null, ownerMayRename: row.owner_may_rename,
       standard: { one: row.one, many: row.many },
@@ -66,6 +68,22 @@ async function get(user, code) {
       renamedBy: row.renamed_by,
     })),
   };
+}
+
+// A type's optional modules: each offered or not, recommended (with why), on
+// at start for a new business; the optional modules it needs; and how many of
+// the type's businesses have it on now.
+async function modulesOf(db, code) {
+  const rows = await repo.all(db, `SELECT m.code,m.name,m.description,t.offered,t.recommended,t.recommended_note,t.enabled_by_default,
+      COALESCE((SELECT array_agg(d.requires_module_code ORDER BY d.requires_module_code) FROM platform_module_dependencies d
+        JOIN platform_modules r ON r.code=d.requires_module_code AND r.kind='optional' WHERE d.module_code=m.code),'{}') AS requires,
+      (SELECT count(*)::int FROM business_capabilities c JOIN businesses b ON b.id=c.business_id WHERE b.business_type=$1 AND c.capability=m.code) AS in_use
+    FROM platform_module_business_types t JOIN platform_modules m ON m.code=t.module_code AND m.kind='optional'
+    WHERE t.business_type=$1 AND m.code<>'restaurant' ORDER BY m.sort_order,m.name`, [code]);
+  return rows.map((row) => ({
+    code: row.code, name: row.name, description: row.description, offered: row.offered, recommended: row.recommended, recommendedNote: row.recommended_note,
+    onAtStart: row.enabled_by_default, requires: row.requires, inUse: row.in_use,
+  }));
 }
 
 // --- Changing --------------------------------------------------------------------------
@@ -179,4 +197,48 @@ async function saveKind(user, code, kindCode, body = {}) {
   return get(user, code);
 }
 
-module.exports = { ACCENTS, list, get, save, saveKind };
+// One module for a type: { offered?, recommended?, recommendedNote?, onAtStart? }.
+// Not offered, it is neither recommended nor on at start: the type's new
+// businesses never see it, and those that have it on keep it. A module offered
+// (or on at start) has the modules it needs offered (on at start) too; one
+// another offered module needs is not taken away first.
+async function saveModule(user, code, moduleCode, body = {}) {
+  requirePlatform(user);
+  if (code === 'restaurant') fail('A restaurant\'s features are set in each restaurant\'s Settings › Features', 409);
+  await repo.transaction(async (db) => {
+    if (!await repo.one(db, 'SELECT 1 FROM business_types WHERE code=$1 FOR UPDATE', [code])) fail('No such business type', 404);
+    const all = await modulesOf(db, code);
+    const before = all.find((m) => m.code === moduleCode);
+    if (!before) fail('This type of business does not use that module', 404);
+    const offered = body.offered === undefined ? before.offered : v.requiredBoolean(body.offered, 'Offered');
+    let recommended = body.recommended === undefined ? before.recommended : v.requiredBoolean(body.recommended, 'Recommended');
+    let onAtStart = body.onAtStart === undefined ? before.onAtStart : v.requiredBoolean(body.onAtStart, 'On at start');
+    if (!offered) { recommended = false; onAtStart = false; }
+    let note = body.recommendedNote === undefined ? before.recommendedNote : (body.recommendedNote === null ? null : String(body.recommendedNote).trim() || null);
+    if (!recommended) note = null;
+    if (recommended && !note) fail(`Say why ${before.name} is recommended: owners read it in Business tools`);
+    if (note && note.length > 200) fail('Why it is recommended: 200 characters or less');
+    const named = (c) => all.find((m) => m.code === c)?.name || c;
+    // What it needs comes first; what needs it goes first.
+    for (const need of before.requires) {
+      const other = all.find((m) => m.code === need);
+      if (offered && other && !other.offered) fail(`${before.name} needs ${other.name}: offer ${other.name} first`, 409);
+      if (onAtStart && other && !other.onAtStart) fail(`${before.name} needs ${other.name}: switch ${other.name} on at start too`, 409);
+    }
+    for (const other of all.filter((m) => m.requires.includes(moduleCode))) {
+      if (!offered && other.offered) fail(`${other.name} needs ${before.name}: stop offering ${other.name} first`, 409);
+      if (!onAtStart && other.onAtStart) fail(`${other.name} needs ${before.name} on at start: switch ${other.name} off at start first`, 409);
+    }
+    await db.query(`UPDATE platform_module_business_types SET offered=$3,recommended=$4,recommended_note=$5,enabled_by_default=$6,updated_by=$7,updated_at=now()
+      WHERE module_code=$1 AND business_type=$2`, [moduleCode, code, offered, recommended, note, onAtStart, user.id]);
+    const changes = Object.fromEntries([['offered', before.offered, offered], ['recommended', before.recommended, recommended],
+      ['recommendedNote', before.recommendedNote, note], ['onAtStart', before.onAtStart, onAtStart]]
+      .filter(([, from, to]) => from !== to).map(([key, from, to]) => [key, { from, to }]));
+    await db.query(`INSERT INTO platform_audit(actor_id,action,entity_type,details) VALUES($1,'platform.business_type_module_updated','business_type',$2)`,
+      [user.id, JSON.stringify({ type: code, module: moduleCode, name: named(moduleCode), changes, inUse: before.inUse })]);
+  });
+  require('./site.service').forgetSiteCache();
+  return get(user, code);
+}
+
+module.exports = { ACCENTS, list, get, save, saveKind, saveModule };

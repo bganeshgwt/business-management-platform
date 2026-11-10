@@ -8204,7 +8204,7 @@ Errors: 403.
 
 #### `GET /api/users/platform/business-types/:code`
 Permission: `platform.restaurants.manage`
-Returns: `{ accents[], type (as listed), words: [{ key, area, label, hint, plural, ownerMayRename, standard: { one, many }, type: { one, many } | null, kinds: { kind: { one, many } }, renamedBy }] }`: every word, with its default, the type's own and each kind's own; `renamedBy` counts the businesses of the type whose owner has their own.
+Returns: `{ accents[], type (as listed), modules: [{ code, name, description, offered, recommended, recommendedNote, onAtStart, requires[] (the optional modules it needs), inUse (the type's businesses with it on) }] (null for a restaurant), words: [{ key, area, label, hint, plural, ownerMayRename, standard: { one, many }, type: { one, many } | null, kinds: { kind: { one, many } }, renamedBy }] }`: every word, with its default, the type's own and each kind's own; `renamedBy` counts the businesses of the type whose owner has their own.
 Errors: 403; 404 no such type.
 
 #### `PUT /api/users/platform/business-types/:code`
@@ -8212,6 +8212,12 @@ Permission: `platform.restaurants.manage`
 Query/Body: any of `name` (≤80, not another type's), `icon` (a glyph name), `accent` (one of `accents`), `defaultItemKind` (`goods`, `service`), and `words` (`{ key: { one, many } }`, or `{ key: null }` back to the default; an example or phrase takes `one` alone, up to 300 characters, and may be empty for none).
 Returns: as `GET …/:code`. Every business of the type sees it at once. Audited `platform.business_type_updated`.
 Errors: 400 an unknown word, a word without its plural, an icon or accent not on the lists; 404; 409 a name another type has; 403.
+
+#### `PUT /api/users/platform/business-types/:code/modules/:module`
+Permission: `platform.restaurants.manage`
+Query/Body: any of `offered`, `recommended`, `recommendedNote` (≤200; required while recommended), `onAtStart`. Not offered: neither recommended nor on at start.
+Returns: as `GET …/:code`. Not offered, the module is left out of the type's sign-up, Business tools (but for a business that has it on) and Your plan (but for a business that has it), and `PUT /businesses/:id/modules/:code` refuses to switch it on anew (409 `{ reason: "not_offered" }`). Audited `platform.business_type_module_updated` with what changed and `inUse`.
+Errors: 400 recommended without its reason, a reason over 200; 404 a module the type does not use; 409 a restaurant, a module offered (on at start) without what it needs offered (on at start), or one another offered (on at start) module needs; 403.
 
 #### `PUT /api/users/platform/business-types/:code/kinds/:kind`
 Permission: `platform.restaurants.manage`

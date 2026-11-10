@@ -232,7 +232,7 @@ async function readPlanChoice(type, body, zone) {
     const included = (await repo.all(repo.pool, 'SELECT module_code FROM platform_plan_modules WHERE plan_code=$1', [plan.code])).map((r) => r.module_code);
     const addons = selection.addons.filter((code) => !included.includes(code));
     const offered = (await repo.all(repo.pool, `SELECT m.code FROM platform_module_business_types t JOIN platform_modules m ON m.code=t.module_code AND m.kind='optional'
-      JOIN platform_module_prices pr ON pr.module_code=m.code WHERE t.business_type=$1 AND m.code<>'restaurant'`, [type])).map((r) => r.code);
+      JOIN platform_module_prices pr ON pr.module_code=m.code WHERE t.business_type=$1 AND m.code<>'restaurant' AND t.offered`, [type])).map((r) => r.code);
     const unknown = addons.find((code) => !offered.includes(code));
     if (unknown) fail(`${unknown} cannot be added to this type of business`);
     const have = new Set([...included, ...addons]);

@@ -1166,3 +1166,56 @@ input.pc-rupee {
     width: 100%;
   }
 }
+
+/* Platform › Business types › Modules: each module with its three switches. */
+.bt-modules {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bt-module {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 20px;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+
+.bt-module:first-child {
+  border-top: 0;
+}
+
+.bt-module.is-off .bt-module-text strong {
+  color: var(--muted);
+}
+
+.bt-module-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.bt-module-why {
+  color: var(--info-text);
+}
+
+.bt-module-kept {
+  color: var(--warning-text);
+}
+
+.bt-module-switches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+
+@media (max-width: 640px) {
+  .bt-module {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -876,7 +876,7 @@ Three reports, each with *Export CSV*.
 ### Platform › Business types
 
 Every type a business can be, with its mark and colour, its kinds and how
-many businesses use it. A type's page has three parts, and a business of the
+many businesses use it. A type's page has four parts, and a business of the
 type sees what is saved at once:
 
 - **Name and look** — the type's name (in the switcher, the sign-up and the
@@ -897,6 +897,19 @@ type sees what is saved at once:
   change for their own business (Business settings › Words), and the page
   says how many have. Legal and tax words (GSTIN, Tax invoice, HSN) are not
   here: the law names them.
+- **Modules** — every module the type may use beyond what every business
+  has, each saved as it is switched (not for a restaurant, whose features are
+  its own). **Offered**: shown to the type's businesses at sign-up, in
+  Business tools and in Your plan; off, its new businesses never see it,
+  and those that have it on keep it (the page says how many) until they
+  switch it off, which cannot then be undone. **Recommended** asks why (owners
+  read it): listed first at sign-up with a *Recommended* badge, the rest
+  folded under *More you can add*. **On at start**: a new business of the
+  type starts with it on. Not offered takes away recommended and on at
+  start. A module that needs another (Stock counts needs Stock) is offered
+  or on at start only with it, and what another offered module needs is not
+  taken away first. Quotations starts not offered to a kirana, a meat shop, a
+  shop selling by weight and a fuel station.
 
 ### Platform › Settings
 

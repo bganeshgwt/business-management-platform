@@ -241,21 +241,32 @@ export default function SignupPage() {
                     </fieldset>
                     {KINDS.map(([kind, legend]) => {
                       const list = offered.filter((addon) => (kind === "application" ? addon.soldAs === "application" : addon.soldAs !== "application"));
-                      return list.length === 0 ? null : (
+                      if (list.length === 0) return null;
+                      const choice = (addon) => (
+                        <label key={addon.code} className={`site-choice ${form.addons.includes(addon.code) ? "is-chosen" : ""}`}>
+                          <input type="checkbox" checked={form.addons.includes(addon.code)} onChange={(event) => toggle(addon.code, event.target.checked)} />
+                          <span>
+                            <strong>{addon.name}</strong> · {priceLabel(addon, form.billingPeriod)}
+                            {addon.recommended && <span className="badge badge-info site-badge">Recommended</span>}
+                            {(addon.description || needsWords(addon, offered)) && (
+                              <small>{[addon.description, needsWords(addon, offered) && `It ${needsWords(addon, offered)}.`].filter(Boolean).join(" ")}</small>
+                            )}
+                          </span>
+                        </label>
+                      );
+                      // What this type's businesses mostly use first; the rest folded, open once one of them is chosen.
+                      const first = list.filter((addon) => addon.recommended);
+                      const more = list.filter((addon) => !addon.recommended);
+                      return (
                         <fieldset key={kind} className="site-choices">
                           <legend>{legend}</legend>
-                          {list.map((addon) => (
-                            <label key={addon.code} className={`site-choice ${form.addons.includes(addon.code) ? "is-chosen" : ""}`}>
-                              <input type="checkbox" checked={form.addons.includes(addon.code)} onChange={(event) => toggle(addon.code, event.target.checked)} />
-                              <span>
-                                <strong>{addon.name}</strong> · {priceLabel(addon, form.billingPeriod)}
-                                {addon.recommended && <span className="badge badge-info site-badge">Recommended</span>}
-                                {(addon.description || needsWords(addon, offered)) && (
-                                  <small>{[addon.description, needsWords(addon, offered) && `It ${needsWords(addon, offered)}.`].filter(Boolean).join(" ")}</small>
-                                )}
-                              </span>
-                            </label>
-                          ))}
+                          {first.length ? first.map(choice) : more.map(choice)}
+                          {first.length > 0 && more.length > 0 && (
+                            <details className="site-more" open={more.some((addon) => form.addons.includes(addon.code)) || undefined}>
+                              <summary>More you can add ({more.length})</summary>
+                              {more.map(choice)}
+                            </details>
+                          )}
                         </fieldset>
                       );
                     })}

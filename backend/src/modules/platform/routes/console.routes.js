@@ -24,6 +24,7 @@ const businessTypes = require("../services/businessTypes.service");
 router.get("/business-types", async (req, res) => send(res, await businessTypes.list(req.user)));
 router.get("/business-types/:code", async (req, res) => send(res, await businessTypes.get(req.user, req.params.code)));
 router.put("/business-types/:code", async (req, res) => send(res, await businessTypes.save(req.user, req.params.code, bodyOf(req))));
+router.put("/business-types/:code/modules/:module", async (req, res) => send(res, await businessTypes.saveModule(req.user, req.params.code, req.params.module, bodyOf(req))));
 router.put("/business-types/:code/kinds/:kind", async (req, res) => send(res, await businessTypes.saveKind(req.user, req.params.code, req.params.kind, bodyOf(req))));
 
 // One business: its page, and what the platform does to its plan.

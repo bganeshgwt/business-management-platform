@@ -158,17 +158,20 @@ async function modules(business) {
   const own = await ownWordsOf(business);
   // For a restaurant business these rows ARE the restaurant's features: the
   // same business_capabilities rows Settings -> Features reads and writes.
-  const rows = await repo.all(repo.pool, `SELECT t.module_code,t.enabled_by_default,t.recommended,t.recommended_note,
+  const rows = await repo.all(repo.pool, `SELECT t.module_code,t.enabled_by_default,t.recommended,t.recommended_note,t.offered,
     COALESCE((SELECT json_agg(requires_module_code) FROM platform_module_dependencies d WHERE d.module_code=t.module_code),'[]') AS requires
     FROM platform_module_business_types t WHERE t.business_type=$1`, [business.business_type]);
   const entitled = (await repo.one(repo.pool, 'SELECT business_entitled_modules($1) AS m', [business.id])).m;
-  return all.filter((m) => m.kind === 'core' || rows.some((r) => r.module_code === m.code)).map((m) => {
+  // A module its type is no longer offered stays listed only while the business has it on.
+  const shown = (m) => m.kind === 'core' || rows.some((r) => r.module_code === m.code && (r.offered || business.modules.includes(m.code)));
+  return all.filter(shown).map((m) => {
     const row = rows.find((r) => r.module_code === m.code);
     // recommended: most businesses of this trade use it (with why), for an owner choosing tools.
     // in_plan: the business's plan unlocks it today; a module outside it works as if switched off.
     return { ...m, name: own(m.name), description: own(m.description),
       enabled: business.modules.includes(m.code), enabled_by_default: row?.enabled_by_default ?? true, requires: row?.requires || [],
-      recommended: Boolean(row?.recommended), recommended_note: row?.recommended_note || null, in_plan: m.kind === 'core' || entitled.includes(m.code) };
+      recommended: Boolean(row?.recommended), recommended_note: row?.recommended_note || null, in_plan: m.kind === 'core' || entitled.includes(m.code),
+      offered: m.kind === 'core' || Boolean(row?.offered) };
   });
 }
 const NOT_IN_PLAN = 'Not in your plan. The owner can add it in Your plan.';
@@ -199,6 +202,12 @@ async function setModule(business, user, code, body) {
   }
   return repo.transaction(async (db) => {
     await db.query('SELECT id FROM businesses WHERE id=$1 FOR UPDATE', [business.id]);
+    // A module the platform no longer offers this type is not switched on anew
+    // (one on already stays on, and may be switched off).
+    if (enabled && !business.modules.includes(code)) {
+      const offer = await repo.one(db, 'SELECT offered FROM platform_module_business_types WHERE module_code=$1 AND business_type=$2', [code, business.business_type]);
+      if (offer && !offer.offered) throw new AppError(409, `${module.name} is not offered for this type of business`, { reason: 'not_offered', module: code });
+    }
     // A module the business's plan does not unlock cannot be switched on.
     if (enabled && !(await repo.one(db, 'SELECT $2 = ANY (business_entitled_modules($1)) AS ok', [business.id, code])).ok) {
       throw new AppError(409, NOT_IN_PLAN, { reason: 'not_in_plan', module: code });

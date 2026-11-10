@@ -7,7 +7,8 @@ import SectionCard from "../../../components/SectionCard";
 import { ErrorMessage, Loading } from "../../../components/Feedback";
 import { getErrorMessage } from "../../../services/api";
 import { toast } from "../../../services/toast";
-import { consoleBusinessType, saveConsoleBusinessKind, saveConsoleBusinessType } from "../services/console.service";
+import Modal from "../../../components/Modal";
+import { consoleBusinessType, saveConsoleBusinessKind, saveConsoleBusinessModule, saveConsoleBusinessType } from "../services/console.service";
 import "../styles/console.css";
 import "../../../styles/words.css";
 
@@ -240,7 +241,106 @@ function TypeEditor({ code }) {
           <button type="submit" className="button" disabled={busy || !unsaved}>{busy ? "Saving…" : current ? `Save ${current.name}'s words` : "Save the type"}</button>
         </div>
       </form>
+      {/* Saved one at a time: words being written above stay as they are. */}
+      {data.modules && <Modules code={code} typeName={data.type.name} modules={data.modules} onSaved={(fresh) => setData((d) => ({ ...d, modules: fresh.modules }))} />}
     </div>
+  );
+}
+
+// The type's optional modules, each saved as it is switched: offered to its
+// businesses (at sign-up, in Business tools and in Your plan) or not,
+// recommended (listed first, with why) and on at start for a new business. Not
+// offered, its new businesses never see it; those that have it on keep it.
+function Modules({ code, typeName, modules, onSaved }) {
+  const [busy, setBusy] = useState("");
+  const [error, setError] = useState("");
+  // The module being recommended, and why (owners read it in Business tools).
+  const [asking, setAsking] = useState(null);
+  const [reason, setReason] = useState("");
+  const names = Object.fromEntries(modules.map((m) => [m.code, m.name]));
+  const offeredCount = modules.filter((m) => m.offered).length;
+  // The switch as asked while it is being saved: it moves at once, and back if refused.
+  const [asked, setAsked] = useState(null);
+  const shownOf = (m, key) => (asked && asked.code === m.code && asked.body[key] !== undefined ? asked.body[key] : m[key]);
+  const send = async (m, body, done) => {
+    setBusy(m.code);
+    setAsked({ code: m.code, body });
+    setError("");
+    try {
+      onSaved(await saveConsoleBusinessModule(code, m.code, body));
+      toast.success(done);
+      return true;
+    } catch (err) {
+      setError(getErrorMessage(err));
+      return false;
+    } finally {
+      setBusy("");
+      setAsked(null);
+    }
+  };
+  const recommend = async (event) => {
+    event.preventDefault();
+    if (await send(asking, { recommended: true, recommendedNote: reason.trim() }, `${asking.name} is recommended for ${typeName}.`)) setAsking(null);
+  };
+  return (
+    <SectionCard icon="grid" title="Modules"
+      description={`What ${typeName} businesses may switch on, beyond what every business has: ${offeredCount} of ${modules.length} offered. Not offered: its new businesses never see it at sign-up, in Business tools or in Your plan; those that have it on keep it.`}>
+      <ErrorMessage message={error} />
+      <ul className="bt-modules">
+        {modules.map((m) => (
+          <li key={m.code} className={`bt-module${m.offered ? "" : " is-off"}`}>
+            <div className="bt-module-text">
+              <strong>{m.name}</strong>
+              {m.description && <small className="muted">{m.description}</small>}
+              {m.requires.length > 0 && <small className="muted">Needs {m.requires.map((c) => names[c] || c).join(", ")}.</small>}
+              {m.recommended && m.recommendedNote && <small className="bt-module-why">Recommended: {m.recommendedNote}</small>}
+              {m.inUse > 0 && (
+                <small className={m.offered ? "muted" : "bt-module-kept"}>
+                  {m.inUse === 1 ? "1 business" : `${m.inUse} businesses`} of this type {m.inUse === 1 ? "has" : "have"} it on{m.offered ? "" : " and keep it"}.
+                </small>
+              )}
+            </div>
+            <div className="bt-module-switches" role="group" aria-label={`${m.name} for ${typeName}`}>
+              <label className="checkbox bz-check">
+                <input type="checkbox" checked={shownOf(m, "offered")} disabled={Boolean(busy)}
+                  onChange={(e) => send(m, { offered: e.target.checked }, e.target.checked ? `${m.name} is offered to ${typeName}.` : `${m.name} is no longer offered to new ${typeName} businesses.`)} />
+                Offered
+              </label>
+              <label className="checkbox bz-check">
+                <input type="checkbox" checked={shownOf(m, "recommended")} disabled={Boolean(busy) || !shownOf(m, "offered")}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setReason(m.recommendedNote || "");
+                      setAsking(m);
+                    } else send(m, { recommended: false }, `${m.name} is no longer recommended.`);
+                  }} />
+                Recommended
+              </label>
+              <label className="checkbox bz-check">
+                <input type="checkbox" checked={shownOf(m, "onAtStart")} disabled={Boolean(busy) || !shownOf(m, "offered")}
+                  onChange={(e) => send(m, { onAtStart: e.target.checked }, e.target.checked ? `A new ${typeName} business starts with ${m.name} on.` : `A new ${typeName} business starts with ${m.name} off.`)} />
+                On at start
+              </label>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {asking && (
+        <Modal title={`Recommend ${asking.name}`} icon="sparkles" width={520} onClose={() => setAsking(null)}
+          description={`Listed first for ${typeName}, with a Recommended badge and this reason, at sign-up and in Business tools.`}>
+          <form className="form-grid" onSubmit={recommend}>
+            <label className="field field-wide">
+              <span>Why {typeName} businesses use it</span>
+              <input required maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. For function and office orders" autoFocus />
+            </label>
+            <div className="form-actions field-wide">
+              <button type="button" className="button button-secondary" onClick={() => setAsking(null)}>Cancel</button>
+              <button type="submit" className="button" disabled={busy === asking.code}>Recommend it</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+    </SectionCard>
   );
 }
 
